@@ -25,19 +25,61 @@ select {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
 .app-shell {
   min-height: 100vh;
   padding: 32px;
-  display: grid;
-  place-items: center;
 }
 
-.workspace {
-  width: min(920px, 100%);
+.topbar {
+  width: min(1100px, 100%);
+  margin: 0 auto 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar strong {
+  color: #111827;
+  font-size: 1rem;
+}
+
+.topbar nav {
+  display: flex;
+  gap: 8px;
+}
+
+.topbar button,
+.secondary-action {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #172026;
+  background: #ffffff;
+}
+
+.hero,
+.dashboard {
+  width: min(1100px, 100%);
+  margin: 0 auto;
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 32px;
   align-items: center;
+}
+
+.hero {
+  min-height: calc(100vh - 180px);
+}
+
+.hero-content,
+.dashboard > div:first-child {
+  max-width: 720px;
 }
 
 .eyebrow {
@@ -63,6 +105,17 @@ h1 {
   color: #4b5563;
   font-size: 1.05rem;
   line-height: 1.7;
+}
+
+.primary-action {
+  min-height: 48px;
+  margin-top: 28px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 8px;
+  color: #ffffff;
+  background: #0f766e;
+  font-weight: 800;
 }
 
 .status-panel {
@@ -103,13 +156,78 @@ h1 {
   background: #ef4444;
 }
 
+.auth-layout {
+  min-height: calc(100vh - 180px);
+  display: grid;
+  place-items: center;
+}
+
+.auth-panel {
+  width: min(420px, 100%);
+  padding: 28px;
+  border: 1px solid #d8e2e7;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 16px 40px rgb(17 24 39 / 8%);
+}
+
+.auth-panel h1 {
+  font-size: 2rem;
+  margin-bottom: 24px;
+}
+
+.auth-panel label {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  color: #334155;
+  font-weight: 700;
+}
+
+.auth-panel input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #111827;
+  background: #f8fafc;
+}
+
+.auth-panel .primary-action {
+  width: 100%;
+}
+
+.form-error {
+  margin: 16px 0 0;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.dashboard {
+  align-items: start;
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.dashboard .secondary-action {
+  justify-self: start;
+}
+
 @media (max-width: 720px) {
   .app-shell {
     padding: 24px;
-    place-items: start;
   }
 
-  .workspace {
+  .topbar {
+    margin-bottom: 32px;
+  }
+
+  .hero,
+  .dashboard {
     grid-template-columns: 1fr;
   }
 
