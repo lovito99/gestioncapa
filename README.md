@@ -27,6 +27,27 @@ frontend/
     styles/
 ```
 
+## Git y archivos ignorados
+
+El proyecto tiene `.gitignore` en la raiz, en `backend/` y en `frontend/`.
+
+No se suben al repositorio:
+
+```text
+node_modules/
+dist/
+.env
+*.log
+coverage/
+.vite/
+```
+
+`node_modules/` puede aparecer en la raiz porque este proyecto usa npm workspaces. Es normal: npm instala dependencias compartidas arriba para `backend` y `frontend`.
+
+`package-lock.json` si se conserva en Git. Ese archivo fija versiones exactas de dependencias para que desarrollo, test y servidor instalen lo mismo con `npm install`.
+
+Los archivos `.env.example` si se suben porque son plantillas sin secretos reales. Los `.env` locales no se suben.
+
 ## Credenciales recordadas para desarrollo/test
 
 Estas credenciales son solo para entorno local de desarrollo/test. No usarlas en produccion.
@@ -34,18 +55,21 @@ Estas credenciales son solo para entorno local de desarrollo/test. No usarlas en
 Postgres:
 
 ```env
+TZ=America/Lima
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=gestioncapa
-DB_USER=gestioncapa
-DB_PASSWORD=gestioncapa_dev_password
+DB_NAME=gestiondecapacitacion
+DB_USER=gestiondecapacitacion
+DB_PASSWORD=gestiondecapacitacion
+DB_TIMEZONE=America/Lima
 ```
 
 Redis:
 
 ```env
-REDIS_URL=redis://:gestioncapa_redis_password@localhost:6379
-REDIS_PASSWORD=gestioncapa_redis_password
+REDIS_URL=redis://:gestiondecapacitacion@localhost:6379
+REDIS_PASSWORD=gestiondecapacitacion
+TZ=America/Lima
 ```
 
 Administrador inicial:
@@ -63,6 +87,8 @@ JWT_SECRET=cambia_este_secreto_jwt_de_32_caracteres_minimo
 JWT_EXPIRES_IN=1d
 ```
 
+En produccion cambiaremos `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `REDIS_URL`, `JWT_SECRET` y `ADMIN_PASSWORD` por valores privados y fuertes.
+
 ## Instalacion local completa
 
 1. Instalar dependencias:
@@ -78,39 +104,28 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
+El backend queda con zona horaria `America/Lima` para Node y para la conexion a Postgres.
+
 3. Crear Postgres directo con Docker:
 
 ```bash
 docker volume create gestioncapa_postgres_data
-docker run --name gestioncapa-postgres \
-  -e TZ="America/Lima" \
-  -e POSTGRES_DB=gestioncapa \
-  -e POSTGRES_USER=gestioncapa \
-  -e POSTGRES_PASSWORD=gestioncapa_dev_password \
-  -p 5432:5432 \
-  -d --restart=always \
-  -v gestioncapa_postgres_data:/var/lib/postgresql/data \
-  postgres:17
+docker run --name gestioncapa-postgres -e TZ="America/Lima" -e POSTGRES_DB=gestiondecapacitacion -e POSTGRES_USER=gestiondecapacitacion -e POSTGRES_PASSWORD=gestiondecapacitacion -p 5432:5432 -d --restart=always -v gestioncapa_postgres_data:/var/lib/postgresql/data postgres:17
 ```
 
 4. Crear Redis directo con Docker:
 
 ```bash
 docker volume create gestioncapa_redis_data
-docker run --name gestioncapa-redis \
-  -e TZ="America/Lima" \
-  -p 6379:6379 \
-  -d --restart=always \
-  -v gestioncapa_redis_data:/data \
-  redis:8 redis-server --appendonly yes --requirepass "gestioncapa_redis_password"
+docker run --name gestioncapa-redis -e TZ="America/Lima" -p 6379:6379 -d --restart=always -v gestioncapa_redis_data:/data redis:8 redis-server --appendonly yes --requirepass "gestiondecapacitacion"
 ```
 
 5. Validar Postgres y Redis:
 
 ```bash
 docker ps
-docker exec -it gestioncapa-postgres psql -U gestioncapa -d gestioncapa -c "select 1;"
-docker exec -it gestioncapa-redis redis-cli -a gestioncapa_redis_password ping
+docker exec -it gestioncapa-postgres psql -U gestiondecapacitacion -d gestiondecapacitacion -c "select 1;"
+docker exec -it gestioncapa-redis redis-cli -a gestiondecapacitacion ping
 ```
 
 Redis debe responder:
@@ -223,35 +238,22 @@ Crear Postgres con contrasena de desarrollo/test:
 
 ```bash
 docker volume create gestioncapa_postgres_data
-docker run --name gestioncapa-postgres \
-  -e TZ="America/Lima" \
-  -e POSTGRES_DB=gestioncapa \
-  -e POSTGRES_USER=gestioncapa \
-  -e POSTGRES_PASSWORD=gestioncapa_dev_password \
-  -p 5432:5432 \
-  -d --restart=always \
-  -v gestioncapa_postgres_data:/var/lib/postgresql/data \
-  postgres:17
+docker run --name gestioncapa-postgres -e TZ="America/Lima" -e POSTGRES_DB=gestiondecapacitacion -e POSTGRES_USER=gestiondecapacitacion -e POSTGRES_PASSWORD=gestiondecapacitacion -p 5432:5432 -d --restart=always -v gestioncapa_postgres_data:/var/lib/postgresql/data postgres:17
 ```
 
 Crear Redis con contrasena de desarrollo/test:
 
 ```bash
 docker volume create gestioncapa_redis_data
-docker run --name gestioncapa-redis \
-  -e TZ="America/Lima" \
-  -p 6379:6379 \
-  -d --restart=always \
-  -v gestioncapa_redis_data:/data \
-  redis:8 redis-server --appendonly yes --requirepass "gestioncapa_redis_password"
+docker run --name gestioncapa-redis -e TZ="America/Lima" -p 6379:6379 -d --restart=always -v gestioncapa_redis_data:/data redis:8 redis-server --appendonly yes --requirepass "gestiondecapacitacion"
 ```
 
 Validar:
 
 ```bash
 docker ps
-docker exec -it gestioncapa-postgres psql -U gestioncapa -d gestioncapa -c "select 1;"
-docker exec -it gestioncapa-redis redis-cli -a gestioncapa_redis_password ping
+docker exec -it gestioncapa-postgres psql -U gestiondecapacitacion -d gestiondecapacitacion -c "select 1;"
+docker exec -it gestioncapa-redis redis-cli -a gestiondecapacitacion ping
 ```
 
 Clonar y preparar la aplicacion:

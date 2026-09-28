@@ -7,6 +7,7 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
     .default("development"),
+  TZ: z.string().default("America/Lima"),
   PORT: z.coerce.number().int().positive().default(8080),
   HOST: z.string().default("0.0.0.0"),
   FRONTEND_URL: z.string().url().default("http://localhost:5173"),
@@ -15,14 +16,15 @@ const envSchema = z.object({
     .default("info"),
   DB_HOST: z.string().default("localhost"),
   DB_PORT: z.coerce.number().int().positive().default(5432),
-  DB_NAME: z.string().default("gestioncapa"),
-  DB_USER: z.string().default("gestioncapa"),
-  DB_PASSWORD: z.string().min(1).default("gestioncapa_dev_password"),
+  DB_NAME: z.string().default("gestiondecapacitacion"),
+  DB_USER: z.string().default("gestiondecapacitacion"),
+  DB_PASSWORD: z.string().min(1).default("gestiondecapacitacion"),
   DB_SSL: z.coerce.boolean().default(false),
+  DB_TIMEZONE: z.string().default("America/Lima"),
   REDIS_URL: z
     .string()
     .url()
-    .default("redis://:gestioncapa_redis_password@localhost:6379"),
+    .default("redis://:gestiondecapacitacion@localhost:6379"),
   JWT_SECRET: z
     .string()
     .min(32, "JWT_SECRET debe tener al menos 32 caracteres")
