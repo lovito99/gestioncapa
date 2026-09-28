@@ -325,3 +325,91 @@ SSL:
 sudo snap install --classic certbot
 sudo certbot --nginx
 ```
+
+## Arquitectura
+
+### Backend
+
+Lenguaje:
+
+- TypeScript
+
+Runtime y herramientas:
+
+- Node.js 24.x
+- npm workspaces
+- tsx para desarrollo
+- TypeScript compiler para build
+- PM2 para ejecutar en servidor
+
+Frameworks y librerias usadas:
+
+- Fastify para API HTTP
+- @fastify/cors para CORS
+- @fastify/helmet para cabeceras de seguridad
+- @fastify/sensible para errores HTTP
+- @fastify/jwt para autenticacion JWT
+- Zod para validar variables de entorno y datos
+- pg para conexion con Postgres
+- ioredis para conexion con Redis
+- bcryptjs para hash de contrasenas
+- dotenv para cargar `.env`
+
+Estructura:
+
+- `backend/src/config`: configuracion y variables de entorno
+- `backend/src/modules`: modulos funcionales como auth y health
+- `backend/src/plugins`: plugins de Fastify
+- `backend/src/shared`: conexiones compartidas como Postgres y Redis
+
+### Frontend
+
+Lenguaje:
+
+- JavaScript con JSX
+
+Runtime y herramientas:
+
+- Node.js 24.x
+- Vite
+- TypeScript solo para chequeo de proyecto y configuracion
+- Express para servir el build en produccion
+
+Frameworks y librerias usadas:
+
+- React
+- React DOM
+- @vitejs/plugin-react
+- Fetch API para comunicacion con backend
+- CSS puro para estilos iniciales
+
+Flujo visual:
+
+- Landing page
+- Login
+- Panel autenticado
+
+### Base de datos y cache
+
+Base de datos:
+
+- PostgreSQL 17
+- Base: `gestiondecapacitacion`
+- Usuario: `gestiondecapacitacion`
+- Contrasena desarrollo/test: `gestiondecapacitacion`
+- Zona horaria: `America/Lima`
+
+Cache:
+
+- Redis 8
+- Contrasena desarrollo/test: `gestiondecapacitacion`
+- Persistencia con `appendonly yes`
+- Zona horaria: `America/Lima`
+
+Infraestructura local/test:
+
+- Docker directo con `docker run`
+- Volumen Postgres: `gestioncapa_postgres_data`
+- Volumen Redis: `gestioncapa_redis_data`
+
+En produccion se deben cambiar las credenciales de Postgres, Redis, JWT y administrador por valores privados y fuertes.
