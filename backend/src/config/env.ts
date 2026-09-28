@@ -3,6 +3,24 @@ import { z } from "zod";
 
 config();
 
+const booleanFromEnv = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (["true", "1", "yes", "y"].includes(normalized)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "n", ""].includes(normalized)) {
+    return false;
+  }
+
+  return value;
+}, z.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -19,7 +37,7 @@ const envSchema = z.object({
   DB_NAME: z.string().default("gestiondecapacitacion"),
   DB_USER: z.string().default("gestiondecapacitacion"),
   DB_PASSWORD: z.string().min(1).default("gestiondecapacitacion"),
-  DB_SSL: z.coerce.boolean().default(false),
+  DB_SSL: booleanFromEnv.default(false),
   DB_TIMEZONE: z.string().default("America/Lima"),
   REDIS_URL: z
     .string()

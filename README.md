@@ -134,7 +134,16 @@ Redis debe responder:
 PONG
 ```
 
-6. Iniciar backend y frontend:
+6. Crear tablas y datos iniciales:
+
+```bash
+npm run migrate
+npm run seed
+```
+
+`npm run migrate` crea las tablas necesarias si faltan. `npm run seed` crea el usuario administrador inicial si no existe.
+
+7. Iniciar backend y frontend:
 
 ```bash
 npm run dev
@@ -188,6 +197,8 @@ docker volume rm gestioncapa_redis_data
 
 ```bash
 npm run dev
+npm run migrate
+npm run seed
 npm run typecheck
 npm run build
 npm run start
@@ -266,6 +277,8 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 nano backend/.env
 nano frontend/.env
+npm run migrate
+npm run seed
 npm run build
 ```
 
@@ -340,6 +353,7 @@ Runtime y herramientas:
 - npm workspaces
 - tsx para desarrollo
 - TypeScript compiler para build
+- Scripts `npm run migrate` y `npm run seed` para preparar la base
 - PM2 para ejecutar en servidor
 
 Frameworks y librerias usadas:
