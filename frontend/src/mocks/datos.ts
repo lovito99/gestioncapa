@@ -18,6 +18,31 @@ export const usuarios: (Usuario & { password: string })[] = [
     cargo: 'Instructor',
     password: 'demo123',
   },
+  // Los participantes usan el mismo id que en la lista de participantes
+  {
+    id: 'p-1',
+    nombre: 'María Fernanda Quispe Ramos',
+    email: 'maria.quispe@demo.pe',
+    rol: 'PARTICIPANTE',
+    cargo: 'Participante',
+    password: 'demo123',
+  },
+  {
+    id: 'p-7',
+    nombre: 'Luz Marina Apaza Choque',
+    email: 'luz.apaza@demo.pe',
+    rol: 'PARTICIPANTE',
+    cargo: 'Participante',
+    password: 'demo123',
+  },
+  {
+    id: 'u-admin-1',
+    nombre: 'Administrador Demo',
+    email: 'admin@gestioncapa.local',
+    rol: 'ADMIN',
+    cargo: 'Administrador',
+    password: 'demo123',
+  },
 ]
 
 export const instructores = [
@@ -95,7 +120,7 @@ export const clases: Omit<Clase, 'inscritos'>[] = [
 export const inscripciones: Record<string, string[]> = {
   'c-1': ['p-1', 'p-2', 'p-3', 'p-4', 'p-5', 'p-6'],
   'c-2': [],
-  'c-3': ['p-1', 'p-4'],
+  'c-3': ['p-1', 'p-4', 'p-7'],
   'c-4': ['p-2'],
   'c-5': ['p-3', 'p-5', 'p-6'],
 }

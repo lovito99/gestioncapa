@@ -21,6 +21,9 @@ Mientras el backend no esté listo, **MSW** responde las llamadas a la API con d
 |---|---|---|
 | Coordinadora | `ana.torres@organizacion.pe` | `demo123` |
 | Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
+| Participante (inscrita en 2 clases) | `maria.quispe@demo.pe` | `demo123` |
+| Participante (inscrita en 1 clase) | `luz.apaza@demo.pe` | `demo123` |
+| Administrador | `admin@gestioncapa.local` | `demo123` |
 
 ### Cómo ver cada estado del diseño
 

@@ -2,9 +2,11 @@ import { ArrowLeft, Calendar, Clock, MapPin, Timer } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { BotonCerrarSesion } from '@/components/layout/Encabezado'
 import { LogoRecuadro } from '@/components/layout/Logo'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
+import { mensajeDeError } from '@/lib/api'
 import { fechaCorta, rangoHorario } from '@/lib/formato'
 import { useClase, useQrAsistencia } from '@/servicios/clases'
 
@@ -57,7 +59,7 @@ export function QrAsistenciaPagina() {
         {clase.isPending ? (
           <Cargando />
         ) : clase.isError ? (
-          <ErrorCarga mensaje="No pudimos cargar la clase." onReintentar={clase.refetch} />
+          <ErrorCarga mensaje={mensajeDeError(clase.error, 'No pudimos cargar la clase.')} onReintentar={clase.refetch} />
         ) : (
           <>
             <h1 className="text-center text-2xl leading-10 font-bold tracking-[-0.8px] text-ink-2 sm:text-[32px]">
@@ -86,7 +88,7 @@ export function QrAsistenciaPagina() {
             >
               <div className="w-full max-w-[360px] rounded-lg bg-white p-2">
                 {qr.isError ? (
-                  <ErrorCarga mensaje="No pudimos generar el código QR." onReintentar={qr.refetch} />
+                  <ErrorCarga mensaje={mensajeDeError(qr.error, 'No pudimos generar el código QR.')} onReintentar={qr.refetch} />
                 ) : qr.data ? (
                   <QRCodeSVG
                     value={urlMarcado}
@@ -127,6 +129,20 @@ export function QrAsistenciaPagina() {
             <p className="mt-8 text-center text-lg leading-7 font-semibold tracking-[-0.5px] text-ink-2 sm:text-xl">
               Escanea este código con tu celular para registrar tu asistencia
             </p>
+
+            {/* Solo en desarrollo: permite probar el flujo en un computador sin escanear */}
+            {import.meta.env.DEV && qr.data && (
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(urlMarcado)
+                  toast.success('Enlace copiado. Ábrelo antes de que venza el código.')
+                }}
+                className="mt-4 rounded-lg border border-dashed border-warning px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning-soft"
+              >
+                Copiar enlace del QR (solo desarrollo)
+              </button>
+            )}
           </>
         )}
       </main>

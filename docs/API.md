@@ -17,7 +17,10 @@
 
 ## 2. Roles
 
-Hay dos roles, `COORDINADOR` e `INSTRUCTOR`. Hoy la base de datos solo tiene `admin`.
+Hay cuatro roles: `ADMIN`, `COORDINADOR`, `INSTRUCTOR` y `PARTICIPANTE`. Hoy la base de datos solo tiene `admin`.
+
+- Sin sesión o con token inválido → **401** `NO_AUTENTICADO`.
+- Con sesión pero rol incorrecto → **403** `SIN_PERMISO`. El backend debe validar el rol en **cada** ruta; ocultar botones en la interfaz no basta.
 
 ## 3. Rutas
 
@@ -35,28 +38,53 @@ Hay dos roles, `COORDINADOR` e `INSTRUCTOR`. Hoy la base de datos solo tiene `ad
 | POST | `/clases/:id/inscritos` `{email}` | coordinador | `201 Participante` | 404 `PARTICIPANTE_NO_EXISTE`, 409 `YA_INSCRITO` |
 | GET | `/clases/:id/asistencia` | coordinador | `200 {inscritos, presentes, ausentes, registros: [{participante, estado: "PRESENTE"/"AUSENTE", horaRegistro}]}` | 404 |
 | GET | `/instructor/clases` | instructor | `200 Clase[]`: solo sus clases en estado `PROGRAMADA` | 401 |
-| GET | `/clases/:id/qr` | instructor | `200 {token, expiraEn, servidorAhora, duracionSegundos}` | 404 |
+| GET | `/clases/:id/qr` | instructor de esa clase | `200 {token, expiraEn, servidorAhora, duracionSegundos}` | 403 `SIN_PERMISO` (clase ajena), 404, 409 `CLASE_CANCELADA` |
+| GET | `/participante/clases` | participante | `200 ClaseParticipante[]`: solo las clases en las que está inscrito | 401, 403 |
+| POST | `/asistencia/marcar` `{token, claseId?}` | participante | `201 {clase: {id, nombre}, horaRegistro}` | ver tabla de abajo |
+| GET | `/health` | público | `200 {ok, api, database, redis}` (**ya existe** en el backend) | — |
 
 **`Clase`:** `{ id, nombre, instructor: {id, nombre}, fecha, horaInicio, horaFin, lugar, inscritos (número), estado: "PROGRAMADA" | "CANCELADA" }`
 
 **`ClaseEntrada`:** `{ nombre, instructorId, fecha, horaInicio, horaFin, lugar }`
 
+**`ClaseParticipante`:** `{ id, nombre, instructor: {id, nombre}, fecha, horaInicio, horaFin, lugar, estado, miAsistencia }`. `miAsistencia` es la fecha-hora ISO de su registro, o `null`. **No** incluye datos de otros participantes.
+
+### Errores de `POST /asistencia/marcar`
+
+El frontend muestra un título y el `message` para cada código; el `message` debe decir qué hacer.
+
+| Caso | Status | `code` |
+|---|---|---|
+| Token con firma inválida o formato incorrecto | 422 | `QR_INVALIDO` |
+| Token vencido (más de 30 s) | 410 | `QR_EXPIRADO` |
+| Se escaneó desde una clase (`claseId`) pero el token es de otra | 409 | `QR_OTRA_CLASE` |
+| La clase está cancelada | 409 | `CLASE_CANCELADA` |
+| El participante no está inscrito en la clase del token | 403 | `NO_INSCRITO` |
+| Ya registró asistencia en esa clase | 409 | `ASISTENCIA_YA_REGISTRADA` |
+
+Las pruebas en `frontend/src/mocks/asistencia.test.ts` (`npm test -w frontend`) describen estos casos y pueden servir de guía para las pruebas del backend.
+
 ## 4. Reglas de negocio
 
 - **Conflicto de horario:** el mismo instructor no puede tener dos clases `PROGRAMADA` en la misma fecha con horarios que se crucen. Al editar, no se compara la clase consigo misma. El `message` debe nombrar la clase en conflicto con su fecha y hora.
 - **Hora de fin:** debe ser mayor que la de inicio. Si no, se responde 422 con el error en `fields.horaFin`.
-- **QR rotativo:** cada QR vale 30 segundos. Se firma en el servidor y no debe poder reutilizarse cuando vence. `servidorAhora` es obligatorio porque el frontend lo usa para corregir la diferencia con el reloj del equipo.
+- **QR rotativo:** cada QR vale 30 segundos. Se firma en el servidor con `QR_SECRET` (HMAC o JWT), va ligado al id de la clase, no contiene datos personales y no debe poder reutilizarse cuando vence. `servidorAhora` es obligatorio porque el frontend lo usa para corregir la diferencia con el reloj del equipo.
+- **Contenido del QR:** el frontend dibuja la URL `<frontend>/asistencia/marcar?token=<token>`. Así el participante puede escanearlo con la cámara normal del celular o con el escáner de la aplicación.
+- **Anti-duplicado:** la asistencia debe ser única por (clase, participante) con una restricción `UNIQUE` en la base de datos.
+- **Clase cancelada:** no acepta inscripciones (409 `CLASE_CANCELADA`) ni genera QR.
 - **Sesión expirada:** responder 401 en cualquier ruta protegida hace que el frontend cierre la sesión.
 
 ## 5. Diferencias con el backend actual
 
 1. El login hoy responde `{ token, user: {id (número), name, email, role} }`. El frontend espera `usuario` con `nombre`, `rol` y `cargo`.
 2. Los errores salen en el formato propio de Fastify (`statusCode`, `error`, `message`). Hay que convertirlos al formato del punto 1.
-3. Faltan `/auth/logout` y todas las rutas de clases, inscritos, asistencia, QR e instructores.
-4. Faltan las tablas: clases, inscripciones, asistencias y participantes, y los roles nuevos.
+3. Faltan `/auth/logout` y todas las rutas de clases, inscritos, asistencia, QR, participante e instructores.
+4. Faltan las tablas: clases, inscripciones y asistencias, y los roles `COORDINADOR`, `INSTRUCTOR` y `PARTICIPANTE` en el seed.
+5. Falta el guard de roles (401/403) en todas las rutas.
 
 ## 6. Pendientes por definir juntos
 
-- **Marcado de asistencia:** el QR lleva a `/asistencia/marcar?token=...`, pero todavía no existe esa pantalla ni su ruta en la API. Propuesta: `POST /asistencia/marcar { token }` hecha por el participante autenticado, que responda 200, o 409 si ya marcó, o 410 si el QR venció.
-- **Participantes:** ¿inician sesión en el sistema? ¿Quién crea sus cuentas?
+- **Participantes:** según el documento del Sprint 1 inician sesión y se crean por seed. ¿Confirmamos?
+- **Política de solapamiento:** el frontend y la simulación aceptan que una clase empiece justo cuando termina otra. Confirmar en el Planning.
+- **HTTPS para la demo:** la cámara del celular solo funciona con https. Hay que definir cómo exponer el frontend en la demo.
 - **El token del login:** ¿lo dejamos en el encabezado `Authorization` o lo pasamos a una cookie `httpOnly`, que es más segura?

@@ -1,10 +1,23 @@
 import { delay, http, HttpResponse } from 'msw'
-import { fechaLarga } from '@/lib/formato'
-import type { Asistencia, Clase, ClaseEntrada, ErrorApi, QrAsistencia } from '@/types/api'
+import { fechaLarga, horaRegistro } from '@/lib/formato'
+import type {
+  Asistencia,
+  Clase,
+  ClaseEntrada,
+  ClaseParticipante,
+  ErrorApi,
+  EstadoSalud,
+  MarcarAsistenciaEntrada,
+  MarcarAsistenciaRespuesta,
+  QrAsistencia,
+  Rol,
+} from '@/types/api'
 import { asistencias, clases, inscripciones, instructores, participantes, usuarios } from './datos'
 
 const API = import.meta.env.VITE_API_URL ?? '/api'
 const DURACION_QR = 30
+/** Solo para la simulación: el servidor real firma con QR_SECRET desde variables de entorno */
+const SECRETO_QR = 'secreto-de-demostracion'
 
 const error = (status: number, cuerpo: ErrorApi) => HttpResponse.json(cuerpo, { status })
 
@@ -22,8 +35,53 @@ function usuarioDe(request: Request) {
 const noAutenticado = () =>
   error(401, { code: 'NO_AUTENTICADO', message: 'Tu sesión expiró. Vuelve a iniciar sesión.' })
 
+const sinPermiso = (message = 'No tienes permiso para realizar esta acción.') =>
+  error(403, { code: 'SIN_PERMISO', message })
+
 const claseNoExiste = () =>
   error(404, { code: 'CLASE_NO_EXISTE', message: 'La clase no existe.' })
+
+const claseCancelada = () =>
+  error(409, { code: 'CLASE_CANCELADA', message: 'La clase está cancelada.' })
+
+/**
+ * Igual que el guard de roles del backend: sin sesión → 401, rol incorrecto → 403.
+ * Devuelve el usuario o la respuesta de error.
+ */
+function exigirRol(request: Request, ...roles: Rol[]) {
+  const usuario = usuarioDe(request)
+  if (!usuario) return { respuesta: noAutenticado() }
+  if (!roles.includes(usuario.rol)) return { respuesta: sinPermiso() }
+  return { usuario }
+}
+
+// ---------- QR firmado (simulación de HMAC) ----------
+
+/** Hash FNV-1a: suficiente para simular una firma que detecte alteraciones. */
+function firmar(texto: string) {
+  let hash = 0x811c9dc5
+  for (const caracter of `${texto}.${SECRETO_QR}`) {
+    hash ^= caracter.charCodeAt(0)
+    hash = Math.imul(hash, 0x01000193)
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+/** Token `claseId.expiraEnSegundos.firma`: ligado a la clase y válido 30 s. Sin datos personales. */
+function emitirToken(claseId: string, expiraEnMs: number) {
+  const cuerpo = `${claseId}.${Math.floor(expiraEnMs / 1000)}`
+  return `${cuerpo}.${firmar(cuerpo)}`
+}
+
+function leerToken(token: string) {
+  const partes = token.split('.')
+  if (partes.length !== 3) return null
+  const [claseId, expira, firma] = partes as [string, string, string]
+  if (firmar(`${claseId}.${expira}`) !== firma) return null
+  return { claseId, expiraEnMs: Number(expira) * 1000 }
+}
+
+// ---------- Validación de clases ----------
 
 function validar(entrada: Partial<ClaseEntrada>) {
   const fields: Record<string, string> = {}
@@ -87,6 +145,11 @@ function guardar(entrada: ClaseEntrada, id?: string) {
 }
 
 export const handlers = [
+  // ---------- Salud ----------
+  http.get(`${API}/health`, () =>
+    HttpResponse.json<EstadoSalud>({ ok: true, api: 'v1', database: 'ready', redis: 'ready' }),
+  ),
+
   // ---------- Autenticación ----------
   http.post(`${API}/auth/login`, async ({ request }) => {
     await delay(400)
@@ -105,18 +168,22 @@ export const handlers = [
   http.post(`${API}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
 
   // ---------- Catálogos ----------
-  http.get(`${API}/instructores`, () => HttpResponse.json(instructores)),
+  http.get(`${API}/instructores`, ({ request }) => {
+    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    return respuesta ?? HttpResponse.json(instructores)
+  }),
 
   // ---------- Clases ----------
   http.get(`${API}/clases`, async ({ request }) => {
-    if (!usuarioDe(request)) return noAutenticado()
+    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    if (respuesta) return respuesta
     await delay(300)
     return HttpResponse.json(clases.map(conInscritos))
   }),
 
   http.get(`${API}/instructor/clases`, async ({ request }) => {
-    const usuario = usuarioDe(request)
-    if (!usuario) return noAutenticado()
+    const { respuesta, usuario } = exigirRol(request, 'INSTRUCTOR')
+    if (respuesta) return respuesta
     await delay(300)
     return HttpResponse.json(
       clases
@@ -125,22 +192,34 @@ export const handlers = [
     )
   }),
 
-  http.get(`${API}/clases/:id`, ({ params }) => {
+  http.get(`${API}/clases/:id`, ({ request, params }) => {
+    const { respuesta, usuario } = exigirRol(request, 'COORDINADOR', 'INSTRUCTOR')
+    if (respuesta) return respuesta
     const clase = clases.find((c) => c.id === params.id)
-    return clase ? HttpResponse.json(conInscritos(clase)) : claseNoExiste()
+    if (!clase) return claseNoExiste()
+    if (usuario.rol === 'INSTRUCTOR' && clase.instructor.id !== usuario.id) {
+      return sinPermiso('Esta clase no está asignada a ti.')
+    }
+    return HttpResponse.json(conInscritos(clase))
   }),
 
   http.post(`${API}/clases`, async ({ request }) => {
+    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    if (respuesta) return respuesta
     await delay(400)
     return guardar((await request.json()) as ClaseEntrada)
   }),
 
   http.put(`${API}/clases/:id`, async ({ request, params }) => {
+    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    if (respuesta) return respuesta
     await delay(400)
     return guardar((await request.json()) as ClaseEntrada, params.id as string)
   }),
 
-  http.post(`${API}/clases/:id/cancelar`, async ({ params }) => {
+  http.post(`${API}/clases/:id/cancelar`, async ({ request, params }) => {
+    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    if (respuesta) return respuesta
     await delay(300)
     const clase = clases.find((c) => c.id === params.id)
     if (!clase) return claseNoExiste()
@@ -149,17 +228,23 @@ export const handlers = [
   }),
 
   // ---------- Inscripciones ----------
-  http.get(`${API}/clases/:id/inscritos`, ({ params }) => {
+  http.get(`${API}/clases/:id/inscritos`, ({ request, params }) => {
+    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    if (respuesta) return respuesta
     const ids = inscripciones[params.id as string]
     if (!ids) return claseNoExiste()
     return HttpResponse.json(participantes.filter((p) => ids.includes(p.id)))
   }),
 
   http.post(`${API}/clases/:id/inscritos`, async ({ request, params }) => {
+    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    if (respuesta) return respuesta
     await delay(300)
     const { email } = (await request.json()) as { email: string }
+    const clase = clases.find((c) => c.id === params.id)
     const ids = inscripciones[params.id as string]
-    if (!ids) return claseNoExiste()
+    if (!clase || !ids) return claseNoExiste()
+    if (clase.estado === 'CANCELADA') return claseCancelada()
     const participante = participantes.find((p) => p.email === email.trim().toLowerCase())
     if (!participante) {
       return error(404, {
@@ -177,8 +262,10 @@ export const handlers = [
     return HttpResponse.json(participante, { status: 201 })
   }),
 
-  // ---------- Asistencia ----------
-  http.get(`${API}/clases/:id/asistencia`, ({ params }) => {
+  // ---------- Asistencia (coordinador) ----------
+  http.get(`${API}/clases/:id/asistencia`, ({ request, params }) => {
+    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    if (respuesta) return respuesta
     const id = params.id as string
     const ids = inscripciones[id]
     if (!ids) return claseNoExiste()
@@ -200,18 +287,95 @@ export const handlers = [
     return HttpResponse.json(cuerpo)
   }),
 
-  http.get(`${API}/clases/:id/qr`, ({ params }) => {
+  // ---------- QR (instructor) ----------
+  http.get(`${API}/clases/:id/qr`, ({ request, params }) => {
+    const { respuesta, usuario } = exigirRol(request, 'INSTRUCTOR')
+    if (respuesta) return respuesta
     const clase = clases.find((c) => c.id === params.id)
     if (!clase) return claseNoExiste()
+    if (clase.instructor.id !== usuario.id) return sinPermiso('Esta clase no está asignada a ti.')
+    if (clase.estado === 'CANCELADA') return claseCancelada()
     // El token cambia en cada "ventana" de 30 s, igual que lo haría el servidor real
     const ahora = Date.now()
     const ventana = Math.floor(ahora / (DURACION_QR * 1000))
+    const expiraEn = (ventana + 1) * DURACION_QR * 1000
     const cuerpo: QrAsistencia = {
-      token: `${clase.id}.${ventana}.${Math.random().toString(36).slice(2, 10)}`,
-      expiraEn: new Date((ventana + 1) * DURACION_QR * 1000).toISOString(),
+      token: emitirToken(clase.id, expiraEn),
+      expiraEn: new Date(expiraEn).toISOString(),
       servidorAhora: new Date(ahora).toISOString(),
       duracionSegundos: DURACION_QR,
     }
     return HttpResponse.json(cuerpo)
+  }),
+
+  // ---------- Participante ----------
+  http.get(`${API}/participante/clases`, async ({ request }) => {
+    const { respuesta, usuario } = exigirRol(request, 'PARTICIPANTE')
+    if (respuesta) return respuesta
+    await delay(300)
+    const mias: ClaseParticipante[] = clases
+      .filter((c) => inscripciones[c.id]?.includes(usuario.id))
+      .map(({ id, nombre, instructor, fecha, horaInicio, horaFin, lugar, estado }) => ({
+        id,
+        nombre,
+        instructor,
+        fecha,
+        horaInicio,
+        horaFin,
+        lugar,
+        estado,
+        miAsistencia: asistencias[id]?.[usuario.id] ?? null,
+      }))
+    return HttpResponse.json(mias)
+  }),
+
+  http.post(`${API}/asistencia/marcar`, async ({ request }) => {
+    const { respuesta, usuario } = exigirRol(request, 'PARTICIPANTE')
+    if (respuesta) return respuesta
+    await delay(500)
+    const { token, claseId } = (await request.json()) as MarcarAsistenciaEntrada
+
+    const datos = leerToken(token ?? '')
+    if (!datos) {
+      return error(422, {
+        code: 'QR_INVALIDO',
+        message: 'Este código QR no es válido. Escanea el código que muestra tu instructor en la sala.',
+      })
+    }
+    if (Date.now() > datos.expiraEnMs) {
+      return error(410, {
+        code: 'QR_EXPIRADO',
+        message: 'El código QR expiró. Escanea el código nuevo que aparece en la pantalla del instructor.',
+      })
+    }
+    if (claseId && claseId !== datos.claseId) {
+      return error(409, {
+        code: 'QR_OTRA_CLASE',
+        message: 'Este código QR es de otra clase. Verifica que estés escaneando el código de tu clase.',
+      })
+    }
+    const clase = clases.find((c) => c.id === datos.claseId)
+    if (!clase) return claseNoExiste()
+    if (clase.estado === 'CANCELADA') return claseCancelada()
+    if (!inscripciones[clase.id]?.includes(usuario.id)) {
+      return error(403, {
+        code: 'NO_INSCRITO',
+        message: 'No estás inscrito(a) en esta clase. Pide al coordinador que te inscriba.',
+      })
+    }
+    const marcas = (asistencias[clase.id] ??= {})
+    const previa = marcas[usuario.id]
+    if (previa) {
+      return error(409, {
+        code: 'ASISTENCIA_YA_REGISTRADA',
+        message: `Tu asistencia ya estaba registrada a las ${horaRegistro(previa)}. No necesitas volver a escanear.`,
+      })
+    }
+    const ahora = new Date().toISOString()
+    marcas[usuario.id] = ahora
+    return HttpResponse.json<MarcarAsistenciaRespuesta>(
+      { clase: { id: clase.id, nombre: clase.nombre }, horaRegistro: ahora },
+      { status: 201 },
+    )
   }),
 ]

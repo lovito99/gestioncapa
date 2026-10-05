@@ -3,7 +3,7 @@
  * Mantener sincronizado con el OpenAPI/Swagger que publique el equipo de backend.
  */
 
-export type Rol = 'COORDINADOR' | 'INSTRUCTOR'
+export type Rol = 'ADMIN' | 'COORDINADOR' | 'INSTRUCTOR' | 'PARTICIPANTE'
 
 export interface Usuario {
   id: string
@@ -81,6 +81,43 @@ export interface QrAsistencia {
   duracionSegundos: number
 }
 
+/** Clase vista por el participante: solo sus datos, nunca los de otros participantes */
+export interface ClaseParticipante {
+  id: string
+  nombre: string
+  instructor: InstructorResumen
+  fecha: string
+  horaInicio: string
+  horaFin: string
+  lugar: string
+  estado: EstadoClase
+  /** Fecha-hora ISO 8601 en que registró su asistencia, `null` si aún no la registra */
+  miAsistencia: string | null
+}
+
+export interface MarcarAsistenciaEntrada {
+  /** Token leído del QR que muestra el instructor */
+  token: string
+  /** Clase desde la que se escaneó. Si el QR es de otra clase, el servidor responde `QR_OTRA_CLASE` */
+  claseId?: string
+}
+
+export interface MarcarAsistenciaRespuesta {
+  clase: { id: string; nombre: string }
+  /** Fecha-hora ISO 8601 del registro (se muestra en hora de Lima) */
+  horaRegistro: string
+}
+
+/** Respuesta de `GET /api/health` (ya implementada en el backend) */
+export interface EstadoSalud {
+  ok: boolean
+  api: string
+  /** `ready` si PostgreSQL responde */
+  database: string
+  /** `ready` si Redis responde; `disabled` si no está conectado */
+  redis: string
+}
+
 /** Formato único de error que devuelve el backend */
 export interface ErrorApi {
   code: string
@@ -99,4 +136,11 @@ export const CODIGOS_ERROR = {
   PARTICIPANTE_NO_EXISTE: 'PARTICIPANTE_NO_EXISTE',
   CLASE_NO_EXISTE: 'CLASE_NO_EXISTE',
   NO_AUTENTICADO: 'NO_AUTENTICADO',
+  SIN_PERMISO: 'SIN_PERMISO',
+  CLASE_CANCELADA: 'CLASE_CANCELADA',
+  QR_EXPIRADO: 'QR_EXPIRADO',
+  QR_INVALIDO: 'QR_INVALIDO',
+  QR_OTRA_CLASE: 'QR_OTRA_CLASE',
+  NO_INSCRITO: 'NO_INSCRITO',
+  ASISTENCIA_YA_REGISTRADA: 'ASISTENCIA_YA_REGISTRADA',
 } as const

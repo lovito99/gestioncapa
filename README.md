@@ -199,6 +199,8 @@ docker volume rm gestioncapa_redis_data
 4. El frontend guarda la sesion y lleva al usuario a su panel segun el rol:
    - Coordinador: gestion de clases, inscritos y asistencia.
    - Instructor: sus clases y el QR de asistencia.
+   - Participante: sus clases y el escaner de QR para registrar asistencia (pensado para celular).
+   - Administrador: estado del sistema (`/api/health`).
 
 ### Datos simulados (MSW)
 
@@ -208,6 +210,23 @@ Mientras el backend no tenga todos los endpoints, el frontend usa datos simulado
 |---|---|---|
 | Coordinadora | `ana.torres@organizacion.pe` | `demo123` |
 | Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
+| Participante (inscrita en 2 clases) | `maria.quispe@demo.pe` | `demo123` |
+| Participante (inscrita en 1 clase) | `luz.apaza@demo.pe` | `demo123` |
+| Administrador | `admin@gestioncapa.local` | `demo123` |
+
+Prueba del flujo de asistencia (Sprint 1) en un mismo computador:
+
+1. En una ventana normal entra como **instructor**, abre «Primeros auxilios básicos», pulsa **Mostrar QR** y luego **Copiar enlace del QR (solo desarrollo)**.
+2. En una ventana de incógnito entra como **Luz** y pega el enlace en la barra de direcciones antes de que venza (30 s): aparece «¡Asistencia registrada!». Con una webcam también puedes usar **Registrar asistencia** y apuntar al QR.
+3. En **la misma ventana de incógnito** cierra sesión, entra como **coordinadora** y abre la asistencia de la clase: Luz aparece como Presente con hora de Lima.
+
+Los datos simulados viven en la memoria de cada ventana, por eso el paso 3 se hace en la ventana de Luz. La cámara del navegador solo funciona con `https` o en `localhost`; para probar desde un celular real hace falta `https` y el backend real.
+
+Pruebas automáticas del flujo de asistencia (sobre la API simulada):
+
+```bash
+npm test -w frontend
+```
 
 Para usar el backend real, poner `VITE_USE_MOCKS=false`. En desarrollo Vite redirige `/api` a `VITE_BACKEND_URL` (por defecto `http://localhost:8080`). El contrato de datos que espera el frontend esta en `frontend/src/types/api.ts`.
 
@@ -415,7 +434,8 @@ Frameworks y librerias usadas:
 - Axios para comunicacion con backend
 - react-hook-form y Zod para formularios
 - Tailwind CSS 4
-- qrcode.react para el QR de asistencia
+- qrcode.react para dibujar el QR y qr-scanner para leerlo con la camara
+- Vitest para pruebas automaticas
 - lucide-react, sonner, date-fns
 
 Flujo visual:
@@ -423,6 +443,8 @@ Flujo visual:
 - Login
 - Coordinador: clases, nueva/editar clase, detalle e inscritos, asistencia
 - Instructor: mis clases, QR de asistencia
+- Participante: mis clases, escanear QR, confirmacion de asistencia
+- Administrador: estado del sistema
 
 ### Base de datos y cache
 

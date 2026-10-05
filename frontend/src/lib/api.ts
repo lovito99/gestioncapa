@@ -56,3 +56,8 @@ export class ApiError extends Error {
 export function esApiError(error: unknown, code?: string): error is ApiError {
   return error instanceof ApiError && (code === undefined || error.code === code)
 }
+
+/** Mensaje para mostrar al usuario: el del servidor si lo hay, o uno por defecto. */
+export function mensajeDeError(error: unknown, porDefecto: string) {
+  return error instanceof ApiError && error.message ? error.message : porDefecto
+}
