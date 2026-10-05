@@ -1,6 +1,6 @@
 # GestionCapa
 
-Proyecto en modo desarrollo/test con backend TypeScript en Node 24, frontend Vite/React en JavaScript, autenticacion JWT, Postgres y Redis levantados con Docker directo.
+Proyecto en modo desarrollo/test con backend TypeScript en Node 24, frontend Vite/React en TypeScript, autenticacion JWT, Postgres y Redis levantados con Docker directo.
 
 ## Requisitos
 
@@ -22,9 +22,15 @@ backend/
     shared/
 frontend/
   server.js
+  public/
   src/
-    services/
-    styles/
+    auth/
+    components/
+    lib/
+    mocks/
+    paginas/
+    servicios/
+    types/
 ```
 
 ## Git y archivos ignorados
@@ -187,11 +193,23 @@ docker volume rm gestioncapa_redis_data
 
 ## Flujo de la aplicacion
 
-1. El usuario llega a la landing page.
-2. Desde la landing entra al login.
-3. El backend valida correo y clave contra Postgres.
-4. Si las credenciales son correctas, se emite un JWT.
-5. El frontend guarda el token y muestra el panel autenticado.
+1. El usuario entra al login.
+2. El backend valida correo y clave contra Postgres.
+3. Si las credenciales son correctas, se emite un JWT.
+4. El frontend guarda la sesion y lleva al usuario a su panel segun el rol:
+   - Coordinador: gestion de clases, inscritos y asistencia.
+   - Instructor: sus clases y el QR de asistencia.
+
+### Datos simulados (MSW)
+
+Mientras el backend no tenga todos los endpoints, el frontend usa datos simulados con MSW (`VITE_USE_MOCKS=true` en `frontend/.env`). Usuarios de prueba en ese modo:
+
+| Rol | Correo | Contrasena |
+|---|---|---|
+| Coordinadora | `ana.torres@organizacion.pe` | `demo123` |
+| Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
+
+Para usar el backend real, poner `VITE_USE_MOCKS=false`. En desarrollo Vite redirige `/api` a `VITE_BACKEND_URL` (por defecto `http://localhost:8080`). El contrato de datos que espera el frontend esta en `frontend/src/types/api.ts`.
 
 ## Scripts principales
 
@@ -380,28 +398,31 @@ Estructura:
 
 Lenguaje:
 
-- JavaScript con JSX
+- TypeScript con TSX
 
 Runtime y herramientas:
 
 - Node.js 24.x
 - Vite
-- TypeScript solo para chequeo de proyecto y configuracion
+- oxlint para revisar el codigo
+- MSW para simular la API en desarrollo
 - Express para servir el build en produccion
 
 Frameworks y librerias usadas:
 
-- React
-- React DOM
-- @vitejs/plugin-react
-- Fetch API para comunicacion con backend
-- CSS puro para estilos iniciales
+- React 19 y React Router
+- TanStack Query para consultas al backend
+- Axios para comunicacion con backend
+- react-hook-form y Zod para formularios
+- Tailwind CSS 4
+- qrcode.react para el QR de asistencia
+- lucide-react, sonner, date-fns
 
 Flujo visual:
 
-- Landing page
 - Login
-- Panel autenticado
+- Coordinador: clases, nueva/editar clase, detalle e inscritos, asistencia
+- Instructor: mis clases, QR de asistencia
 
 ### Base de datos y cache
 
