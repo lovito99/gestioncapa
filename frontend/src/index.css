@@ -1,0 +1,53 @@
+@import 'tailwindcss';
+
+/* Tokens tomados del Figma GestionCapa */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand: #0369a1;
+  --color-brand-dark: #0c4a6e;
+  --color-brand-light: #0284c7;
+  --color-brand-ink: #00507d;
+  --color-brand-soft: #e0f2fe;
+
+  --color-ink: #0f172a;
+  --color-ink-2: #131b2e;
+  --color-muted: #475569;
+  --color-muted-2: #40474f;
+  --color-muted-3: #707881;
+  --color-placeholder: #64748b;
+
+  --color-line: #cbd5e1;
+  --color-line-2: #c0c7d1;
+  --color-line-soft: #e2e8f0;
+  --color-line-lavender: #e2e7ff;
+
+  --color-page: #faf8ff;
+  --color-surface-2: #f8fafc;
+  --color-surface-3: #f1f5f9;
+  --color-surface-lavender: #f2f3ff;
+
+  --color-danger: #b91c1c;
+  --color-danger-strong: #dc2626;
+  --color-danger-soft: #fee2e2;
+  --color-required: #ba1a1a;
+  --color-warning: #b45309;
+  --color-warning-soft: #fef3c7;
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  body {
+    @apply bg-page font-sans text-ink antialiased;
+  }
+
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+}
