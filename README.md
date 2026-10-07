@@ -14,7 +14,8 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
 - [Especificaciones de entrada](docs/esp/entrada.md), [clases](docs/esp/clases.md),
   [asistencia](docs/esp/asist.md), [calidad y entorno](docs/esp/calidad.md)
   [acceso por rol y sesión](docs/esp/roles.md) y [autorización en el servidor](docs/esp/permisos.md),
-  [programar clase](docs/esp/programar.md) y [evitar solapamiento](docs/esp/solapamiento.md).
+  [programar clase](docs/esp/programar.md), [evitar solapamiento](docs/esp/solapamiento.md)
+  e [inscribir participante](docs/esp/inscripcion.md).
 - [Calidad antes de integrar](docs/calidad.md).
 
 ```bash

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   actualizarClase,
   buscarConflicto,
+  buscarInscripcion,
   buscarParticipante,
   cancelarClase,
   conInstructorBloqueado,
@@ -20,15 +21,20 @@ import { validarClase, type DatosClase } from "./clases.validacion.js";
 
 type ConId = FastifyRequest<{ Params: { id: string } }>;
 
-const fechaLarga = new Intl.DateTimeFormat("es-PE", {
+const formatoFecha = new Intl.DateTimeFormat("es-PE", {
   weekday: "long",
   day: "numeric",
   month: "long",
   timeZone: "UTC"
 });
 
+/** `2026-10-12` → `lunes 12 de octubre`, igual que la interfaz (Intl agrega una coma). */
+const fechaLarga = (fecha: string) => formatoFecha.format(new Date(`${fecha}T00:00:00Z`)).replace(",", "");
+
 const enviarError = (reply: FastifyReply, status: number, code: string, message: string, extra: object = {}) =>
   reply.code(status).send({ code, message, ...extra });
+
+const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const claseNoExiste = (reply: FastifyReply) => enviarError(reply, 404, "CLASE_NO_EXISTE", "La clase no existe.");
 
@@ -52,7 +58,7 @@ function errorValidacion(reply: FastifyReply, fields: Record<string, string>) {
 }
 
 function errorConflicto(reply: FastifyReply, conflicto: Clase) {
-  const fecha = fechaLarga.format(new Date(`${conflicto.fecha}T00:00:00Z`));
+  const fecha = fechaLarga(conflicto.fecha);
   return enviarError(
     reply,
     409,
@@ -167,6 +173,12 @@ export async function clasesRoutes(app: FastifyInstance) {
       });
     }
 
+    if (!FORMATO_CORREO.test(email)) {
+      return enviarError(reply, 422, "VALIDACION", "Ingresa un correo válido.", {
+        fields: { email: "Ingresa un correo válido" }
+      });
+    }
+
     const participante = await buscarParticipante(email);
 
     if (!participante) {
@@ -181,11 +193,14 @@ export async function clasesRoutes(app: FastifyInstance) {
     if (!(await inscribir(id, participante.id))) {
       // Sin inserción: o ya estaba inscrito, o la clase se canceló mientras tanto.
       if ((await obtenerClase(id))?.estado === "CANCELADA") return claseCancelada(reply);
+      const inscritoEn = await buscarInscripcion(id, participante.id);
+      const desde = inscritoEn ? ` desde el ${fechaLarga(inscritoEn.slice(0, 10))} a las ${inscritoEn.slice(11, 16)}` : "";
       return enviarError(
         reply,
         409,
         "YA_INSCRITO",
-        `${participante.nombre} ya está inscrito(a) en esta clase. No se creó una inscripción nueva.`
+        `${participante.nombre} ya está inscrito(a) en esta clase${desde}. No se creó una inscripción nueva.`,
+        { details: { participanteId: participante.id, inscritoEn } }
       );
     }
 

@@ -35,7 +35,7 @@ Hay cuatro roles: `ADMIN`, `COORDINADOR`, `INSTRUCTOR` y `PARTICIPANTE`. El seed
 | PUT | `/clases/:id` `ClaseEntrada` | coordinador | `200 Clase` | igual que el anterior, más 404 |
 | POST | `/clases/:id/cancelar` | coordinador | `200 Clase`, con `estado: "CANCELADA"` | 404 |
 | GET | `/clases/:id/inscritos` | coordinador | `200 [{id, nombre, email}]` | 404 |
-| POST | `/clases/:id/inscritos` `{email}` | coordinador | `201 Participante` | 404 `PARTICIPANTE_NO_EXISTE`, 409 `YA_INSCRITO` |
+| POST | `/clases/:id/inscritos` `{email}` | coordinador | `201 Participante` | 422 `VALIDACION` (`fields.email`), 404 `PARTICIPANTE_NO_EXISTE`, 409 `YA_INSCRITO` (con `details.participanteId` y `details.inscritoEn`), 409 `CLASE_CANCELADA` |
 | GET | `/clases/:id/asistencia` | coordinador | `200 {inscritos, presentes, ausentes, registros: [{participante, estado: "PRESENTE"/"AUSENTE", horaRegistro}]}` | 404 |
 | GET | `/instructor/clases` | instructor | `200 Clase[]`: solo sus clases en estado `PROGRAMADA` | 401 |
 | GET | `/clases/:id/qr` | instructor de esa clase | `200 {token, expiraEn, servidorAhora, duracionSegundos}` | 403 `SIN_PERMISO` (clase ajena), 404, 409 `CLASE_CANCELADA` |

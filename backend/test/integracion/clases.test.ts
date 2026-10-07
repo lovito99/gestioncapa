@@ -136,7 +136,7 @@ describe("Característica: Programar clase presencial", () => {
     assert.equal(cruce.json().code, "CONFLICTO_HORARIO");
     assert.equal(cruce.json().details.claseId, existente.id);
     assert.match(cruce.json().message, /PRG Existente/);
-    assert.match(cruce.json().message, /10:00 a 11:00/);
+    assert.match(cruce.json().message, /el lunes 10 de marzo de 10:00 a 11:00/);
 
     await crear({ horaInicio: "11:00", horaFin: "12:00" });
 
