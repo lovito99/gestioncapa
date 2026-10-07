@@ -12,5 +12,5 @@ recargar reinicia los datos demo.
 | CLA-04 | Detalle de clase / inscribir cuenta inexistente, duplicada y nueva | Mensajes claros; inscritos aumentan solo en la inscripción válida |
 | CLA-05 | Clase con asistencia y otra sin inscritos / abrir asistencia | Participantes y estados; pantalla vacía con enlace a inscripción |
 
-Pruebas: `e2e/prb/demo/clases.spec.ts`. Aplicar las mismas reglas al backend es un
-trabajo posterior descrito en `docs/API.md`.
+Pruebas: `e2e/prb/demo/clases.spec.ts`. Las mismas reglas ya existen en el
+backend: ver [HU-04 programar clase](programar.md) (PRG-01…10).
