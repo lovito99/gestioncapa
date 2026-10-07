@@ -9,7 +9,7 @@ try {
   // "wx" falla si el archivo existe: nunca se sobrescribe un .env local.
   const contenido = generarEnv(await readFile(plantilla, "utf8"));
   await writeFile(destino, contenido, { flag: "wx" });
-  console.log("Se creó backend/.env con JWT_SECRET y ADMIN_PASSWORD aleatorios.");
+  console.log("Se creó backend/.env con JWT_SECRET, QR_SECRET y ADMIN_PASSWORD aleatorios.");
   console.log(`Administrador: ${parse(contenido).ADMIN_EMAIL} / ${parse(contenido).ADMIN_PASSWORD}`);
 } catch (error) {
   if ((error as NodeJS.ErrnoException).code === "EEXIST") {

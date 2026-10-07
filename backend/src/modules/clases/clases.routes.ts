@@ -10,11 +10,14 @@ import {
   inscribir,
   insertarClase,
   listarClases,
+  listarClasesDeInstructor,
   listarInscritos,
   listarInstructores,
   obtenerClase,
   type Clase
 } from "./clases.repositorio.js";
+import { env } from "../../config/env.js";
+import { DURACION_QR_SEGUNDOS, emitirTokenQr, reloj } from "../qr/qr.token.js";
 import { validarClase, type DatosClase } from "./clases.validacion.js";
 
 // El acceso por rol de cada ruta lo aplica la matriz de backend/src/plugins/permisos.ts.
@@ -207,7 +210,9 @@ export async function clasesRoutes(app: FastifyInstance) {
     return reply.code(201).send(participante);
   });
 
-  // La generación del QR rotativo es otra historia: aquí solo se valida la clase.
+  app.get("/api/instructor/clases", async (request) => listarClasesDeInstructor(request.usuario!.id));
+
+  // QR rotativo (HU-07): solo el instructor asignado y solo para clases programadas.
   app.get("/api/clases/:id/qr", async (request: ConId, reply) => {
     const id = leerId(request);
     const clase = id ? await obtenerClase(id) : null;
@@ -218,6 +223,15 @@ export async function clasesRoutes(app: FastifyInstance) {
     }
     if (clase.estado === "CANCELADA") return claseCancelada(reply);
 
-    return enviarError(reply, 501, "NO_IMPLEMENTADO", "Esta función aún no está disponible en el servidor.");
+    const ahora = reloj.ahora();
+    const { token, expiraEnMs } = emitirTokenQr(clase.id, ahora, env.QR_SECRET);
+
+    // servidorAhora permite a la pantalla corregir la diferencia con su reloj.
+    return reply.header("Cache-Control", "no-store").send({
+      token,
+      expiraEn: new Date(expiraEnMs).toISOString(),
+      servidorAhora: new Date(ahora).toISOString(),
+      duracionSegundos: DURACION_QR_SEGUNDOS
+    });
   });
 }

@@ -15,6 +15,7 @@ describe("Característica: Configuración validada al arrancar", () => {
 
     assert.equal(valores.JWT_SECRET, "aleatorio1".padEnd(40, "x"));
     assert.equal(valores.ADMIN_PASSWORD, "aleatorio2".padEnd(40, "x"));
+    assert.equal(valores.QR_SECRET, "aleatorio3".padEnd(40, "x"));
     assert.doesNotMatch(generado, /cambia/i);
   });
 

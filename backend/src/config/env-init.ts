@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-const VARIABLES_GENERADAS = ["JWT_SECRET", "ADMIN_PASSWORD"] as const;
+const VARIABLES_GENERADAS = ["JWT_SECRET", "ADMIN_PASSWORD", "QR_SECRET"] as const;
 
 const aleatorioPorDefecto = () => randomBytes(24).toString("base64url");
 

@@ -61,6 +61,15 @@ export async function listarClases() {
   return resultado.rows.map(aClase);
 }
 
+/** Clases programadas del instructor, para su pantalla «Mis clases». */
+export async function listarClasesDeInstructor(instructorId: number) {
+  const resultado = await pool.query<FilaClase>(
+    `${SELECT_CLASE} where c.instructor_id = $1 and c.estado = 'PROGRAMADA' order by c.fecha, c.hora_inicio, c.id`,
+    [instructorId]
+  );
+  return resultado.rows.map(aClase);
+}
+
 export async function obtenerClase(id: number, consultor: Consultor = pool) {
   const resultado = await consultor.query<FilaClase>(`${SELECT_CLASE} where c.id = $1`, [id]);
   const fila = resultado.rows[0];
