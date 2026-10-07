@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import { env } from "./config/env.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
+import { asistenciaRoutes } from "./modules/asistencia/asistencia.routes.js";
 import { clasesRoutes } from "./modules/clases/clases.routes.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { rutasPendientes } from "./modules/pendientes/pendientes.routes.js";
@@ -28,6 +29,7 @@ export async function buildApp() {
   await app.register(healthRoutes);
   await app.register(authRoutes);
   await app.register(clasesRoutes);
+  await app.register(asistenciaRoutes);
   // Al final: solo agrega las rutas del contrato que aún no existen (501).
   await app.register(rutasPendientes);
 
