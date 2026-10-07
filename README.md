@@ -1,12 +1,31 @@
 # GestionCapa
 
-Proyecto en modo desarrollo/test con backend TypeScript en Node 24, frontend Vite/React en TypeScript, autenticacion JWT, Postgres y Redis levantados con Docker directo.
+Proyecto en modo desarrollo/test con backend TypeScript en Node 24, frontend Vite/React en TypeScript, autenticacion JWT, Postgres y Redis levantados con Docker Compose.
+
+## Entrar rápidamente y ejecutar E2E
+
+Desde la raíz, `npm run dev:demo` abre la aplicación con datos demo en
+`http://localhost:5173/login`, sin requerir Postgres ni Redis. Si aún no instalaste
+las dependencias, ejecuta `npm install --include=dev --include=optional` primero.
+Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
+
+- [Rutas, cuentas y acceso demo o real](docs/rutas.md).
+- [Playwright, carpetas y comandos E2E](docs/e2e.md).
+- [Especificaciones de entrada](docs/esp/entrada.md), [clases](docs/esp/clases.md),
+  [asistencia](docs/esp/asist.md) y [calidad y entorno](docs/esp/calidad.md).
+- [Calidad antes de integrar](docs/calidad.md).
+
+```bash
+npm run e2e:inst
+npm run e2e
+npm run e2e:real # requiere Postgres y Redis; usa gestioncapa_e2e
+```
 
 ## Requisitos
 
 - Node.js 24.x
 - npm 11.x
-- Docker activo
+- Docker activo con Compose v2 (`docker compose version`)
 
 ## Estructura
 
@@ -31,6 +50,13 @@ frontend/
     paginas/
     servicios/
     types/
+e2e/
+  ayud/
+  prb/
+    demo/
+    real/
+docs/
+  esp/
 ```
 
 ## Git y archivos ignorados
@@ -54,142 +80,93 @@ coverage/
 
 Los archivos `.env.example` si se suben porque son plantillas sin secretos reales. Los `.env` locales no se suben.
 
-## Credenciales recordadas para desarrollo/test
+## Instalación local (integrante nuevo)
 
-Estas credenciales son solo para entorno local de desarrollo/test. No usarlas en produccion.
-
-Postgres:
-
-```env
-TZ=America/Lima
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=gestiondecapacitacion
-DB_USER=gestiondecapacitacion
-DB_PASSWORD=gestiondecapacitacion
-DB_TIMEZONE=America/Lima
-```
-
-Redis:
-
-```env
-REDIS_URL=redis://:gestiondecapacitacion@localhost:6379
-REDIS_PASSWORD=gestiondecapacitacion
-TZ=America/Lima
-```
-
-Administrador inicial:
-
-```env
-ADMIN_NAME=Administrador
-ADMIN_EMAIL=admin@gestioncapa.local
-ADMIN_PASSWORD=CambiaEstaClave123!
-```
-
-JWT:
-
-```env
-JWT_SECRET=cambia_este_secreto_jwt_de_32_caracteres_minimo
-JWT_EXPIRES_IN=1d
-```
-
-En produccion cambiaremos `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `REDIS_URL`, `JWT_SECRET` y `ADMIN_PASSWORD` por valores privados y fuertes.
-
-## Instalacion local completa
-
-1. Instalar dependencias:
+Requiere Node 24, npm 11 y Docker con Compose. Desde la raíz del repositorio:
 
 ```bash
-npm install
-```
-
-2. Crear variables de entorno:
-
-```bash
-cp backend/.env.example backend/.env
+git clone https://github.com/lovito99/gestioncapa.git
+cd gestioncapa
+npm install --include=dev --include=optional
+docker compose up -d --wait     # PostgreSQL 17 y Redis 8, espera a que estén sanos
+npm run env:init                # crea backend/.env con secretos aleatorios
 cp frontend/.env.example frontend/.env
-```
-
-El backend queda con zona horaria `America/Lima` para Node y para la conexion a Postgres.
-
-3. Crear Postgres directo con Docker:
-
-```bash
-docker volume create gestioncapa_postgres_data
-docker run --name gestioncapa-postgres -e TZ="America/Lima" -e POSTGRES_DB=gestiondecapacitacion -e POSTGRES_USER=gestiondecapacitacion -e POSTGRES_PASSWORD=gestiondecapacitacion -p 5432:5432 -d --restart=always -v gestioncapa_postgres_data:/var/lib/postgresql/data postgres:17
-```
-
-4. Crear Redis directo con Docker:
-
-```bash
-docker volume create gestioncapa_redis_data
-docker run --name gestioncapa-redis -e TZ="America/Lima" -p 6379:6379 -d --restart=always -v gestioncapa_redis_data:/data redis:8 redis-server --appendonly yes --requirepass "gestiondecapacitacion"
-```
-
-5. Validar Postgres y Redis:
-
-```bash
-docker ps
-docker exec -it gestioncapa-postgres psql -U gestiondecapacitacion -d gestiondecapacitacion -c "select 1;"
-docker exec -it gestioncapa-redis redis-cli -a gestiondecapacitacion ping
-```
-
-Redis debe responder:
-
-```text
-PONG
-```
-
-6. Crear tablas y datos iniciales:
-
-```bash
 npm run migrate
-npm run seed
-```
-
-`npm run migrate` crea las tablas necesarias si faltan. `npm run seed` crea el usuario administrador inicial si no existe.
-
-7. Iniciar backend y frontend:
-
-```bash
+npm run seed                    # administrador + un usuario por rol
 npm run dev
 ```
 
-Backend: `http://localhost:8080`
+- Frontend: `http://localhost:5173` · Backend: `http://localhost:8080` · Salud: `http://localhost:8080/api/health`
+- `npm run env:init` muestra la clave del administrador generada. No sobrescribe un
+  `backend/.env` existente.
+- Para usar el backend real en la UI, pon `VITE_USE_MOCKS=false` en `frontend/.env`.
 
-Frontend: `http://localhost:5173`
+Usuarios que crea `npm run seed` (fuera de producción):
 
-Health API: `http://localhost:8080/api/health`
+| Rol | Correo | Contraseña |
+|---|---|---|
+| Administrador | `ADMIN_EMAIL` de `backend/.env` | `ADMIN_PASSWORD` de `backend/.env` |
+| Coordinador | `ana.torres@organizacion.pe` | `demo123` |
+| Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
+| Participante | `maria.quispe@demo.pe` | `demo123` |
+| Participante | `luz.apaza@demo.pe` | `demo123` |
 
-## Si los contenedores ya existen
+Con `NODE_ENV=production` el seed solo crea el administrador. El seed es idempotente:
+no duplica usuarios ni cambia la clave de los que ya existen.
 
-```bash
-docker start gestioncapa-postgres
-docker start gestioncapa-redis
+### Variables de entorno
+
+El backend valida `backend/.env` **antes** de abrir el puerto. Si falta una
+variable requerida o conserva un marcador `CAMBIA_...` de `.env.example`, termina
+con un mensaje como este:
+
+```text
+Configuración inválida: el servidor no arrancará hasta corregir estas variables de backend/.env:
+  - JWT_SECRET: tiene el valor de ejemplo; reemplázalo por uno propio
+  - ADMIN_PASSWORD: falta
+Copia los nombres de backend/.env.example o genera un .env local con: npm run env:init
 ```
 
-Para reiniciar:
+Requeridas: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `REDIS_URL`,
+`JWT_SECRET` (32+ caracteres), `ADMIN_EMAIL` y `ADMIN_PASSWORD` (12+ caracteres).
+Si ya tenías un `backend/.env` antiguo, reemplaza `JWT_SECRET` y `ADMIN_PASSWORD`
+(por ejemplo con `openssl rand -base64 32`) o bórralo y ejecuta `npm run env:init`.
+
+Credenciales locales de los servicios (solo desarrollo/test, ya incluidas en
+`docker-compose.yml` y `.env.example`): Postgres `gestiondecapacitacion` /
+`gestiondecapacitacion` en `localhost:5432`, Redis con clave `gestiondecapacitacion`
+en `localhost:6379`. Si esos puertos están ocupados: `POSTGRES_PORT=55432 REDIS_PORT=56379 docker compose up -d --wait`
+y ajusta `DB_PORT` y `REDIS_URL`.
+
+### Servicios Docker
 
 ```bash
-docker restart gestioncapa-postgres
-docker restart gestioncapa-redis
+docker compose ps                 # estado
+docker compose stop               # detener sin borrar datos
+docker compose up -d --wait       # volver a levantar
+docker compose down               # borrar contenedores, conserva datos
+docker compose down -v            # borrar contenedores y datos de desarrollo
+docker exec -it gestioncapa-postgres psql -U gestiondecapacitacion -d gestiondecapacitacion
+docker exec -it gestioncapa-redis redis-cli -a gestiondecapacitacion ping
 ```
 
-Para borrar contenedores sin borrar datos:
+Si antes creaste los contenedores con `docker run`, elimínalos una vez y pasa a
+Compose; los datos se conservan porque usa los mismos volúmenes:
 
 ```bash
-docker rm -f gestioncapa-postgres
-docker rm -f gestioncapa-redis
+docker rm -f gestioncapa-postgres gestioncapa-redis
+docker compose up -d --wait
 ```
 
-Para borrar contenedores y datos de desarrollo/test:
+### Calidad antes de un Pull Request
 
 ```bash
-docker rm -f gestioncapa-postgres
-docker rm -f gestioncapa-redis
-docker volume rm gestioncapa_postgres_data
-docker volume rm gestioncapa_redis_data
+npm run verificar          # typecheck + build + pruebas unitarias
+npm run test:integracion   # seed y login de cada rol (requiere docker compose)
 ```
+
+GitHub Actions repite ambos en cada Pull Request, y la integración a `main` requiere
+la aprobación de otro integrante. Detalles en [docs/calidad.md](docs/calidad.md).
 
 ## Flujo de la aplicacion
 
@@ -234,10 +211,14 @@ Para usar el backend real, poner `VITE_USE_MOCKS=false`. En desarrollo Vite redi
 
 ```bash
 npm run dev
+npm run env:init
 npm run migrate
 npm run seed
 npm run typecheck
 npm run build
+npm test
+npm run verificar
+npm run test:integracion
 npm run start
 ```
 
@@ -465,7 +446,7 @@ Cache:
 
 Infraestructura local/test:
 
-- Docker directo con `docker run`
+- Docker Compose (`docker-compose.yml`)
 - Volumen Postgres: `gestioncapa_postgres_data`
 - Volumen Redis: `gestioncapa_redis_data`
 

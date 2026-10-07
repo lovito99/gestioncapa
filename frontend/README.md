@@ -4,16 +4,18 @@ Interfaz web de GestionCapa, construida a partir del diseño de Figma (página �
 
 ## Cómo ejecutarlo
 
-Requisitos: Node.js 20 o superior.
+Requisitos: Node.js 24 y npm 11. Ejecuta los comandos desde la raíz del monorepo.
 
 ```bash
-npm install
-cp .env.example .env   # en Windows: copy .env.example .env
-npm run dev            # abre http://localhost:5173
+npm install --include=dev --include=optional
+npm run dev:demo        # abre http://localhost:5173/login sin backend
 ```
 
 Mientras el backend no esté listo, **MSW** responde las llamadas a la API con datos de prueba
 (`VITE_USE_MOCKS=true`). Los datos viven en memoria y se reinician al recargar la página.
+
+Las [rutas y el acceso real](../docs/rutas.md) y las
+[pruebas E2E con Playwright](../docs/e2e.md) se documentan desde la raíz.
 
 ### Usuarios de prueba
 
@@ -44,6 +46,9 @@ Mientras el backend no esté listo, **MSW** responde las llamadas a la API con d
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` | Revisa tipos y genera `dist/` |
 | `npm run lint` | Revisa el código con oxlint |
+
+Los comandos de esta tabla se ejecutan dentro de `frontend/` o con `-w frontend`
+desde la raíz. Para E2E, ejecuta `npm run e2e` desde la raíz.
 
 ## Tecnologías
 

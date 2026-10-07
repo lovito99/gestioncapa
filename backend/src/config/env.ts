@@ -1,56 +1,20 @@
 import { config } from "dotenv";
-import { z } from "zod";
+import { EnvError, parseEnv } from "./env.schema.js";
 
-config();
+config({ quiet: true });
 
-const booleanFromEnv = z.preprocess((value) => {
-  if (typeof value !== "string") {
-    return value;
+function loadEnv() {
+  try {
+    return parseEnv(process.env);
+  } catch (error) {
+    if (error instanceof EnvError) {
+      // Se detiene al importar la configuración, antes de abrir conexiones o el puerto.
+      console.error(error.message);
+      process.exit(1);
+    }
+
+    throw error;
   }
+}
 
-  const normalized = value.trim().toLowerCase();
-
-  if (["true", "1", "yes", "y"].includes(normalized)) {
-    return true;
-  }
-
-  if (["false", "0", "no", "n", ""].includes(normalized)) {
-    return false;
-  }
-
-  return value;
-}, z.boolean());
-
-const envSchema = z.object({
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
-  TZ: z.string().default("America/Lima"),
-  PORT: z.coerce.number().int().positive().default(8080),
-  HOST: z.string().default("0.0.0.0"),
-  FRONTEND_URL: z.string().url().default("http://localhost:5173"),
-  LOG_LEVEL: z
-    .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
-    .default("info"),
-  DB_HOST: z.string().default("localhost"),
-  DB_PORT: z.coerce.number().int().positive().default(5432),
-  DB_NAME: z.string().default("gestiondecapacitacion"),
-  DB_USER: z.string().default("gestiondecapacitacion"),
-  DB_PASSWORD: z.string().min(1).default("gestiondecapacitacion"),
-  DB_SSL: booleanFromEnv.default(false),
-  DB_TIMEZONE: z.string().default("America/Lima"),
-  REDIS_URL: z
-    .string()
-    .url()
-    .default("redis://:gestiondecapacitacion@localhost:6379"),
-  JWT_SECRET: z
-    .string()
-    .min(32, "JWT_SECRET debe tener al menos 32 caracteres")
-    .default("cambia_este_secreto_jwt_de_32_caracteres_minimo"),
-  JWT_EXPIRES_IN: z.string().default("1d"),
-  ADMIN_NAME: z.string().default("Administrador"),
-  ADMIN_EMAIL: z.string().email().default("admin@gestioncapa.local"),
-  ADMIN_PASSWORD: z.string().min(12).default("CambiaEstaClave123!")
-});
-
-export const env = envSchema.parse(process.env);
+export const env = loadEnv();

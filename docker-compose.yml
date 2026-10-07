@@ -1,0 +1,47 @@
+# Servicios locales de desarrollo/test. Credenciales solo para uso local.
+# Uso: docker compose up -d --wait
+name: gestioncapa
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: gestioncapa-postgres
+    restart: unless-stopped
+    environment:
+      TZ: America/Lima
+      POSTGRES_DB: gestiondecapacitacion
+      POSTGRES_USER: gestiondecapacitacion
+      POSTGRES_PASSWORD: gestiondecapacitacion
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gestiondecapacitacion -d gestiondecapacitacion"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:8
+    container_name: gestioncapa-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "gestiondecapacitacion"]
+    environment:
+      TZ: America/Lima
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "gestiondecapacitacion", "--no-auth-warning", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+# Mismos nombres que la instalación anterior con `docker run`: se conservan los datos.
+volumes:
+  postgres_data:
+    name: gestioncapa_postgres_data
+  redis_data:
+    name: gestioncapa_redis_data
