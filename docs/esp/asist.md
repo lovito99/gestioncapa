@@ -14,6 +14,6 @@ segundos reales ni depender de cuándo empezó la ejecución.
 | ASI-05 | Participante no inscrita / abrir QR válido | Mensaje de falta de inscripción sin sugerir reintento |
 | ASI-06 | Enlace sin token / abrirlo con sesión | Explicación para obtener el QR del instructor |
 
-Pruebas: `e2e/prb/demo/asist.spec.ts`. La lectura física con cámara, la firma del
-servidor y la persistencia real de asistencia quedan fuera de esta suite; el backend
-actual todavía no ofrece las rutas necesarias.
+Pruebas: `e2e/prb/demo/asist.spec.ts`. La lectura física con cámara queda fuera de
+esta suite. La firma del servidor y la persistencia real de la asistencia se prueban
+contra el backend en [asistencia](asistencia.md) (MAR, LIS, PAR y VIN-01).

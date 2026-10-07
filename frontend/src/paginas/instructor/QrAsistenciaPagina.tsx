@@ -37,12 +37,12 @@ export function QrAsistenciaPagina() {
   return (
     <div className="min-h-dvh bg-page">
       <header className="border-b border-line-2/40 bg-white">
-        <div className="mx-auto grid h-16 max-w-[1280px] grid-cols-3 items-center px-4 sm:px-6">
+        <div className="mx-auto grid h-16 max-w-7xl grid-cols-3 items-center px-4 sm:px-6">
           <Link
             to="/instructor/clases"
             className="flex items-center gap-1 justify-self-start text-[13px] font-medium text-muted-3 hover:text-ink"
           >
-            <ArrowLeft className="size-[13px]" aria-hidden />
+            <ArrowLeft className="size-3.25" aria-hidden />
             Mis clases
           </Link>
           <div className="flex items-center gap-2 justify-self-center">
@@ -55,7 +55,7 @@ export function QrAsistenciaPagina() {
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-[896px] flex-col items-center px-4 py-10 sm:px-6 sm:py-16">
+      <main className="mx-auto flex max-w-4xl flex-col items-center px-4 py-10 sm:px-6 sm:py-16">
         {clase.isPending ? (
           <Cargando />
         ) : clase.isError ? (
@@ -84,9 +84,9 @@ export function QrAsistenciaPagina() {
 
             <section
               aria-label="Código QR de asistencia"
-              className="mt-8 flex w-full max-w-[460px] flex-col items-center rounded-xl bg-white px-6 py-8 shadow-[0_1px_1px_rgba(0,0,0,0.05)] sm:px-[50px]"
+              className="mt-8 flex w-full max-w-115 flex-col items-center rounded-xl bg-white px-6 py-8 shadow-[0_1px_1px_rgba(0,0,0,0.05)] sm:px-12.5"
             >
-              <div className="w-full max-w-[360px] rounded-lg bg-white p-2">
+              <div className="w-full max-w-90 rounded-lg bg-white p-2">
                 {qr.isError ? (
                   <ErrorCarga mensaje={mensajeDeError(qr.error, 'No pudimos generar el código QR.')} onReintentar={qr.refetch} />
                 ) : qr.data ? (
@@ -104,7 +104,7 @@ export function QrAsistenciaPagina() {
               </div>
 
               <div
-                className="mt-6 h-2 w-full max-w-[360px] overflow-hidden rounded-full bg-line-lavender"
+                className="mt-6 h-2 w-full max-w-90 overflow-hidden rounded-full bg-line-lavender"
                 role="progressbar"
                 aria-label="Tiempo restante del código"
                 aria-valuemin={0}
@@ -117,7 +117,7 @@ export function QrAsistenciaPagina() {
                 />
               </div>
               <p className="mt-4 flex items-center gap-1 text-[13px] font-medium text-muted-2" aria-live="off">
-                <Timer className="size-[15px] text-brand-ink" aria-hidden />
+                <Timer className="size-3.75 text-brand-ink" aria-hidden />
                 El código se renueva en{' '}
                 <span className="text-base font-semibold tracking-[-0.08px] text-brand-ink">
                   {Math.ceil(restantes)}

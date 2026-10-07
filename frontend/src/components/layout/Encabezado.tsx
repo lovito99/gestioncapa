@@ -20,7 +20,7 @@ export function BotonCerrarSesion({ className }: { className?: string }) {
         className,
       )}
     >
-      <LogOut className="size-[15px]" aria-hidden />
+      <LogOut className="size-3.75" aria-hidden />
       Cerrar sesión
     </button>
   )
@@ -34,7 +34,7 @@ export function Encabezado() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-line-2 bg-white px-4 sm:px-10">
-      <div className="mx-auto flex h-16 max-w-[1200px] items-center justify-between gap-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-300 items-center justify-between gap-4 sm:px-6">
         <Link to={inicioPorRol(usuario)} className="flex items-center gap-2 rounded-lg">
           {esCoordinador ? <LogoRecuadro /> : <LogoPlano />}
           <span

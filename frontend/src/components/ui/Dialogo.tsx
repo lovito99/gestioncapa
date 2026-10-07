@@ -41,11 +41,11 @@ export function Dialogo({ abierto, onCerrar, titulo, icono, children, acciones }
         role="alertdialog"
         aria-modal="true"
         aria-labelledby={idTitulo}
-        className="flex w-full max-w-[480px] flex-col gap-[18px] rounded-xl bg-white p-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]"
+        className="flex w-full max-w-120 flex-col gap-4.5 rounded-xl bg-white p-6 shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)]"
       >
         <div className="flex items-center gap-3.5">
           {icono}
-          <h2 id={idTitulo} className="text-xl leading-[25px] font-semibold text-ink">
+          <h2 id={idTitulo} className="text-xl leading-6.25 font-semibold text-ink">
             {titulo}
           </h2>
         </div>

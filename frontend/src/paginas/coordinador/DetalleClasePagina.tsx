@@ -103,7 +103,7 @@ export function DetalleClasePagina() {
         <section className="flex flex-col gap-3.5 rounded-xl border border-line bg-white px-6 pt-7 pb-6">
           <h2 className="text-base leading-6 font-semibold tracking-[-0.08px] text-ink">Inscribir participante</h2>
           <form onSubmit={enviar} noValidate className="flex flex-wrap items-start gap-3">
-            <div className="w-full sm:w-[400px]">
+            <div className="w-full sm:w-100">
               <label htmlFor="email-participante" className="sr-only">
                 Correo del participante
               </label>
@@ -156,7 +156,7 @@ export function DetalleClasePagina() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px]">
+              <table className="w-full min-w-140">
                 <thead className="border-b border-line-soft bg-surface-3">
                   <tr>
                     <th className={cn(th, "w-[54%]")}>Nombre</th>
@@ -183,7 +183,7 @@ export function DetalleClasePagina() {
 function Contenedor({ children }: { children: ReactNode }) {
   return (
     <div className="bg-surface-2 px-4 pt-8 pb-12 sm:px-10">
-      <div className="mx-auto flex max-w-[1200px] flex-col gap-4 sm:px-8">{children}</div>
+      <div className="mx-auto flex max-w-300 flex-col gap-4 sm:px-8">{children}</div>
     </div>
   )
 }

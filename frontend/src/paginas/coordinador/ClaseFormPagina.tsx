@@ -74,7 +74,7 @@ export function ClaseFormPagina() {
 function Contenedor({ children }: { children: ReactNode }) {
   return (
     <div className="px-4 pt-8 pb-16 sm:px-6">
-      <div className="mx-auto flex max-w-[640px] flex-col gap-6">{children}</div>
+      <div className="mx-auto flex max-w-160 flex-col gap-6">{children}</div>
     </div>
   )
 }
@@ -208,7 +208,7 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: 
           <Entrada placeholder="Ej.: Auditorio principal, piso 2" estado={estado('lugar')} {...register('lugar')} />
         </Campo>
 
-        <div className="mt-6 flex justify-end gap-3 border-t border-[#dae2fd] pt-[21px]">
+        <div className="mt-6 flex justify-end gap-3 border-t border-[#dae2fd] pt-5.25">
           <Boton variante="secundario" onClick={() => navegar('/coordinador/clases')}>
             Volver
           </Boton>

@@ -16,7 +16,7 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
   [acceso por rol y sesión](docs/esp/roles.md), [autorización en el servidor](docs/esp/permisos.md),
   [programar clase](docs/esp/programar.md), [evitar solapamiento](docs/esp/solapamiento.md),
   [inscribir participante](docs/esp/inscripcion.md), [base de datos](docs/esp/base-datos.md)
-  y [QR rotativo](docs/esp/qr.md).
+  [QR rotativo](docs/esp/qr.md) y [registrar y consultar asistencia](docs/esp/asistencia.md).
 - [Calidad antes de integrar](docs/calidad.md).
 
 ```bash
@@ -103,7 +103,8 @@ npm run dev
 - Frontend: `http://localhost:5173` · Backend: `http://localhost:8080` · Salud: `http://localhost:8080/api/health`
 - `npm run env:init` muestra la clave del administrador generada. No sobrescribe un
   `backend/.env` existente.
-- Para usar el backend real en la UI, pon `VITE_USE_MOCKS=false` en `frontend/.env`.
+- Para usar el backend real en la UI, pon `VITE_USE_MOCKS=false` en `frontend/.env`: todas
+  las pantallas (coordinador, instructor, participante y admin) funcionan contra la API real.
 
 Usuarios que crea `npm run seed` (fuera de producción):
 

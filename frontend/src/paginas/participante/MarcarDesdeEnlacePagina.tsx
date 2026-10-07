@@ -25,7 +25,7 @@ export function MarcarDesdeEnlacePagina() {
 
   return (
     <div className="px-4 py-6">
-      <div className="mx-auto flex w-full max-w-[480px] flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-120 flex-col gap-4">
         {!token ? (
           <Alerta tipo="error" titulo="Falta el código QR">
             Este enlace no tiene un código de asistencia. Escanea el QR que muestra tu instructor.
