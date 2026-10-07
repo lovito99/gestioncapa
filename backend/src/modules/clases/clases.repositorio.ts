@@ -180,3 +180,14 @@ export async function inscribir(claseId: number, participanteId: string) {
   );
   return resultado.rowCount === 1;
 }
+
+/** Inscripción existente; `inscritoEn` en ISO 8601 con la hora de Lima (UTC−5, sin horario de verano). */
+export async function buscarInscripcion(claseId: number, participanteId: string) {
+  const resultado = await pool.query<{ inscrito_en: string }>(
+    `select to_char(created_at at time zone 'America/Lima', 'YYYY-MM-DD"T"HH24:MI:SS"-05:00"') as inscrito_en
+     from inscripciones
+     where clase_id = $1 and participante_id = $2`,
+    [claseId, participanteId]
+  );
+  return resultado.rows[0]?.inscrito_en ?? null;
+}
