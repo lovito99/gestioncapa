@@ -8,7 +8,7 @@ import { cn } from '@/lib/cn'
 import { fechaCorta, horaRegistro, rangoHorario } from '@/lib/formato'
 import { useAsistencia, useClase } from '@/servicios/clases'
 
-const th = 'px-6 py-3 text-left text-[11px] leading-[14px] font-semibold tracking-[0.55px] text-muted-3 uppercase'
+const th = 'px-6 py-3 text-left text-[11px] leading-3.5 font-semibold tracking-[0.55px] text-muted-3 uppercase'
 
 function Metrica({
   titulo,
@@ -51,14 +51,14 @@ export function AsistenciaPagina() {
     contenido = <ErrorCarga mensaje="No pudimos cargar la asistencia." onReintentar={asistencia.refetch} />
   } else if (asistencia.data.registros.length === 0) {
     contenido = (
-      <div className="flex flex-col items-center rounded-xl border border-line bg-white px-6 pt-[72px] pb-12 text-center shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
+      <div className="flex flex-col items-center rounded-xl border border-line bg-white px-6 pt-18 pb-12 text-center shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
         <span className="flex size-16 items-center justify-center rounded-full bg-surface-3">
           <Users className="size-8 text-muted-2" aria-hidden />
         </span>
         <h2 className="mt-4 text-base leading-5 font-semibold text-ink">
           Esta clase aún no tiene participantes inscritos
         </h2>
-        <p className="mt-2 max-w-[400px] text-sm leading-5 text-muted">
+        <p className="mt-2 max-w-100 text-sm leading-5 text-muted">
           Inscribe participantes desde el detalle de la clase para poder registrar su asistencia.
         </p>
         <Link
@@ -74,7 +74,7 @@ export function AsistenciaPagina() {
       <>
         <div className="overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px]">
+            <table className="w-full min-w-180">
               <thead className="bg-surface-lavender">
                 <tr>
                   <th className={th}>Participante</th>
@@ -113,7 +113,7 @@ export function AsistenciaPagina() {
 
   return (
     <div className="px-4 sm:px-10">
-      <div className="mx-auto max-w-[1200px] pt-8 pb-16 sm:px-6">
+      <div className="mx-auto max-w-300 pt-8 pb-16 sm:px-6">
         <EnlaceVolver to={`/coordinador/clases/${id}`}>Volver al detalle de la clase</EnlaceVolver>
 
         <header className="flex flex-wrap items-end justify-between gap-4 py-6">

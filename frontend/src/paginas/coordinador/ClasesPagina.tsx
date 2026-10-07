@@ -58,7 +58,7 @@ export function ClasesPagina() {
           <p className="py-12 text-center text-sm text-muted">Aún no hay clases programadas.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px]">
+            <table className="w-full min-w-245">
               <thead className="border-b border-line bg-surface-3">
                 <tr>
                   <th className={th}>Clase</th>
@@ -76,13 +76,13 @@ export function ClasesPagina() {
                   const cancelada = clase.estado === 'CANCELADA'
                   return (
                     <tr key={clase.id}>
-                      <td className={cn(td, 'max-w-[220px]', cancelada ? 'text-muted' : 'font-medium text-ink')}>
+                      <td className={cn(td, 'max-w-55', cancelada ? 'text-muted' : 'font-medium text-ink')}>
                         {clase.nombre}
                       </td>
-                      <td className={cn(td, 'max-w-[170px]')}>{clase.instructor.nombre}</td>
+                      <td className={cn(td, 'max-w-42.5')}>{clase.instructor.nombre}</td>
                       <td className={cn(td, 'w-24')}>{fechaCorta(clase.fecha)}</td>
                       <td className={cn(td, 'w-28')}>{rangoHorario(clase.horaInicio, clase.horaFin)}</td>
-                      <td className={cn(td, 'max-w-[190px]')}>{clase.lugar}</td>
+                      <td className={cn(td, 'max-w-47.5')}>{clase.lugar}</td>
                       <td className={cn(td, !cancelada && 'font-medium text-ink')}>{clase.inscritos}</td>
                       <td className={td}>
                         <EtiquetaEstadoClase estado={clase.estado} />
@@ -95,7 +95,7 @@ export function ClasesPagina() {
                             aria-label={`Ver detalle de ${clase.nombre}`}
                             title="Ver detalle"
                           >
-                            <Eye className="size-[18px]" aria-hidden />
+                            <Eye className="size-4.5" aria-hidden />
                           </Link>
                           {!cancelada && (
                             <>
@@ -105,7 +105,7 @@ export function ClasesPagina() {
                                 aria-label={`Editar ${clase.nombre}`}
                                 title="Editar"
                               >
-                                <Pencil className="size-[15px]" aria-hidden />
+                                <Pencil className="size-3.75" aria-hidden />
                               </Link>
                               <button
                                 type="button"

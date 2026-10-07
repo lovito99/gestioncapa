@@ -17,7 +17,7 @@ export function AdminPagina() {
 
   return (
     <div className="px-4 py-8 sm:px-10">
-      <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-160 flex-col gap-4">
         <header>
           <h1 className="text-2xl leading-8 font-semibold tracking-[-0.36px] text-ink">Estado del sistema</h1>
           <p className="mt-1 text-sm leading-5 text-muted">Se actualiza cada 15 segundos</p>

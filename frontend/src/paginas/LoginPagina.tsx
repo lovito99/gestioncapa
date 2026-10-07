@@ -22,7 +22,7 @@ const esquema = z.object({
 type Formulario = z.infer<typeof esquema>
 
 const claseEntrada =
-  'h-12 w-full rounded-lg border border-line bg-white px-[15px] text-base text-ink placeholder:text-placeholder outline-none focus-visible:ring-2 focus-visible:ring-brand-light lg:h-10 lg:border-placeholder lg:text-[15px]'
+  'h-12 w-full rounded-lg border border-line bg-white px-3.75 text-base text-ink placeholder:text-placeholder outline-none focus-visible:ring-2 focus-visible:ring-brand-light lg:h-10 lg:border-placeholder lg:text-[15px]'
 
 export function LoginPagina() {
   const { usuario, iniciar } = useAuth()
@@ -77,13 +77,13 @@ export function LoginPagina() {
           <img
             src={ilustracion}
             alt="Ilustración de una capacitación presencial con registro de asistencia por QR"
-            className="aspect-[643/578] w-full max-w-[600px] object-contain [image-rendering:auto]"
+            className="aspect-643/578 w-full max-w-150 object-contain [image-rendering:auto]"
           />
         </div>
 
-        <div className="relative hidden max-w-[512px] lg:block">
+        <div className="relative hidden max-w-lg lg:block">
           <h1 className="text-[32px] leading-10 font-bold tracking-[-0.8px] text-white">Bienvenido</h1>
-          <p className="mt-2 text-base leading-[26px] text-white/90">
+          <p className="mt-2 text-base leading-6.5 text-white/90">
             Gestiona tus capacitaciones y registra asistencia con QR
           </p>
         </div>
@@ -91,8 +91,8 @@ export function LoginPagina() {
 
       {/* Formulario */}
       <main className="flex flex-1 justify-center px-4 pt-8 pb-6 lg:items-center lg:p-16">
-        <div className="w-full max-w-[400px]">
-          <h2 className="text-2xl leading-[30px] font-bold tracking-[-0.6px] text-ink lg:text-[32px] lg:leading-10 lg:tracking-[-0.8px]">
+        <div className="w-full max-w-100">
+          <h2 className="text-2xl leading-7.5 font-bold tracking-[-0.6px] text-ink lg:text-[32px] lg:leading-10 lg:tracking-[-0.8px]">
             Iniciar sesión
           </h2>
           <p className="mt-1.5 text-sm leading-[22.75px] text-placeholder lg:mt-2 lg:text-base lg:leading-6 lg:text-muted">
@@ -101,7 +101,7 @@ export function LoginPagina() {
 
           <form onSubmit={enviar} noValidate className="mt-6 flex flex-col gap-4 lg:mt-8">
             <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm leading-[21px] font-medium text-ink">
+              <label htmlFor="email" className="mb-1.5 block text-sm leading-5.25 font-medium text-ink">
                 Correo electrónico
               </label>
               <input
@@ -122,7 +122,7 @@ export function LoginPagina() {
             </div>
 
             <div className="pb-2">
-              <label htmlFor="password" className="mb-1.5 block text-sm leading-[21px] font-medium text-ink">
+              <label htmlFor="password" className="mb-1.5 block text-sm leading-5.25 font-medium text-ink">
                 Contraseña
               </label>
               <div className="relative">
@@ -156,7 +156,7 @@ export function LoginPagina() {
             {errorServidor && (
               <div
                 role="alert"
-                className="flex items-start gap-2.5 rounded-lg border border-danger bg-danger-soft p-[13px] text-sm leading-[17.5px] font-medium text-danger"
+                className="flex items-start gap-2.5 rounded-lg border border-danger bg-danger-soft p-3.25 text-sm leading-[17.5px] font-medium text-danger"
               >
                 <CircleAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
                 <span>{errorServidor}</span>

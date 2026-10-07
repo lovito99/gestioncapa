@@ -89,7 +89,7 @@ export function EscanearPagina() {
 
   return (
     <div className="px-4 py-6">
-      <div className="mx-auto flex w-full max-w-[480px] flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-120 flex-col gap-4">
         <EnlaceVolver to="/participante/clases">Mis clases</EnlaceVolver>
 
         {marcar.isPending && <Enviando />}
