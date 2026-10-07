@@ -30,6 +30,8 @@ try {
 try {
   await ensureDatabase()
   await sembrarUsuarios()
+  // Solo en gestioncapa_e2e (verificado arriba): cada ejecución empieza sin clases.
+  await pool.query('truncate clases restart identity cascade')
   console.log('Base gestioncapa_e2e lista con un usuario por rol.')
 } finally {
   await pool.end()
