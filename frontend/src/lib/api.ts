@@ -16,9 +16,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (respuesta) => respuesta,
   (error: AxiosError) => {
-    const esLogin = error.config?.url?.includes('/auth/login')
-    if (error.response?.status === 401 && !esLogin) {
-      sesion.cerrar()
+    const url = error.config?.url ?? ''
+    // Un 401 al entrar es un error de credenciales; al salir, la sesión ya se cierra igual.
+    const esAcceso = url.includes('/auth/login') || url.includes('/auth/logout')
+    if (error.response?.status === 401 && !esAcceso) {
+      sesion.expirar()
       window.location.assign('/login')
     }
     return Promise.reject(ApiError.desde(error))

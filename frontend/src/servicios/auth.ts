@@ -1,6 +1,6 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { LoginRespuesta } from '@/types/api'
+import type { LoginRespuesta, Usuario } from '@/types/api'
 
 export interface Credenciales {
   email: string
@@ -22,4 +22,18 @@ export async function cerrarSesionEnServidor() {
   } catch {
     // Si falla igual cerramos la sesión local
   }
+}
+
+/**
+ * Confirma con el servidor que la sesión sigue vigente (token aceptado y usuario
+ * activo). Si responde 401, el interceptor de la API lleva al login.
+ */
+export function useVerificarSesion(activa: boolean) {
+  return useQuery({
+    queryKey: ['auth', 'me'],
+    queryFn: async () => (await api.get<{ usuario: Usuario }>('/auth/me')).data.usuario,
+    enabled: activa,
+    staleTime: Infinity,
+    retry: false,
+  })
 }

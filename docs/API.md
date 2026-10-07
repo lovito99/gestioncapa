@@ -80,7 +80,7 @@ Las pruebas en `frontend/src/mocks/asistencia.test.ts` (`npm test -w frontend`) 
 2. Los demás errores todavía salen en el formato propio de Fastify (`statusCode`, `error`, `message`). Falta normalizarlos al formato del punto 1 de este documento.
 3. `/auth/logout` ya existe y devuelve 204 con un token válido. El cliente elimina su sesión; el backend no revoca JWT emitidos. Faltan todas las rutas de clases, inscritos, asistencia, QR, participante e instructores.
 4. Faltan las tablas: clases, inscripciones y asistencias. El seed ya crea un usuario `COORDINADOR`, uno `INSTRUCTOR` y dos `PARTICIPANTE` fuera de producción (ver [calidad](esp/calidad.md), AMB-02).
-5. Falta el guard de roles (401/403) en todas las rutas.
+5. La autorización por rol está en el servidor (T-04, ver [permisos](esp/permisos.md)): la matriz `backend/src/plugins/permisos.ts` declara el acceso de cada ruta de la tabla anterior y un hook aplica el guard a todas (401 `NO_AUTENTICADO`, 403 `SIN_PERMISO`). Las rutas aún no implementadas ya validan el rol y responden 501 `NO_IMPLEMENTADO`. Una ruta nueva sin entrada en la matriz impide arrancar el servidor. Un usuario con `active = false` recibe 403 `USUARIO_INACTIVO` al entrar y 401 con un token anterior.
 
 La entrada del administrador está cubierta por las [pruebas reales de Playwright](e2e.md).
 

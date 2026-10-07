@@ -167,6 +167,13 @@ export const handlers = [
 
   http.post(`${API}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
 
+  http.get(`${API}/auth/me`, ({ request }) => {
+    const usuario = usuarioDe(request)
+    if (!usuario) return noAutenticado()
+    const { password: _omitida, ...publico } = usuario
+    return HttpResponse.json({ usuario: publico })
+  }),
+
   // ---------- Catálogos ----------
   http.get(`${API}/instructores`, ({ request }) => {
     const { respuesta } = exigirRol(request, 'COORDINADOR')

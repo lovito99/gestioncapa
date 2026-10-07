@@ -12,6 +12,7 @@ export type PublicUser = {
 
 type UserRow = PublicUser & {
   password_hash: string;
+  active: boolean;
 };
 
 export async function ensureAdminUser() {
@@ -47,10 +48,11 @@ export async function sembrarUsuarios() {
   return usuarios;
 }
 
+/** Devuelve el usuario, null si las credenciales no coinciden o "inactivo". */
 export async function validateUser(email: string, password: string) {
   const result = await pool.query<UserRow>(
     `
-      select id, name, email, role, password_hash
+      select id, name, email, role, password_hash, active
       from users
       where email = $1
       limit 1
@@ -70,15 +72,21 @@ export async function validateUser(email: string, password: string) {
     return null;
   }
 
+  // Se informa solo tras validar la contraseña, para no revelar qué cuentas existen.
+  if (!user.active) {
+    return "inactivo" as const;
+  }
+
   return toPublicUser(user);
 }
 
+/** Solo usuarios activos: un usuario desactivado deja de estar autenticado. */
 export async function findUserById(id: number) {
   const result = await pool.query<PublicUser>(
     `
       select id, name, email, role
       from users
-      where id = $1
+      where id = $1 and active
       limit 1
     `,
     [id]

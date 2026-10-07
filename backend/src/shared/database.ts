@@ -22,5 +22,7 @@ export async function ensureDatabase() {
       created_at timestamptz not null default now(),
       updated_at timestamptz not null default now()
     );
+
+    alter table users add column if not exists active boolean not null default true;
   `);
 }

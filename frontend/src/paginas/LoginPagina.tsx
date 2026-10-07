@@ -12,6 +12,7 @@ import { inicioPorRol } from '@/auth/inicioPorRol'
 import { Boton } from '@/components/ui/Boton'
 import { esApiError } from '@/lib/api'
 import { cn } from '@/lib/cn'
+import { sesion } from '@/lib/sesion'
 import { useLogin } from '@/servicios/auth'
 
 const esquema = z.object({
@@ -28,6 +29,8 @@ export function LoginPagina() {
   const ubicacion = useLocation()
   const login = useLogin()
   const [verPassword, setVerPassword] = useState(false)
+  // Se lee una vez: el aviso desaparece al iniciar una sesión nueva.
+  const [sesionExpiro] = useState(() => sesion.expiro())
 
   const {
     register,
@@ -49,7 +52,9 @@ export function LoginPagina() {
     ? esApiError(login.error, 'CREDENCIALES_INVALIDAS')
       ? 'Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo.'
       : login.error.message
-    : null
+    : sesionExpiro
+      ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
+      : null
 
   return (
     <div className="flex min-h-dvh flex-col bg-white lg:flex-row">
