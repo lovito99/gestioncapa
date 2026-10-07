@@ -23,6 +23,8 @@
     "e2e:inf:real": "playwright show-report e2e/inf/real",
     "e2e:tipos": "npm exec -w frontend -- tsc -p ../e2e/tsconfig.json",
     "migrate": "npm run migrate -w backend",
+    "migrate:estado": "npm run migrate:estado -w backend",
+    "migrate:nueva": "npm run migrate:nueva -w backend --",
     "seed": "npm run seed -w backend",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

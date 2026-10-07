@@ -3,7 +3,8 @@ import { after, before, beforeEach, describe, test } from "node:test";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../src/app.js";
 import { sembrarUsuarios } from "../../src/modules/auth/auth.service.js";
-import { ensureDatabase, pool } from "../../src/shared/database.js";
+import { pool } from "../../src/shared/database.js";
+import { migrar } from "../../src/shared/migraciones.js";
 import { redis } from "../../src/shared/redis.js";
 
 // Requiere Postgres y Redis activos (docker compose up -d --wait) y backend/.env.
@@ -35,7 +36,7 @@ async function crear(cambios: object = {}) {
 }
 
 async function contar() {
-  const resultado = await pool.query<{ total: string }>("select count(*) as total from clases where nombre like 'SOL %'");
+  const resultado = await pool.query<{ total: string }>("select count(*) as total from classes where nombre like 'SOL %'");
   return Number(resultado.rows[0]?.total);
 }
 
@@ -43,7 +44,7 @@ let existente: { id: string };
 
 describe("Característica: Evitar solapamiento de instructor", () => {
   before(async () => {
-    await ensureDatabase();
+    await migrar(pool);
     await sembrarUsuarios();
     app = await buildApp();
 
@@ -63,12 +64,12 @@ describe("Característica: Evitar solapamiento de instructor", () => {
 
   // Antecedentes: Carlos tiene una clase el DIA de 10:00 a 11:00.
   beforeEach(async () => {
-    await pool.query("delete from clases where nombre like 'SOL %'");
+    await pool.query("delete from classes where nombre like 'SOL %'");
     existente = await crear({ nombre: "SOL Existente", horaInicio: "10:00", horaFin: "11:00" });
   });
 
   after(async () => {
-    await pool.query("delete from clases where nombre like 'SOL %'");
+    await pool.query("delete from classes where nombre like 'SOL %'");
     await app?.close();
     await pool.end();
     redis.disconnect();
@@ -127,7 +128,7 @@ describe("Característica: Evitar solapamiento de instructor", () => {
 
     assert.equal(cruce.statusCode, 409);
     const actual = await pool.query<{ inicio: string; fin: string }>(
-      "select to_char(hora_inicio, 'HH24:MI') as inicio, to_char(hora_fin, 'HH24:MI') as fin from clases where id = $1",
+      "select to_char(hora_inicio, 'HH24:MI') as inicio, to_char(hora_fin, 'HH24:MI') as fin from classes where id = $1",
       [otra.id]
     );
     assert.deepEqual(actual.rows[0], { inicio: "12:00", fin: "13:00" });
@@ -138,7 +139,7 @@ describe("Característica: Evitar solapamiento de instructor", () => {
   });
 
   test("SOL-07: Dado dos solicitudes simultáneas que se cruzan, entonces exactamente una se acepta", async () => {
-    await pool.query("delete from clases where nombre like 'SOL %'");
+    await pool.query("delete from classes where nombre like 'SOL %'");
     const solicitudes = Array.from({ length: 5 }, (_, indice) =>
       enviar("POST", "/api/clases", clase({ nombre: `SOL Simultánea ${indice}`, horaInicio: "14:00", horaFin: "15:00" }))
     );

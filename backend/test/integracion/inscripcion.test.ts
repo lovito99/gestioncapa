@@ -7,7 +7,8 @@ import { env } from "../../src/config/env.js";
 import { sembrarUsuarios } from "../../src/modules/auth/auth.service.js";
 import { usuariosSeed } from "../../src/modules/auth/usuarios-seed.js";
 import type { Rol } from "../../src/plugins/autorizacion.js";
-import { ensureDatabase, pool } from "../../src/shared/database.js";
+import { pool } from "../../src/shared/database.js";
+import { migrar } from "../../src/shared/migraciones.js";
 import { redis } from "../../src/shared/redis.js";
 
 // Requiere Postgres y Redis activos (docker compose up -d --wait) y backend/.env.
@@ -37,7 +38,7 @@ async function inscritos() {
 
 describe("Característica: Inscribir participante en clase", () => {
   before(async () => {
-    await ensureDatabase();
+    await migrar(pool);
     await sembrarUsuarios();
     await pool.query(
       `insert into users (name, email, password_hash, role, active) values ('Inactivo', $1, $2, 'participante', false)
@@ -60,7 +61,7 @@ describe("Característica: Inscribir participante en clase", () => {
 
   // Antecedentes: una clase activa sin inscritos.
   beforeEach(async () => {
-    await pool.query("delete from clases where nombre like 'INS %'");
+    await pool.query("delete from classes where nombre like 'INS %'");
     const instructor = await pool.query<{ id: string }>("select id::text as id from users where email = 'carlos.mendoza@organizacion.pe'");
     const respuesta = await app.inject({
       method: "POST",
@@ -80,7 +81,7 @@ describe("Característica: Inscribir participante en clase", () => {
   });
 
   after(async () => {
-    await pool.query("delete from clases where nombre like 'INS %'");
+    await pool.query("delete from classes where nombre like 'INS %'");
     await pool.query("delete from users where email = $1", [INACTIVO]);
     await app?.close();
     await pool.end();

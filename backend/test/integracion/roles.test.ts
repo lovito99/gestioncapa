@@ -3,7 +3,8 @@ import { after, before, describe, test } from "node:test";
 import bcrypt from "bcryptjs";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../src/app.js";
-import { ensureDatabase, pool } from "../../src/shared/database.js";
+import { pool } from "../../src/shared/database.js";
+import { migrar } from "../../src/shared/migraciones.js";
 import { redis } from "../../src/shared/redis.js";
 
 // Requiere Postgres y Redis activos (docker compose up -d --wait) y backend/.env.
@@ -26,7 +27,7 @@ const login = (email: string) =>
 
 describe("Característica: Acceso únicamente a las opciones del rol", () => {
   before(async () => {
-    await ensureDatabase();
+    await migrar(pool);
     app = await buildApp();
   });
 
