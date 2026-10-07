@@ -24,6 +24,7 @@ export default defineConfig({
         ADMIN_PASSWORD: cuentaReal.password,
         ADMIN_NAME: 'Administrador E2E',
         JWT_SECRET: 'secreto-local-exclusivo-para-pruebas-e2e',
+        QR_SECRET: 'secreto-qr-local-exclusivo-para-pruebas-e2e',
         LOG_LEVEL: 'warn',
       },
       gracefulShutdown: { signal: 'SIGTERM', timeout: 5_000 },

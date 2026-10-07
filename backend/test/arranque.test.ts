@@ -23,6 +23,7 @@ async function arrancarSin(variable: string) {
     JWT_SECRET: "secreto-propio-de-prueba-con-mas-de-32-caracteres",
     ADMIN_EMAIL: "admin@gestioncapa.local",
     ADMIN_PASSWORD: "ClavePropia123!",
+    QR_SECRET: "secreto-propio-del-qr-con-mas-de-32-caracteres",
     // Puerto improbable: si el servidor llegara a escuchar, la prueba lo detecta en stdout.
     PORT: "18999"
   };

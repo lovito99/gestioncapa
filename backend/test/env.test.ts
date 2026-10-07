@@ -10,7 +10,8 @@ const entornoValido = {
   REDIS_URL: "redis://:gestiondecapacitacion@localhost:6379",
   JWT_SECRET: "secreto-propio-de-prueba-con-mas-de-32-caracteres",
   ADMIN_EMAIL: "admin@gestioncapa.local",
-  ADMIN_PASSWORD: "ClavePropia123!"
+  ADMIN_PASSWORD: "ClavePropia123!",
+  QR_SECRET: "secreto-propio-del-qr-con-mas-de-32-caracteres"
 };
 
 function errorDe(source: Record<string, string | undefined>) {
@@ -43,6 +44,17 @@ describe("Característica: Configuración validada al arrancar", () => {
     const error = errorDe({ ...entornoValido, JWT_SECRET: "CAMBIA_ESTE_SECRETO_JWT_DE_32_CARACTERES_MINIMO" });
 
     assert.match(error.message, /JWT_SECRET: tiene el valor de ejemplo/);
+  });
+
+  test("QR-05: Dado que falta QR_SECRET, cuando se valida, entonces indica que falta", () => {
+    const { QR_SECRET: _omitida, ...source } = entornoValido;
+
+    assert.deepEqual(errorDe(source).problemas, [{ variable: "QR_SECRET", motivo: "falta" }]);
+  });
+
+  test("QR-05: Dado QR_SECRET con el marcador o corto, cuando se valida, entonces lo rechaza", () => {
+    assert.match(errorDe({ ...entornoValido, QR_SECRET: "CAMBIA_ESTE_SECRETO_QR_DE_32_CARACTERES_MINIMO" }).message, /QR_SECRET: tiene el valor de ejemplo/);
+    assert.match(errorDe({ ...entornoValido, QR_SECRET: "corto" }).message, /QR_SECRET: debe tener al menos 32 caracteres/);
   });
 
   test("CFG-03: Dado DB_PASSWORD vacía, cuando se valida, entonces indica que falta", () => {

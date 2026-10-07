@@ -15,7 +15,8 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
   [asistencia](docs/esp/asist.md), [calidad y entorno](docs/esp/calidad.md),
   [acceso por rol y sesión](docs/esp/roles.md), [autorización en el servidor](docs/esp/permisos.md),
   [programar clase](docs/esp/programar.md), [evitar solapamiento](docs/esp/solapamiento.md),
-  [inscribir participante](docs/esp/inscripcion.md) y [base de datos](docs/esp/base-datos.md).
+  [inscribir participante](docs/esp/inscripcion.md), [base de datos](docs/esp/base-datos.md)
+  y [QR rotativo](docs/esp/qr.md).
 - [Calidad antes de integrar](docs/calidad.md).
 
 ```bash
@@ -152,8 +153,9 @@ Copia los nombres de backend/.env.example o genera un .env local con: npm run en
 ```
 
 Requeridas: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `REDIS_URL`,
-`JWT_SECRET` (32+ caracteres), `ADMIN_EMAIL` y `ADMIN_PASSWORD` (12+ caracteres).
-Si ya tenías un `backend/.env` antiguo, reemplaza `JWT_SECRET` y `ADMIN_PASSWORD`
+`JWT_SECRET` y `QR_SECRET` (32+ caracteres cada uno), `ADMIN_EMAIL` y `ADMIN_PASSWORD`
+(12+ caracteres). Si ya tenías un `backend/.env` antiguo, agrega `QR_SECRET` y reemplaza
+`JWT_SECRET` y `ADMIN_PASSWORD`
 (por ejemplo con `openssl rand -base64 32`) o bórralo y ejecuta `npm run env:init`.
 
 Credenciales locales de los servicios (solo desarrollo/test, ya incluidas en
