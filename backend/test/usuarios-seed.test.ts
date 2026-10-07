@@ -24,6 +24,12 @@ describe("Característica: Entorno local reproducible", () => {
     assert.equal(new Set(correos).size, correos.length);
   });
 
+  test("SOL-02: Dado desarrollo, cuando se calculan los usuarios, entonces hay dos instructores", () => {
+    const instructores = usuariosSeed({ ...admin, NODE_ENV: "development" }).filter((u) => u.role === "instructor");
+
+    assert.deepEqual(instructores.map((u) => u.name).sort(), ["Carlos Mendoza Ríos", "Lucía Paredes Quispe"]);
+  });
+
   test("AMB-04: Dado producción, cuando se calculan los usuarios, entonces solo está el administrador", () => {
     const usuarios = usuariosSeed({ ...admin, NODE_ENV: "production" });
 

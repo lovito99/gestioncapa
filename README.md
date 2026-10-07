@@ -13,8 +13,8 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
 - [Playwright, carpetas y comandos E2E](docs/e2e.md).
 - [Especificaciones de entrada](docs/esp/entrada.md), [clases](docs/esp/clases.md),
   [asistencia](docs/esp/asist.md), [calidad y entorno](docs/esp/calidad.md)
-  [acceso por rol y sesión](docs/esp/roles.md) y [autorización en el servidor](docs/esp/permisos.md)
-  y [programar clase](docs/esp/programar.md).
+  [acceso por rol y sesión](docs/esp/roles.md) y [autorización en el servidor](docs/esp/permisos.md),
+  [programar clase](docs/esp/programar.md) y [evitar solapamiento](docs/esp/solapamiento.md).
 - [Calidad antes de integrar](docs/calidad.md).
 
 ```bash
@@ -110,6 +110,7 @@ Usuarios que crea `npm run seed` (fuera de producción):
 | Administrador | `ADMIN_EMAIL` de `backend/.env` | `ADMIN_PASSWORD` de `backend/.env` |
 | Coordinador | `ana.torres@organizacion.pe` | `demo123` |
 | Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
+| Instructora | `lucia.paredes@organizacion.pe` | `demo123` |
 | Participante | `maria.quispe@demo.pe` | `demo123` |
 | Participante | `luz.apaza@demo.pe` | `demo123` |
 

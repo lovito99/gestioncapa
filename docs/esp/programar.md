@@ -20,7 +20,7 @@ de asistencia.
   requeridos: `nombre`, `instructorId`, `fecha`, `horaInicio`, `horaFin`, `lugar`.
   También se valida el formato, que la hora de fin sea posterior a la de inicio y
   que `instructorId` sea un instructor activo.
-- **Conflicto de horario.** El mismo instructor no puede tener dos clases
+- **Conflicto de horario** (detallado en [HU-05](solapamiento.md)). El mismo instructor no puede tener dos clases
   `PROGRAMADA` que se crucen el mismo día: 409 `CONFLICTO_HORARIO`, con un mensaje
   que nombra la clase, la fecha y el horario, y `details.claseId`. Un horario
   contiguo (una termina 11:00, la otra empieza 11:00) se acepta. Al editar no se
