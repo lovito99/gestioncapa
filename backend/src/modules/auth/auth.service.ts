@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { env } from "../../config/env.js";
 import { pool } from "../../shared/database.js";
+import { usuariosSeed } from "./usuarios-seed.js";
 
 export type PublicUser = {
   id: number;
@@ -24,6 +25,26 @@ export async function ensureAdminUser() {
     `,
     [env.ADMIN_NAME, env.ADMIN_EMAIL.toLowerCase(), passwordHash]
   );
+}
+
+// Idempotente: no duplica ni cambia la clave de usuarios que ya existen.
+export async function sembrarUsuarios() {
+  const usuarios = usuariosSeed(env);
+
+  for (const usuario of usuarios) {
+    const passwordHash = await bcrypt.hash(usuario.password, 12);
+
+    await pool.query(
+      `
+        insert into users (name, email, password_hash, role)
+        values ($1, $2, $3, $4)
+        on conflict (email) do nothing
+      `,
+      [usuario.name, usuario.email, passwordHash, usuario.role]
+    );
+  }
+
+  return usuarios;
 }
 
 export async function validateUser(email: string, password: string) {

@@ -25,6 +25,9 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 .cache/
+e2e/inf/
+e2e/res/
+playwright/.cache/
 
 # Sistema / editor
 .DS_Store

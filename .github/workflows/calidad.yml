@@ -1,0 +1,67 @@
+name: Calidad
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: calidad-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # CAL-01: tipos, build y pruebas unitarias. Verificación obligatoria para integrar.
+  calidad:
+    name: Tipos, build y pruebas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci --include=dev --include=optional
+      - name: Revisar tipos
+        run: npm run typecheck
+      - name: Compilar
+        run: npm run build
+      - name: Pruebas unitarias (backend y frontend)
+        run: npm test
+
+  # AMB-01..03: reproduce los pasos del README de un integrante nuevo.
+  entorno:
+    name: Entorno con Docker Compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci --include=dev --include=optional
+      - name: Levantar PostgreSQL 17 y Redis 8
+        run: docker compose up -d --wait
+      - name: Comprobar versiones
+        run: |
+          docker exec gestioncapa-postgres psql -U gestiondecapacitacion -tAc "show server_version" | grep '^17\.'
+          docker exec gestioncapa-redis redis-server --version | grep 'v=8\.'
+      - name: Generar backend/.env
+        run: npm run env:init
+      - name: Migrar y sembrar usuarios (dos veces, idempotente)
+        run: |
+          npm run migrate
+          npm run seed
+          npm run seed
+      - name: Pruebas de integración del seed
+        run: npm run test:integracion
+      - name: Registros de servicios
+        if: failure()
+        run: docker compose logs

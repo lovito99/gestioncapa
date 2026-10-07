@@ -1,10 +1,11 @@
-import { ensureAdminUser } from "../modules/auth/auth.service.js";
+import { sembrarUsuarios } from "../modules/auth/auth.service.js";
 import { ensureDatabase, pool } from "../shared/database.js";
 
 try {
   await ensureDatabase();
-  await ensureAdminUser();
-  console.log("Seed ejecutado correctamente.");
+  const usuarios = await sembrarUsuarios();
+  console.log("Seed ejecutado correctamente. Usuarios disponibles:");
+  console.table(usuarios.map(({ email, role }) => ({ email, rol: role })));
 } catch (error) {
   console.error("Error ejecutando seed:", error);
   process.exitCode = 1;

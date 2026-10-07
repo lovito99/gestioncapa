@@ -1,0 +1,75 @@
+name: Pruebas E2E
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      # El backend ya no tiene valores por defecto para la conexión (CFG-01).
+      DB_HOST: 127.0.0.1
+      DB_USER: gestiondecapacitacion
+      DB_PASSWORD: gestiondecapacitacion
+      REDIS_URL: redis://127.0.0.1:6379
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: gestiondecapacitacion
+          POSTGRES_PASSWORD: gestiondecapacitacion
+          POSTGRES_DB: gestiondecapacitacion
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gestiondecapacitacion"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci --include=dev --include=optional
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Revisar tipos
+        run: |
+          npm run typecheck
+          npm run e2e:tipos
+      - name: Pruebas de contratos simulados
+        run: npm test -w frontend
+      - name: Compilar
+        run: npm run build
+      - name: E2E demo
+        run: npm run e2e
+      - name: E2E real
+        run: npm run e2e:real
+      - name: Guardar informes y trazas
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-informes
+          path: |
+            e2e/inf/
+            e2e/res/
+          retention-days: 7

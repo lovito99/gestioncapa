@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { CircleAlert, Eye, EyeOff } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { z } from 'zod'
 import ilustracion from '@/assets/ilustracion-login.png'
 import logoBlanco from '@/assets/logo-qr-blanco.svg'
@@ -25,7 +25,6 @@ const claseEntrada =
 
 export function LoginPagina() {
   const { usuario, iniciar } = useAuth()
-  const navegar = useNavigate()
   const ubicacion = useLocation()
   const login = useLogin()
   const [verPassword, setVerPassword] = useState(false)
@@ -36,15 +35,13 @@ export function LoginPagina() {
     formState: { errors },
   } = useForm<Formulario>({ resolver: zodResolver(esquema) })
 
-  if (usuario) return <Navigate to={inicioPorRol(usuario)} replace />
+  const desde = (ubicacion.state as { desde?: string } | null)?.desde
+  if (usuario) return <Navigate to={desde ?? inicioPorRol(usuario)} replace />
 
   const enviar = handleSubmit((datos) =>
     login.mutate(datos, {
-      onSuccess: (respuesta) => {
-        iniciar(respuesta)
-        const desde = (ubicacion.state as { desde?: string } | null)?.desde
-        navegar(desde ?? inicioPorRol(respuesta.usuario), { replace: true })
-      },
+      // Una sola redirección, arriba, conserva también el token del enlace QR.
+      onSuccess: iniciar,
     }),
   )
 

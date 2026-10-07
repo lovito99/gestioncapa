@@ -17,7 +17,7 @@
 
 ## 2. Roles
 
-Hay cuatro roles: `ADMIN`, `COORDINADOR`, `INSTRUCTOR` y `PARTICIPANTE`. Hoy la base de datos solo tiene `admin`.
+Hay cuatro roles: `ADMIN`, `COORDINADOR`, `INSTRUCTOR` y `PARTICIPANTE`. El seed crea usuarios de los cuatro (en producción, solo `admin`).
 
 - Sin sesión o con token inválido → **401** `NO_AUTENTICADO`.
 - Con sesión pero rol incorrecto → **403** `SIN_PERMISO`. El backend debe validar el rol en **cada** ruta; ocultar botones en la interfaz no basta.
@@ -76,11 +76,13 @@ Las pruebas en `frontend/src/mocks/asistencia.test.ts` (`npm test -w frontend`) 
 
 ## 5. Diferencias con el backend actual
 
-1. El login hoy responde `{ token, user: {id (número), name, email, role} }`. El frontend espera `usuario` con `nombre`, `rol` y `cargo`.
-2. Los errores salen en el formato propio de Fastify (`statusCode`, `error`, `message`). Hay que convertirlos al formato del punto 1.
-3. Faltan `/auth/logout` y todas las rutas de clases, inscritos, asistencia, QR, participante e instructores.
-4. Faltan las tablas: clases, inscripciones y asistencias, y los roles `COORDINADOR`, `INSTRUCTOR` y `PARTICIPANTE` en el seed.
+1. El login y `/auth/me` ya incluyen `usuario` con id texto, `nombre`, `rol` en mayúsculas y `cargo`. Se conserva `user` por compatibilidad. El login devuelve 401 `CREDENCIALES_INVALIDAS` para credenciales incorrectas.
+2. Los demás errores todavía salen en el formato propio de Fastify (`statusCode`, `error`, `message`). Falta normalizarlos al formato del punto 1 de este documento.
+3. `/auth/logout` ya existe y devuelve 204 con un token válido. El cliente elimina su sesión; el backend no revoca JWT emitidos. Faltan todas las rutas de clases, inscritos, asistencia, QR, participante e instructores.
+4. Faltan las tablas: clases, inscripciones y asistencias. El seed ya crea un usuario `COORDINADOR`, uno `INSTRUCTOR` y dos `PARTICIPANTE` fuera de producción (ver [calidad](esp/calidad.md), AMB-02).
 5. Falta el guard de roles (401/403) en todas las rutas.
+
+La entrada del administrador está cubierta por las [pruebas reales de Playwright](e2e.md).
 
 ## 6. Pendientes por definir juntos
 
