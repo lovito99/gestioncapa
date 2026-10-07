@@ -237,7 +237,7 @@ Pruebas automáticas del flujo de asistencia (sobre la API simulada):
 npm test -w frontend
 ```
 
-Para usar el backend real, poner `VITE_USE_MOCKS=false`. En desarrollo Vite redirige `/api` a `VITE_BACKEND_URL` (por defecto `http://localhost:8080`). El contrato de datos que espera el frontend esta en `frontend/src/types/api.ts`.
+Para usar el backend real, poner `VITE_USE_MOCKS=false` y `VITE_API_URL=/api`. Vite y el servidor Express del frontend redirigen `/api` a `VITE_BACKEND_URL` (por defecto `http://localhost:8080`). El contrato de datos que espera el frontend esta en `frontend/src/types/api.ts`.
 
 ## Scripts principales
 
@@ -269,6 +269,13 @@ Frontend build/start:
 npm run build -w frontend
 npm run start -w frontend
 ```
+
+El servidor del frontend carga `frontend/.env`, sirve el build existente en el puerto
+3000 y reenvía `/api` al backend. El backend debe estar iniciado en otra terminal.
+Si cambias solamente `VITE_BACKEND_URL` o el código del servidor Express, basta con
+reiniciar `npm run start -w frontend`; no hace falta recompilar los archivos de React.
+Las variables `VITE_API_URL` y `VITE_USE_MOCKS` se incorporan al build de React y sus
+cambios requieren una compilación manual.
 
 ## Instalacion directa en Ubuntu 24.x
 

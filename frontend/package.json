@@ -10,7 +10,8 @@
     "start": "node server.js",
     "typecheck": "tsc -b",
     "lint": "oxlint",
-    "test": "vitest run"
+    "test": "vitest run && npm run test:servidor",
+    "test:servidor": "node --test test/servidor.prueba.js"
   },
   "engines": {
     "node": ">=24.0.0"

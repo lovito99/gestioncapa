@@ -54,6 +54,8 @@ Todas las pantallas usan los servicios reales con `VITE_USE_MOCKS=false`.
 | `npm run dev` | Servidor de desarrollo |
 | `npm run build` | Revisa tipos y genera `dist/` |
 | `npm run lint` | Revisa el código con oxlint |
+| `npm run start` | Sirve el build existente en el puerto 3000 y reenvía `/api` al backend |
+| `npm run test:servidor` | Verifica el proxy de API y las rutas de React |
 
 Los comandos de esta tabla se ejecutan dentro de `frontend/` o con `-w frontend`
 desde la raíz. Para E2E, ejecuta `npm run e2e` desde la raíz.
@@ -119,6 +121,7 @@ todavía no está en el diseño.
 
 ## Conectar con el backend real
 
-1. En `.env`, pon `VITE_USE_MOCKS=false` y `VITE_API_URL` con la URL del backend.
-2. Pide que el backend habilite **CORS** para `http://localhost:5173`.
-3. Si algún endpoint cambia, actualiza `src/types/api.ts` y `src/servicios/`.
+1. En `frontend/.env`, pon `VITE_USE_MOCKS=false`, `VITE_API_URL=/api` y `VITE_BACKEND_URL=http://localhost:8080`.
+2. Inicia el backend. Vite en desarrollo y Express en el puerto 3000 reenvían `/api` al backend; el navegador usa el mismo origen de la página.
+3. Para servir `dist/`, ejecuta `npm run start -w frontend` desde la raíz. Express carga `frontend/.env` al arrancar. Un cambio en `VITE_BACKEND_URL` requiere reiniciar este servidor; cambios en `VITE_API_URL` o `VITE_USE_MOCKS` requieren recompilar React manualmente.
+4. Si algún endpoint cambia, actualiza `src/types/api.ts` y `src/servicios/`.
