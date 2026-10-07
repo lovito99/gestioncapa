@@ -13,6 +13,8 @@ const CLAVE_DEMO = "demo123";
 const usuariosDemo: UsuarioSeed[] = [
   { name: "Ana Torres", email: "ana.torres@organizacion.pe", password: CLAVE_DEMO, role: "coordinador" },
   { name: "Carlos Mendoza Ríos", email: "carlos.mendoza@organizacion.pe", password: CLAVE_DEMO, role: "instructor" },
+  // Segunda instructora: permite probar que el solapamiento es por instructor (HU-05).
+  { name: "Lucía Paredes Quispe", email: "lucia.paredes@organizacion.pe", password: CLAVE_DEMO, role: "instructor" },
   { name: "María Quispe", email: "maria.quispe@demo.pe", password: CLAVE_DEMO, role: "participante" },
   { name: "Luz Apaza", email: "luz.apaza@demo.pe", password: CLAVE_DEMO, role: "participante" }
 ];

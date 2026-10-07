@@ -78,8 +78,8 @@ Las pruebas en `frontend/src/mocks/asistencia.test.ts` (`npm test -w frontend`) 
 
 1. El login y `/auth/me` ya incluyen `usuario` con id texto, `nombre`, `rol` en mayúsculas y `cargo`. Se conserva `user` por compatibilidad. El login devuelve 401 `CREDENCIALES_INVALIDAS` para credenciales incorrectas.
 2. Los demás errores todavía salen en el formato propio de Fastify (`statusCode`, `error`, `message`). Falta normalizarlos al formato del punto 1 de este documento.
-3. `/auth/logout` ya existe y devuelve 204 con un token válido. El cliente elimina su sesión; el backend no revoca JWT emitidos. Faltan todas las rutas de clases, inscritos, asistencia, QR, participante e instructores.
-4. Faltan las tablas: clases, inscripciones y asistencias. El seed ya crea un usuario `COORDINADOR`, uno `INSTRUCTOR` y dos `PARTICIPANTE` fuera de producción (ver [calidad](esp/calidad.md), AMB-02).
+3. `/auth/logout` ya existe y devuelve 204 con un token válido. El cliente elimina su sesión; el backend no revoca JWT emitidos. Ya existen las rutas de instructores, clases e inscritos (HU-04, ver [programar](esp/programar.md)); `GET /clases/:id/qr` valida la clase (404/403/409) y responde 501 hasta implementar el QR. Faltan asistencia, QR, `/instructor/clases` y `/participante/clases`.
+4. Existen las tablas `clases` (fecha y horas locales de Lima, sin zona) e `inscripciones`; falta `asistencias`. El seed crea un usuario `COORDINADOR`, uno `INSTRUCTOR` y dos `PARTICIPANTE` fuera de producción (ver [calidad](esp/calidad.md), AMB-02).
 5. La autorización por rol está en el servidor (T-04, ver [permisos](esp/permisos.md)): la matriz `backend/src/plugins/permisos.ts` declara el acceso de cada ruta de la tabla anterior y un hook aplica el guard a todas (401 `NO_AUTENTICADO`, 403 `SIN_PERMISO`). Las rutas aún no implementadas ya validan el rol y responden 501 `NO_IMPLEMENTADO`. Una ruta nueva sin entrada en la matriz impide arrancar el servidor. Un usuario con `active = false` recibe 403 `USUARIO_INACTIVO` al entrar y 401 con un token anterior.
 
 La entrada del administrador está cubierta por las [pruebas reales de Playwright](e2e.md).

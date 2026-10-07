@@ -68,8 +68,9 @@ npm run e2e:real
 ```
 
 El preparador crea `gestioncapa_e2e` si falta, usando el usuario de Postgres local
-(necesita permiso para crear bases). El servidor crea tablas y una cuenta E2E
-exclusiva. No se elimina ninguna base ni se modifican usuarios de la aplicación.
+(necesita permiso para crear bases), crea las tablas, siembra un usuario por rol y
+vacía las clases de esa base para que cada ejecución empiece igual. Nunca toca
+otra base: se detiene si `DB_NAME` no es `gestioncapa_e2e`.
 Los ajustes `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_SSL` y `REDIS_URL`
 pueden venir del entorno o del `.env` del backend. El nombre de la base, los
 puertos, el secreto JWT y las credenciales de la cuenta E2E se fijan en la
