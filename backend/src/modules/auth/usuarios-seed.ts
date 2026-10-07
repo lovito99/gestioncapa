@@ -19,7 +19,7 @@ const usuariosDemo: UsuarioSeed[] = [
   { name: "Luz Apaza", email: "luz.apaza@demo.pe", password: CLAVE_DEMO, role: "participante" }
 ];
 
-type EnvSeed = Pick<Env, "NODE_ENV" | "ADMIN_NAME" | "ADMIN_EMAIL" | "ADMIN_PASSWORD">;
+export type EnvSeed = Pick<Env, "NODE_ENV" | "ADMIN_NAME" | "ADMIN_EMAIL" | "ADMIN_PASSWORD">;
 
 export function usuariosSeed(env: EnvSeed): UsuarioSeed[] {
   const admin: UsuarioSeed = {

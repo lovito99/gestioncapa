@@ -97,7 +97,7 @@ docker compose up -d --wait     # PostgreSQL 17 y Redis 8, espera a que estén s
 npm run env:init                # crea backend/.env con secretos aleatorios
 cp frontend/.env.example frontend/.env
 npm run migrate
-npm run seed                    # administrador + un usuario por rol
+npm run seed                    # usuarios de todos los roles + clases, inscripciones y asistencia demo
 npm run dev
 ```
 
@@ -124,6 +124,15 @@ Usuarios que crea `npm run seed` (fuera de producción):
 
 Con `NODE_ENV=production` el seed solo crea el administrador. El seed es idempotente:
 no duplica usuarios ni cambia la clave de los que ya existen.
+
+Fuera de producción también carga cinco clases con el prefijo `Demo ·`, asignadas
+a Carlos y Lucía, nueve inscripciones de María y Luz y una asistencia de ejemplo.
+Así, administrador y coordinador tienen datos en sus tablas, ambos instructores
+ven clases asignadas y ambos participantes ven sus inscripciones. Incluye una
+clase cancelada y una clase pasada con un presente y un ausente.
+Las fechas se calculan desde el día de la primera ejecución en Lima; repetir el
+seed conserva las fechas, estados, contraseñas y asistencias existentes. Si una
+clase nueva se cruza con un horario existente, el seed falla sin guardar cambios.
 
 ### Base de datos y migraciones
 
