@@ -2,6 +2,7 @@ import { CircleX, Eye, Pencil, Plus, TriangleAlert } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import { useRutaClases } from '@/auth/useRutaClases'
 import { Boton } from '@/components/ui/Boton'
 import { Dialogo } from '@/components/ui/Dialogo'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
@@ -17,6 +18,7 @@ const accion =
   'flex size-8 items-center justify-center rounded text-muted-2 hover:bg-surface-3 focus-visible:outline-2 focus-visible:outline-brand-light'
 
 export function ClasesPagina() {
+  const rutaClases = useRutaClases()
   const { data: clases, isPending, isError, refetch } = useClases()
   const cancelar = useCancelarClase()
   const [porCancelar, setPorCancelar] = useState<Clase | null>(null)
@@ -41,7 +43,7 @@ export function ClasesPagina() {
           <p className="mt-0.5 text-sm leading-5 text-muted">Clases presenciales de la organización</p>
         </div>
         <Link
-          to="/coordinador/clases/nueva"
+          to={`${rutaClases}/nueva`}
           className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white shadow-[0_1px_1px_rgba(0,0,0,0.05)] hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
         >
           <Plus className="size-3.5" strokeWidth={2.5} aria-hidden />
@@ -90,7 +92,7 @@ export function ClasesPagina() {
                       <td className="py-3.5 pr-6 pl-4">
                         <div className="flex items-center justify-end gap-1">
                           <Link
-                            to={`/coordinador/clases/${clase.id}`}
+                            to={`${rutaClases}/${clase.id}`}
                             className={accion}
                             aria-label={`Ver detalle de ${clase.nombre}`}
                             title="Ver detalle"
@@ -100,7 +102,7 @@ export function ClasesPagina() {
                           {!cancelada && (
                             <>
                               <Link
-                                to={`/coordinador/clases/${clase.id}/editar`}
+                                to={`${rutaClases}/${clase.id}/editar`}
                                 className={accion}
                                 aria-label={`Editar ${clase.nombre}`}
                                 title="Editar"

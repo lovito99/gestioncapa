@@ -1,10 +1,14 @@
 import { pool } from "../../shared/database.js";
+import type { Consultor } from "../clases/clases.repositorio.js";
 
 // timestamp_lima es hora local de Lima sin zona; Perú no tiene horario de verano.
 const ISO_LIMA = `'YYYY-MM-DD"T"HH24:MI:SS"-05:00"'`;
 
-export async function estaInscrito(claseId: number, usuarioId: number) {
-  const resultado = await pool.query("select 1 from enrollments where class_id = $1 and user_id = $2", [claseId, usuarioId]);
+export async function estaInscrito(claseId: number, usuarioId: number, consultor: Consultor = pool) {
+  const resultado = await consultor.query(
+    "select 1 from enrollments where class_id = $1 and user_id = $2 for key share",
+    [claseId, usuarioId]
+  );
   return resultado.rowCount === 1;
 }
 
@@ -12,8 +16,13 @@ export async function estaInscrito(claseId: number, usuarioId: number) {
  * Inserta la asistencia de forma atómica: la restricción UNIQUE (class_id, user_id)
  * decide entre escaneos simultáneos. Devuelve la hora registrada, o null si ya existía.
  */
-export async function registrarAsistencia(claseId: number, usuarioId: number, registradoPor: number) {
-  const resultado = await pool.query<{ hora: string }>(
+export async function registrarAsistencia(
+  claseId: number,
+  usuarioId: number,
+  registradoPor: number,
+  consultor: Consultor = pool
+) {
+  const resultado = await consultor.query<{ hora: string }>(
     `insert into attendances (class_id, user_id, created_by)
      values ($1, $2, $3)
      on conflict (class_id, user_id) do nothing
@@ -23,8 +32,8 @@ export async function registrarAsistencia(claseId: number, usuarioId: number, re
   return resultado.rows[0]?.hora ?? null;
 }
 
-export async function horaDeAsistencia(claseId: number, usuarioId: number) {
-  const resultado = await pool.query<{ hora: string }>(
+export async function horaDeAsistencia(claseId: number, usuarioId: number, consultor: Consultor = pool) {
+  const resultado = await consultor.query<{ hora: string }>(
     `select to_char(timestamp_lima, ${ISO_LIMA}) as hora from attendances where class_id = $1 and user_id = $2`,
     [claseId, usuarioId]
   );

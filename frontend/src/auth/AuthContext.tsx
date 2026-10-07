@@ -1,18 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { sesion } from '@/lib/sesion'
 import { cerrarSesionEnServidor, useVerificarSesion } from '@/servicios/auth'
 import type { LoginRespuesta, Usuario } from '@/types/api'
-
-interface ValorAuth {
-  usuario: Usuario | null
-  iniciar: (respuesta: LoginRespuesta) => void
-  cerrar: () => Promise<void>
-  /** Cierra la sesión local sin llamar al servidor y deja el aviso para el login. */
-  expirar: () => void
-}
-
-const AuthContext = createContext<ValorAuth | null>(null)
+import { contextoAuth } from './contexto'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
@@ -45,11 +36,5 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [queryClient])
 
   const valor = useMemo(() => ({ usuario, iniciar, cerrar, expirar }), [usuario, iniciar, cerrar, expirar])
-  return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>
-}
-
-export function useAuth() {
-  const valor = useContext(AuthContext)
-  if (!valor) throw new Error('useAuth debe usarse dentro de <AuthProvider>')
-  return valor
+  return <contextoAuth.Provider value={valor}>{children}</contextoAuth.Provider>
 }

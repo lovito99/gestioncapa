@@ -65,7 +65,20 @@ export const router = createBrowserRouter([
   {
     path: '/admin',
     element: <RutaProtegida rol="ADMIN" />,
-    children: [{ element: <PaginaConEncabezado />, children: [{ index: true, element: <AdminPagina /> }] }],
+    children: [
+      {
+        element: <PaginaConEncabezado />,
+        children: [
+          { index: true, element: <AdminPagina /> },
+          { path: 'clases', element: <ClasesPagina /> },
+          { path: 'clases/nueva', element: <ClaseFormPagina /> },
+          { path: 'clases/:id', element: <DetalleClasePagina /> },
+          { path: 'clases/:id/editar', element: <ClaseFormPagina /> },
+          { path: 'clases/:id/asistencia', element: <AsistenciaPagina /> },
+        ],
+      },
+      { path: 'clases/:id/qr', element: <QrAsistenciaPagina /> },
+    ],
   },
   { path: '/sin-permiso', element: <SinPermisoPagina /> },
   { path: '*', element: <NoEncontradaPagina /> },

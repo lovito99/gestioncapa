@@ -128,3 +128,15 @@ atómico por la restricción UNIQUE y la hora de Lima en ISO. Resultado: unitari
 backend 127/127; integración 109/109 en una copia aislada de Docker Compose; E2E real
 16/16. VIN-01 falló primero por la prueba (escribía el correo antes de terminar la
 navegación al login tras cerrar sesión); se añadió la espera y pasó.
+
+## Corrección de concurrencia (7 de octubre de 2026)
+
+MAR-06 reproduce una cancelación confirmada mientras el escaneo espera a la base;
+MAR-07 reproduce un QR que vence durante esa espera. El servicio de asistencia
+bloquea la clase en una transacción, comprueba la inscripción y vuelve a validar el
+QR antes de insertar. Los rechazos son 409 `CLASE_CANCELADA` y 410 `QR_EXPIRADO`,
+sin nuevas asistencias. La respuesta 201 se envía después del commit.
+
+`npm run test:cobertura` exige al menos 60 % de líneas, ramas y funciones del
+módulo de asistencia. Las pruebas usan Postgres y Redis; pueden ejecutarse
+contra una base de pruebas, sin compilar la aplicación.

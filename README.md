@@ -18,6 +18,7 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
   [inscribir participante](docs/esp/inscripcion.md), [base de datos](docs/esp/base-datos.md)
   [QR rotativo](docs/esp/qr.md) y [registrar y consultar asistencia](docs/esp/asistencia.md).
 - [Calidad antes de integrar](docs/calidad.md).
+- [Ajustes y evidencia según el documento del proceso de desarrollo](docs/esp/ajustes.md).
 
 ```bash
 npm run e2e:inst
@@ -101,6 +102,10 @@ npm run dev
 ```
 
 - Frontend: `http://localhost:5173` · Backend: `http://localhost:8080` · Salud: `http://localhost:8080/api/health`
+- El menú muestra las opciones de cada rol. El administrador entra en `/admin`: desde
+  **Clases** gestiona creación, edición, cancelación, inscripciones y asistencia;
+  **Mostrar QR** aparece en el detalle de cada clase programada. Puede volver al
+  estado del sistema desde el menú. Instructor y participante conservan sus pantallas personales.
 - `npm run env:init` muestra la clave del administrador generada. No sobrescribe un
   `backend/.env` existente.
 - Para usar el backend real en la UI, pon `VITE_USE_MOCKS=false` en `frontend/.env`: todas
@@ -129,7 +134,7 @@ Cada cambio del esquema es un archivo versionado en `backend/migraciones/`
 ```bash
 npm run migrate                          # aplica las pendientes, en orden
 npm run migrate:estado                   # aplicadas y pendientes
-npm run migrate:nueva -- agregar_campo   # crea backend/migraciones/NNNN_agregar_campo.sql
+npm run migrate:nueva -- agregar campo   # crea backend/migraciones/NNNN-agregarCampo.sql
 ```
 
 - Después de `git pull`, ejecuta `npm run migrate`: el servidor y el seed no arrancan

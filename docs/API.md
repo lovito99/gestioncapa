@@ -28,17 +28,17 @@ Hay cuatro roles: `ADMIN`, `COORDINADOR`, `INSTRUCTOR` y `PARTICIPANTE`. El seed
 |---|---|---|---|---|
 | POST | `/auth/login` `{email, password}` | público | `200 { token, usuario: {id, nombre, email, rol, cargo} }` | 401 `CREDENCIALES_INVALIDAS` |
 | POST | `/auth/logout` | autenticado | `204` | — |
-| GET | `/instructores` | coordinador | `200 [{id, nombre}]` | — |
-| GET | `/clases` | coordinador | `200 Clase[]` | 401 `NO_AUTENTICADO` |
-| GET | `/clases/:id` | ambos | `200 Clase` | 404 `CLASE_NO_EXISTE` |
-| POST | `/clases` `ClaseEntrada` | coordinador | `201 Clase` | 422 `VALIDACION` (con `fields`), 409 `CONFLICTO_HORARIO` (con `details.claseId`) |
-| PUT | `/clases/:id` `ClaseEntrada` | coordinador | `200 Clase` | igual que el anterior, más 404 |
-| POST | `/clases/:id/cancelar` | coordinador | `200 Clase`, con `estado: "CANCELADA"` | 404 |
-| GET | `/clases/:id/inscritos` | coordinador | `200 [{id, nombre, email}]` | 404 |
-| POST | `/clases/:id/inscritos` `{email}` | coordinador | `201 Participante` | 422 `VALIDACION` (`fields.email`), 404 `PARTICIPANTE_NO_EXISTE`, 409 `YA_INSCRITO` (con `details.participanteId` y `details.inscritoEn`), 409 `CLASE_CANCELADA` |
-| GET | `/clases/:id/asistencia` | coordinador | `200 {inscritos, presentes, ausentes, registros: [{participante, estado: "PRESENTE"/"AUSENTE", horaRegistro}]}` | 404 |
+| GET | `/instructores` | administrador, coordinador | `200 [{id, nombre}]` | — |
+| GET | `/clases` | administrador, coordinador | `200 Clase[]` | 401 `NO_AUTENTICADO` |
+| GET | `/clases/:id` | administrador, coordinador e instructor (solo su clase) | `200 Clase` | 404 `CLASE_NO_EXISTE` |
+| POST | `/clases` `ClaseEntrada` | administrador, coordinador | `201 Clase` | 422 `VALIDACION` (con `fields`), 409 `CONFLICTO_HORARIO` (con `details.claseId`) |
+| PUT | `/clases/:id` `ClaseEntrada` | administrador, coordinador | `200 Clase` | igual que el anterior, más 404 |
+| POST | `/clases/:id/cancelar` | administrador, coordinador | `200 Clase`, con `estado: "CANCELADA"` | 404 |
+| GET | `/clases/:id/inscritos` | administrador, coordinador | `200 [{id, nombre, email}]` | 404 |
+| POST | `/clases/:id/inscritos` `{email}` | administrador, coordinador | `201 Participante` | 422 `VALIDACION` (`fields.email`), 404 `PARTICIPANTE_NO_EXISTE`, 409 `YA_INSCRITO` (con `details.participanteId` y `details.inscritoEn`), 409 `CLASE_CANCELADA` |
+| GET | `/clases/:id/asistencia` | administrador, coordinador | `200 {inscritos, presentes, ausentes, registros: [{participante, estado: "PRESENTE"/"AUSENTE", horaRegistro}]}` | 404 |
 | GET | `/instructor/clases` | instructor | `200 Clase[]`: solo sus clases en estado `PROGRAMADA` | 401 |
-| GET | `/clases/:id/qr` | instructor de esa clase | `200 {token, expiraEn, servidorAhora, duracionSegundos}` | 403 `SIN_PERMISO` (clase ajena), 404, 409 `CLASE_CANCELADA` |
+| GET | `/clases/:id/qr` | administrador o instructor de esa clase | `200 {token, expiraEn, servidorAhora, duracionSegundos}` | 403 `SIN_PERMISO` (clase ajena), 404, 409 `CLASE_CANCELADA` |
 | GET | `/participante/clases` | participante | `200 ClaseParticipante[]`: solo las clases en las que está inscrito | 401, 403 |
 | POST | `/asistencia/marcar` `{token, claseId?}` | participante | `201 {clase: {id, nombre}, horaRegistro}` | ver tabla de abajo |
 | GET | `/health` | público | `200 {ok, api, database, redis}` (**ya existe** en el backend) | — |
@@ -77,9 +77,9 @@ Las pruebas en `frontend/src/mocks/asistencia.test.ts` (`npm test -w frontend`) 
 ## 5. Diferencias con el backend actual
 
 1. El login y `/auth/me` ya incluyen `usuario` con id texto, `nombre`, `rol` en mayúsculas y `cargo`. Se conserva `user` por compatibilidad. El login devuelve 401 `CREDENCIALES_INVALIDAS` para credenciales incorrectas.
-2. Los demás errores todavía salen en el formato propio de Fastify (`statusCode`, `error`, `message`). Falta normalizarlos al formato del punto 1 de este documento.
+2. Las validaciones Zod devuelven 422 `VALIDACION` con mensajes en español y `fields`. JSON inválido, rutas inexistentes y fallos internos mantienen el formato `{code, message}`. Los detalles internos se registran en el servidor, sin enviarlos al navegador.
 3. `/auth/logout` ya existe y devuelve 204 con un token válido. El cliente elimina su sesión; el backend no revoca JWT emitidos. **Todas las rutas de la tabla están implementadas** en el backend: clases e inscritos (HU-04, HU-06), QR rotativo (HU-07, ver [QR](esp/qr.md)), `POST /asistencia/marcar`, `GET /clases/:id/asistencia` y `/participante/clases` (HU-08, HU-09, ver [asistencia](esp/asistencia.md)). La interfaz funciona completa con `VITE_USE_MOCKS=false`.
-4. El esquema está versionado en `backend/migraciones/` (T-07, ver [base de datos](esp/base-datos.md)): `organizations`, `users`, `classes`, `enrollments` y `attendances`, todas con `organization_id` (demo = 1) y con las restricciones UNIQUE en la base. Falta usar `attendances` desde la API. El seed crea un usuario `COORDINADOR`, instructores y dos `PARTICIPANTE` fuera de producción (ver [calidad](esp/calidad.md), AMB-02).
+4. El esquema está versionado en `backend/migraciones/` (T-07, ver [base de datos](esp/base-datos.md)): `organizations`, `users`, `classes`, `enrollments` y `attendances`, todas con `organization_id` (demo = 1) y con las restricciones UNIQUE en la base. La API usa `attendances` y registra `created_by` y la hora local de Lima. El escaneo y la inscripción bloquean la clase durante la transacción para impedir escrituras posteriores a una cancelación concurrente; el QR se vuelve a comprobar antes de insertar. El seed crea un usuario `COORDINADOR`, instructores y dos `PARTICIPANTE` fuera de producción (ver [calidad](esp/calidad.md), AMB-02).
 5. La autorización por rol está en el servidor (T-04, ver [permisos](esp/permisos.md)): la matriz `backend/src/plugins/permisos.ts` declara el acceso de cada ruta de la tabla anterior y un hook aplica el guard a todas (401 `NO_AUTENTICADO`, 403 `SIN_PERMISO`). Las rutas aún no implementadas ya validan el rol y responden 501 `NO_IMPLEMENTADO`. Una ruta nueva sin entrada en la matriz impide arrancar el servidor. Un usuario con `active = false` recibe 403 `USUARIO_INACTIVO` al entrar y 401 con un token anterior.
 
 La entrada del administrador está cubierta por las [pruebas reales de Playwright](e2e.md).

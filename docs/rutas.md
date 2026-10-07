@@ -48,7 +48,13 @@ Los datos demo están en memoria: recargar restaura los datos iniciales.
 | `/participante/clases/:id/escanear` | Participante | Escáner de una clase |
 | `/participante/escanear` | Participante | Escáner general |
 | `/asistencia/marcar?token=...` | Participante | Registro desde enlace QR |
-| `/admin` | Administrador | Salud de API, Postgres y Redis |
+| `/admin` | Administrador | Accesos de gestión y salud de API, Postgres y Redis |
+| `/admin/clases` | Administrador | Listado y cancelación |
+| `/admin/clases/nueva` | Administrador | Crear clase |
+| `/admin/clases/:id` | Administrador | Detalle e inscripciones |
+| `/admin/clases/:id/editar` | Administrador | Editar clase |
+| `/admin/clases/:id/asistencia` | Administrador | Presentes y ausentes |
+| `/admin/clases/:id/qr` | Administrador | Proyección del QR rotativo |
 | `/sin-permiso` | Público | Mensaje 403 |
 | Cualquier otra | Público | Página 404 |
 
@@ -72,8 +78,13 @@ Ejecuta `npm run dev` y abre <http://localhost:5173/login>. Usa el administrador
 configurado mediante `ADMIN_EMAIL` y `ADMIN_PASSWORD` en `backend/.env`, que el seed
 crea si no existe. Las credenciales demo no sirven para la base real.
 
-La entrada y `/admin` funcionan con la API real. Clases, inscripciones y asistencia
-siguen pendientes en el backend; consulta el [contrato de API](API.md).
+Todas las pantallas del mapa están conectadas al backend real. El menú muestra
+las opciones de cada rol; las acciones de una clase se abren desde su listado
+y detalle. El administrador gestiona clases, inscripciones y asistencia y puede
+mostrar el QR de cualquier clase programada. El coordinador gestiona clases e
+inscripciones; el instructor ve sus clases y genera sus QR; el participante
+consulta sus inscripciones y registra su propia asistencia. Los permisos de la
+API coinciden con los de la navegación; consulta el [contrato de API](API.md).
 
 Los puertos 4173, 4174 y 8180 se reservan para las [pruebas E2E](e2e.md); Playwright
 levanta y detiene esas aplicaciones automáticamente.

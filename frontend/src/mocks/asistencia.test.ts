@@ -1,5 +1,5 @@
 import { setupServer } from 'msw/node'
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { handlers } from './handlers'
 
 /**
@@ -10,6 +10,11 @@ const BASE = 'http://localhost/api'
 const servidor = setupServer(...handlers)
 
 beforeAll(() => servidor.listen({ onUnhandledFrame: 'error' }))
+beforeEach(() => {
+  // Evita que un QR venza entre su emisión y el request al cruzar una ventana de 30 s.
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(Date.UTC(2031, 6, 1, 15, 0, 1))
+})
 afterEach(() => vi.useRealTimers())
 afterAll(() => servidor.close())
 

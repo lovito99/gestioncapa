@@ -55,6 +55,7 @@ describe("Característica: Programar clase presencial", () => {
       fecha: "Ingresa una fecha válida (AAAA-MM-DD)"
     });
     assert.ok(camposConError({ ...valida, fecha: "15/01/2030" }).fecha);
+    assert.ok(camposConError({ ...valida, fecha: "0000-01-01" }).fecha);
   });
 
   test("PRG-03: Dado una hora sin formato HH:mm, entonces rechaza esa hora", () => {
@@ -74,6 +75,14 @@ describe("Característica: Programar clase presencial", () => {
     assert.deepEqual(camposConError({ ...valida, instructorId: "i-1" }), {
       instructorId: "El instructor seleccionado no existe"
     });
+  });
+
+  test("VAL-05: el identificador del instructor debe ser positivo", () => {
+    for (const instructorId of [0, "0", "000", -1, "1.5", "1e3", Number.NaN]) {
+      assert.deepEqual(camposConError({ ...valida, instructorId }), {
+        instructorId: "El instructor seleccionado no existe"
+      });
+    }
   });
 
   test("PRG-03: Dado textos demasiado largos, entonces los rechaza", () => {

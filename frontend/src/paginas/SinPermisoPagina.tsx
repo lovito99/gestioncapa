@@ -1,6 +1,6 @@
 import { ShieldX } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '@/auth/AuthContext'
+import { useAuth } from '@/auth/useAuth'
 import { inicioPorRol } from '@/auth/inicioPorRol'
 import { BotonCerrarSesion } from '@/components/layout/Encabezado'
 

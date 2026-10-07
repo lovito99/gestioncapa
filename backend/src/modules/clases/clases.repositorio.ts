@@ -30,7 +30,7 @@ type FilaClase = {
   estado: EstadoClase;
 };
 
-type Consultor = Pick<PoolClient, "query">;
+export type Consultor = Pick<PoolClient, "query">;
 
 // to_char evita que pg convierta date/time a Date con la zona del proceso.
 const SELECT_CLASE = `
@@ -127,6 +127,23 @@ export async function conInstructorBloqueado<T>(instructorId: number, trabajo: (
   }
 }
 
+/** La clase permanece estable hasta confirmar la inscripción o asistencia. */
+export async function conClaseBloqueada<T>(claseId: number, trabajo: (consultor: PoolClient) => Promise<T>) {
+  const cliente = await pool.connect();
+  try {
+    await cliente.query("begin");
+    await cliente.query("select id from classes where id = $1 for share", [claseId]);
+    const resultado = await trabajo(cliente);
+    await cliente.query("commit");
+    return resultado;
+  } catch (error) {
+    await cliente.query("rollback");
+    throw error;
+  } finally {
+    cliente.release();
+  }
+}
+
 export async function insertarClase(datos: DatosClase, consultor: Consultor) {
   const resultado = await consultor.query<{ id: string }>(
     `insert into classes (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar)
@@ -181,13 +198,15 @@ export async function buscarParticipante(email: string) {
 
 /** Inserta solo si la clase sigue programada; devuelve false si ya estaba inscrito. */
 export async function inscribir(claseId: number, participanteId: string) {
-  const resultado = await pool.query(
-    `insert into enrollments (class_id, user_id)
-     select $1, $2 from classes where id = $1 and estado = 'PROGRAMADA'
-     on conflict do nothing`,
-    [claseId, participanteId]
-  );
-  return resultado.rowCount === 1;
+  return conClaseBloqueada(claseId, async (cliente) => {
+    const resultado = await cliente.query(
+      `insert into enrollments (class_id, user_id)
+       select $1, $2 from classes where id = $1 and estado = 'PROGRAMADA'
+       on conflict do nothing`,
+      [claseId, participanteId]
+    );
+    return resultado.rowCount === 1;
+  });
 }
 
 /** Inscripción existente; `inscritoEn` en ISO 8601 con la hora de Lima (UTC−5, sin horario de verano). */

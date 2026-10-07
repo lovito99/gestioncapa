@@ -10,7 +10,7 @@ export type Permiso = {
   critica?: boolean;
 };
 
-const COORDINADOR: Rol[] = ["COORDINADOR"];
+const rolesGestionClases: Rol[] = ["ADMIN", "COORDINADOR"];
 
 /**
  * Única fuente de verdad de quién puede llamar a cada ruta (docs/API.md y
@@ -24,18 +24,18 @@ export const permisos: Permiso[] = [
   { metodo: "POST", ruta: "/api/auth/logout", acceso: "autenticado" },
   { metodo: "GET", ruta: "/api/auth/me", acceso: "autenticado" },
 
-  { metodo: "GET", ruta: "/api/instructores", acceso: COORDINADOR },
-  { metodo: "GET", ruta: "/api/clases", acceso: COORDINADOR },
-  { metodo: "GET", ruta: "/api/clases/:id", acceso: ["COORDINADOR", "INSTRUCTOR"] },
-  { metodo: "POST", ruta: "/api/clases", acceso: COORDINADOR, critica: true },
-  { metodo: "PUT", ruta: "/api/clases/:id", acceso: COORDINADOR, critica: true },
-  { metodo: "POST", ruta: "/api/clases/:id/cancelar", acceso: COORDINADOR, critica: true },
-  { metodo: "GET", ruta: "/api/clases/:id/inscritos", acceso: COORDINADOR },
-  { metodo: "POST", ruta: "/api/clases/:id/inscritos", acceso: COORDINADOR, critica: true },
-  { metodo: "GET", ruta: "/api/clases/:id/asistencia", acceso: COORDINADOR },
+  { metodo: "GET", ruta: "/api/instructores", acceso: rolesGestionClases },
+  { metodo: "GET", ruta: "/api/clases", acceso: rolesGestionClases },
+  { metodo: "GET", ruta: "/api/clases/:id", acceso: ["ADMIN", "COORDINADOR", "INSTRUCTOR"] },
+  { metodo: "POST", ruta: "/api/clases", acceso: rolesGestionClases, critica: true },
+  { metodo: "PUT", ruta: "/api/clases/:id", acceso: rolesGestionClases, critica: true },
+  { metodo: "POST", ruta: "/api/clases/:id/cancelar", acceso: rolesGestionClases, critica: true },
+  { metodo: "GET", ruta: "/api/clases/:id/inscritos", acceso: rolesGestionClases },
+  { metodo: "POST", ruta: "/api/clases/:id/inscritos", acceso: rolesGestionClases, critica: true },
+  { metodo: "GET", ruta: "/api/clases/:id/asistencia", acceso: rolesGestionClases },
 
   { metodo: "GET", ruta: "/api/instructor/clases", acceso: ["INSTRUCTOR"] },
-  { metodo: "GET", ruta: "/api/clases/:id/qr", acceso: ["INSTRUCTOR"], critica: true },
+  { metodo: "GET", ruta: "/api/clases/:id/qr", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
 
   { metodo: "GET", ruta: "/api/participante/clases", acceso: ["PARTICIPANTE"] },
   { metodo: "POST", ruta: "/api/asistencia/marcar", acceso: ["PARTICIPANTE"], critica: true }

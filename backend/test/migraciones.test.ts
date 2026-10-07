@@ -107,17 +107,31 @@ describe("Característica: Base de datos versionada del Sprint 1", () => {
       await assert.rejects(leerMigraciones(carpeta), /3_Sin-Formato\.sql/);
       await rm(join(carpeta, "3_Sin-Formato.sql"));
     });
+
+    test("BD-12: lee nombres camelCase nuevos sin alterar las migraciones anteriores", async () => {
+      await writeFile(join(carpeta, "0003-indiceDeAsistencia.sql"), "select 3;\n");
+      const leidas = await leerMigraciones(carpeta);
+      assert.deepEqual(leidas.map((m) => m.nombre), [
+        "0001_primera.sql", "0002_segunda.sql", "0003-indiceDeAsistencia.sql"
+      ]);
+    });
   });
 
   describe("nombreMigracionNueva", () => {
     test("BD-11: usa el siguiente número de 4 dígitos", () => {
-      assert.equal(nombreMigracionNueva(["0001_usuarios.sql", "0004_asistencias.sql"], "agregar_campo"), "0005_agregar_campo.sql");
-      assert.equal(nombreMigracionNueva([], "inicial"), "0001_inicial.sql");
+      assert.equal(nombreMigracionNueva(["0001_usuarios.sql", "0004_asistencias.sql"], "agregar campo"), "0005-agregarCampo.sql");
+      assert.equal(nombreMigracionNueva([], "inicial"), "0001-inicial.sql");
     });
 
     test("BD-11: normaliza la descripción y rechaza una vacía", () => {
-      assert.equal(nombreMigracionNueva([], "Agregar Campo-Teléfono"), "0001_agregar_campo_telefono.sql");
+      assert.equal(nombreMigracionNueva([], "Agregar Campo-Teléfono"), "0001-agregarCampoTelefono.sql");
       assert.throws(() => nombreMigracionNueva([], "  "), /descripción/);
+    });
+
+    test("BD-12: los nombres nuevos no llevan guiones bajos y continúan el historial antiguo", () => {
+      const nombre = nombreMigracionNueva(["0004_asistencias.sql", "0005-agregarCampo.sql"], "índice de asistencia");
+      assert.equal(nombre, "0006-indiceDeAsistencia.sql");
+      assert.ok(!nombre.includes("_"));
     });
   });
 });

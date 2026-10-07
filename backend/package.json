@@ -16,7 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "env:init": "tsx src/scripts/env-init.ts",
     "test": "node --import tsx --test \"test/*.test.ts\"",
-    "test:integracion": "node --import tsx --test --test-concurrency=1 \"test/integracion/*.test.ts\""
+    "test:integracion": "node --import tsx --test --test-concurrency=1 \"test/integracion/*.test.ts\"",
+    "test:cobertura": "node --import tsx --experimental-test-coverage --test-coverage-include=\"src/modules/asistencia/*.ts\" --test-coverage-lines=60 --test-coverage-branches=60 --test-coverage-functions=60 --test --test-concurrency=1 test/integracion/asistencia.test.ts"
   },
   "engines": {
     "node": ">=24.0.0"

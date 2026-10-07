@@ -27,6 +27,14 @@ Las [rutas y el acceso real](../docs/rutas.md) y las
 | Participante (inscrita en 1 clase) | `luz.apaza@demo.pe` | `demo123` |
 | Administrador | `admin@gestioncapa.local` | `demo123` |
 
+### Navegación por rol
+
+El menú está disponible en escritorio y celular. El administrador puede gestionar
+clases, creación, edición, cancelación, inscripciones, asistencia y QR desde
+`/admin`. El coordinador gestiona clases e inscripciones; el instructor abre sus
+clases y muestra el QR; el participante consulta sus clases y abre el escáner.
+Todas las pantallas usan los servicios reales con `VITE_USE_MOCKS=false`.
+
 ### Cómo ver cada estado del diseño
 
 | Pantalla del Figma | Cómo llegar |
@@ -61,7 +69,7 @@ Tailwind CSS 4 · qrcode.react · date-fns · sonner · lucide-react · MSW
 src/
   auth/            Sesión (contexto), rutas protegidas por rol
   components/
-    layout/        Encabezado y logo
+    layout/        Encabezado, navegación por rol y logo
     ui/            Botón, campo, entrada, alerta, etiqueta, diálogo…
   lib/             Cliente de la API, formato de fechas, sesión
   mocks/           Backend simulado (MSW) y datos de prueba

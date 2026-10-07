@@ -8,11 +8,16 @@ Especificación: [docs/esp/calidad.md](esp/calidad.md) (criterios CAL, CFG y AMB
 |---|---|---|
 | `npm run verificar` | typecheck → build → pruebas unitarias (se detiene en el primer fallo) | No |
 | `npm test` | Pruebas unitarias de backend (`node:test`) y frontend (Vitest) | No |
-| `npm run test:integracion` | Seed y login de cada rol contra Postgres y Redis reales | Sí |
+| `npm run test:integracion` | Roles, clases, inscripciones, asistencia y migraciones contra Postgres y Redis reales | Sí |
+| `npm run test:cobertura` | Cobertura de asistencia: mínimo 60 % de líneas, ramas y funciones | Sí |
 | `npm run e2e` / `npm run e2e:real` | Recorridos en navegador ([guía](e2e.md)) | Real: sí |
 
 Las pruebas del backend están en `backend/test/`. Las de `backend/test/integracion/`
 necesitan `docker compose up -d --wait` y un `backend/.env` válido.
+
+La compilación local se ejecuta manualmente. Las comprobaciones de tipos y
+pruebas pueden ejecutarse por separado; `npm run verificar` también compila,
+por lo que no debe usarse cuando se desea dejar ese paso manual.
 
 ## En cada Pull Request
 
@@ -21,7 +26,7 @@ necesitan `docker compose up -d --wait` y un `backend/.env` válido.
 - **Tipos, build y pruebas** (CAL-01): `npm run typecheck`, `npm run build` y `npm test`.
 - **Entorno con Docker Compose** (AMB-01…03): repite los pasos del README de un
   integrante nuevo: `docker compose up -d --wait`, `npm run env:init`, `migrate`,
-  `seed` dos veces y `npm run test:integracion`.
+  `seed` dos veces, `npm run test:integracion` y `npm run test:cobertura`.
 
 `e2e.yml` sigue ejecutando las suites de Playwright.
 

@@ -1,14 +1,18 @@
 import { Outlet } from 'react-router-dom'
 import { Encabezado } from './Encabezado'
+import { Navegacion } from './Navegacion'
 
-/** Estructura común: encabezado fijo + contenido con fondo lavanda. */
+/** Estructura común: encabezado fijo, navegación por rol y contenido. */
 export function PaginaConEncabezado() {
   return (
     <div className="min-h-dvh bg-page">
       <Encabezado />
-      <main className="pt-16">
-        <Outlet />
-      </main>
+      <div className="pt-16">
+        <Navegacion />
+        <main>
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }

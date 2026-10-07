@@ -1,4 +1,5 @@
-import { CircleCheck, CircleX } from 'lucide-react'
+import { ArrowRight, BookOpen, CalendarPlus, CircleCheck, CircleX } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { cn } from '@/lib/cn'
 import { mensajeDeError } from '@/lib/api'
@@ -11,13 +12,41 @@ const COMPONENTES: { nombre: string; funciona: (salud: EstadoSalud) => boolean }
   { nombre: 'Redis', funciona: (s) => s.redis === 'ready' },
 ]
 
-/** En el Sprint 1 el administrador solo revisa la salud técnica (/api/health). */
+/** Accesos a la gestión y estado técnico del sistema. */
 export function AdminPagina() {
   const { data, isPending, isError, error, refetch } = useSalud()
 
   return (
     <div className="px-4 py-8 sm:px-10">
-      <div className="mx-auto flex w-full max-w-160 flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-300 flex-col gap-6 sm:px-6">
+        <section aria-label="Gestión de capacitaciones" className="grid gap-4 sm:grid-cols-2">
+          <Link
+            to="/admin/clases"
+            className="flex items-start gap-4 rounded-xl border border-line bg-white p-5 hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            <BookOpen className="size-6 shrink-0 text-brand" aria-hidden />
+            <div className="flex-1">
+              <h2 className="text-base font-semibold text-ink">Gestionar clases</h2>
+              <p className="mt-1 text-sm text-muted">
+                Consulta y edita clases, inscribe participantes, revisa la asistencia y muestra el código QR.
+              </p>
+            </div>
+            <ArrowRight className="size-4 shrink-0 text-brand" aria-hidden />
+          </Link>
+          <Link
+            to="/admin/clases/nueva"
+            className="flex items-start gap-4 rounded-xl border border-line bg-white p-5 hover:border-brand focus-visible:outline-2 focus-visible:outline-brand"
+          >
+            <CalendarPlus className="size-6 shrink-0 text-brand" aria-hidden />
+            <div className="flex-1">
+              <h2 className="text-base font-semibold text-ink">Crear una clase</h2>
+              <p className="mt-1 text-sm text-muted">
+                Programa una capacitación y asigna su instructor, fecha, horario y lugar.
+              </p>
+            </div>
+            <ArrowRight className="size-4 shrink-0 text-brand" aria-hidden />
+          </Link>
+        </section>
         <header>
           <h1 className="text-2xl leading-8 font-semibold tracking-[-0.36px] text-ink">Estado del sistema</h1>
           <p className="mt-1 text-sm leading-5 text-muted">Se actualiza cada 15 segundos</p>

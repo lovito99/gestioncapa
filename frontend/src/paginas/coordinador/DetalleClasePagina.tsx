@@ -1,10 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Calendar, ClipboardList, Clock, MapPin, User, type LucideIcon } from 'lucide-react'
+import { Calendar, ClipboardList, Clock, MapPin, Pencil, QrCode, User, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { useAuth } from '@/auth/useAuth'
+import { useRutaClases } from '@/auth/useRutaClases'
 import { Alerta } from '@/components/ui/Alerta'
 import { Boton } from '@/components/ui/Boton'
 import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
@@ -23,6 +25,8 @@ const esquema = z.object({
 type Formulario = z.infer<typeof esquema>
 
 const th = 'px-6 py-3 text-left text-xs leading-5 font-medium tracking-[0.6px] text-muted uppercase'
+const enlaceAccion =
+  'inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink hover:bg-surface-2'
 
 function Dato({ icono: Icono, children }: { icono: LucideIcon; children: string }) {
   return (
@@ -34,6 +38,8 @@ function Dato({ icono: Icono, children }: { icono: LucideIcon; children: string 
 }
 
 export function DetalleClasePagina() {
+  const rutaClases = useRutaClases()
+  const { usuario } = useAuth()
   const { id = '' } = useParams()
   const clase = useClase(id)
   const inscritos = useInscritos(id)
@@ -50,7 +56,7 @@ export function DetalleClasePagina() {
   if (clase.isError) {
     return (
       <Contenedor>
-        <EnlaceVolver to="/coordinador/clases">Volver a clases</EnlaceVolver>
+        <EnlaceVolver to={rutaClases}>Volver a clases</EnlaceVolver>
         <ErrorCarga
           mensaje={esApiError(clase.error, CODIGOS_ERROR.CLASE_NO_EXISTE) ? 'Esta clase no existe.' : clase.error.message}
           onReintentar={clase.refetch}
@@ -76,20 +82,39 @@ export function DetalleClasePagina() {
 
   return (
     <Contenedor>
-      <EnlaceVolver to="/coordinador/clases">Volver a clases</EnlaceVolver>
+      <EnlaceVolver to={rutaClases}>Volver a clases</EnlaceVolver>
 
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl leading-8 font-semibold tracking-[-0.6px] text-ink">{c.nombre}</h1>
           <EtiquetaEstadoClase estado={c.estado} grande />
         </div>
-        <Link
-          to={`/coordinador/clases/${c.id}/asistencia`}
-          className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-white px-4 text-sm font-semibold text-ink hover:bg-surface-2"
-        >
-          <ClipboardList className="size-4" aria-hidden />
-          Ver asistencia
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {!cancelada && (
+            <>
+              <Link to={`${rutaClases}/${c.id}/editar`} className={enlaceAccion}>
+                <Pencil className="size-4" aria-hidden />
+                Editar clase
+              </Link>
+              {usuario?.rol === 'ADMIN' && (
+                <Link
+                  to={`${rutaClases}/${c.id}/qr`}
+                  className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-ink"
+                >
+                  <QrCode className="size-4" aria-hidden />
+                  Mostrar QR
+                </Link>
+              )}
+            </>
+          )}
+          <Link
+            to={`${rutaClases}/${c.id}/asistencia`}
+            className={enlaceAccion}
+          >
+            <ClipboardList className="size-4" aria-hidden />
+            Ver asistencia
+          </Link>
+        </div>
       </header>
 
       <section aria-label="Datos de la clase" className="flex flex-wrap gap-4 rounded-xl border border-line bg-white px-4 pt-5 pb-4">

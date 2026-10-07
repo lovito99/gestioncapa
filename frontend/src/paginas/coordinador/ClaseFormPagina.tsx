@@ -5,6 +5,7 @@ import { useForm, useWatch } from 'react-hook-form'
 import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
+import { useRutaClases } from '@/auth/useRutaClases'
 import { Alerta } from '@/components/ui/Alerta'
 import { Boton } from '@/components/ui/Boton'
 import { Campo, type EstadoCampo } from '@/components/ui/Campo'
@@ -17,12 +18,14 @@ import { CODIGOS_ERROR, type ClaseEntrada } from '@/types/api'
 
 const esquema = z
   .object({
-    nombre: z.string().trim().min(1, 'Ingresa el nombre de la clase'),
+    nombre: z.string().trim().min(1, 'Ingresa el nombre de la clase')
+      .max(160, 'El nombre admite hasta 160 caracteres'),
     instructorId: z.string().min(1, 'Selecciona un instructor'),
     fecha: z.string().min(1, 'Ingresa la fecha de la clase'),
     horaInicio: z.string().min(1, 'Ingresa la hora de inicio'),
     horaFin: z.string().min(1, 'Ingresa la hora de fin'),
-    lugar: z.string().trim().min(1, 'Ingresa el lugar'),
+    lugar: z.string().trim().min(1, 'Ingresa el lugar')
+      .max(160, 'El lugar admite hasta 160 caracteres'),
   })
   .refine((d) => !d.horaInicio || !d.horaFin || d.horaFin > d.horaInicio, {
     path: ['horaFin'],
@@ -39,6 +42,14 @@ export function ClaseFormPagina() {
   const esEdicion = Boolean(id)
   const clase = useClase(id ?? '')
   const instructores = useInstructores()
+
+  if (instructores.isError) {
+    return (
+      <Contenedor>
+        <ErrorCarga mensaje="No pudimos cargar los instructores." onReintentar={instructores.refetch} />
+      </Contenedor>
+    )
+  }
 
   if (esEdicion && clase.isPending) return <Contenedor><Cargando /></Contenedor>
   if (esEdicion && clase.isError)
@@ -62,6 +73,7 @@ export function ClaseFormPagina() {
   return (
     <Contenedor>
       <FormularioClase
+        key={id ?? 'nueva'}
         id={id}
         iniciales={iniciales}
         instructores={instructores.data ?? []}
@@ -87,6 +99,7 @@ interface PropsFormulario {
 }
 
 function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: PropsFormulario) {
+  const rutaClases = useRutaClases()
   const navegar = useNavigate()
   const guardar = useGuardarClase(id)
   const [aviso, setAviso] = useState<{ mensaje: string; firma: string } | null>(null)
@@ -116,7 +129,7 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: 
       guardar.mutate(datos satisfies ClaseEntrada, {
         onSuccess: (guardada) => {
           toast.success(id ? 'Clase actualizada.' : `Clase «${guardada.nombre}» creada.`)
-          navegar('/coordinador/clases')
+          navegar(rutaClases)
         },
         onError: (error) => {
           if (esApiError(error, CODIGOS_ERROR.CONFLICTO_HORARIO)) {
@@ -139,7 +152,7 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: 
 
   return (
     <>
-      <EnlaceVolver to="/coordinador/clases">Volver a clases</EnlaceVolver>
+      <EnlaceVolver to={rutaClases}>Volver a clases</EnlaceVolver>
 
       <header>
         <h1 className="text-2xl leading-8 font-semibold tracking-[-0.6px] text-ink-2">
@@ -209,7 +222,7 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: 
         </Campo>
 
         <div className="mt-6 flex justify-end gap-3 border-t border-[#dae2fd] pt-5.25">
-          <Boton variante="secundario" onClick={() => navegar('/coordinador/clases')}>
+          <Boton variante="secundario" onClick={() => navegar(rutaClases)}>
             Volver
           </Boton>
           <Boton type="submit" cargando={guardar.isPending}>

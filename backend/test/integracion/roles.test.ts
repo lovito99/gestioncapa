@@ -47,6 +47,17 @@ describe("Característica: Acceso únicamente a las opciones del rol", () => {
     assert.equal(respuesta.json().token, undefined);
   });
 
+  test("VAL-06: un login incompleto o inválido devuelve errores en español sin emitir token", async () => {
+    for (const payload of [{}, { email: "inválido", password: "" }, { email: 42, password: null }]) {
+      const respuesta = await app.inject({ method: "POST", url: "/api/auth/login", payload });
+      assert.equal(respuesta.statusCode, 422, respuesta.body);
+      assert.equal(respuesta.json().code, "VALIDACION");
+      assert.ok(respuesta.json().fields.email);
+      assert.ok(respuesta.json().fields.password);
+      assert.equal(respuesta.json().token, undefined);
+    }
+  });
+
   test("ROL-03: Dado un usuario inactivo, cuando la contraseña es incorrecta, entonces no revela que existe", async () => {
     await crearUsuario(inactivo, false);
     const respuesta = await app.inject({

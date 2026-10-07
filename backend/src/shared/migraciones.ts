@@ -26,7 +26,8 @@ export class MigracionError extends Error {
   }
 }
 
-const NOMBRE_VALIDO = /^(\d{4})_[a-z0-9_]+\.sql$/;
+// Se conserva la lectura del historial antiguo; los archivos nuevos usan camelCase.
+const nombreValido = /^(\d{4})(?:_[a-z0-9_]+|-[a-zA-Z0-9]+)\.sql$/;
 
 // Clave del bloqueo consultivo: serializa los `migrate` simultáneos.
 const BLOQUEO = 727_100_001;
@@ -42,15 +43,15 @@ const REGISTRO = `
 
 const aRuta = (carpeta: string | URL) => (typeof carpeta === "string" ? carpeta : fileURLToPath(carpeta));
 
-/** Lee `NNNN_descripcion.sql` en orden. El checksum ignora la diferencia CRLF/LF. */
+/** Lee las migraciones en orden. El checksum ignora la diferencia CRLF/LF. */
 export async function leerMigraciones(carpeta: string | URL = CARPETA_MIGRACIONES): Promise<ArchivoMigracion[]> {
   const ruta = aRuta(carpeta);
   const nombres = (await readdir(ruta)).filter((nombre) => nombre.endsWith(".sql")).sort();
-  const invalidos = nombres.filter((nombre) => !NOMBRE_VALIDO.test(nombre));
+  const invalidos = nombres.filter((nombre) => !nombreValido.test(nombre));
 
   if (invalidos.length > 0) {
     throw new MigracionError(
-      invalidos.map((nombre) => `${nombre}: nombre inválido. Usa NNNN_descripcion.sql (4 dígitos, minúsculas y _).`)
+      invalidos.map((nombre) => `${nombre}: nombre inválido. Usa NNNN-descripcionEnCamelCase.sql.`)
     );
   }
 
@@ -115,26 +116,29 @@ export function planificar(archivos: ArchivoMigracion[], aplicadas: MigracionApl
   return pendientes;
 }
 
-/** `["0001_x.sql", "0004_y.sql"]`, `"Agregar Campo"` → `0005_agregar_campo.sql` */
+/** Continúa el historial: "Agregar Campo" → 0005-agregarCampo.sql. */
 export function nombreMigracionNueva(existentes: string[], descripcion: string) {
-  const limpia = descripcion
+  const palabras = descripcion
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "_")
-    .replace(/^_+|_+$/g, "");
+    .match(/[a-z0-9]+/g) ?? [];
+  const limpia = palabras.map((palabra, indice) =>
+    indice === 0 ? palabra : palabra[0]!.toUpperCase() + palabra.slice(1)
+  ).join("");
 
   if (!limpia) {
-    throw new Error("Indica una descripción, por ejemplo: npm run migrate:nueva -- agregar_campo");
+    throw new Error("Indica una descripción, por ejemplo: npm run migrate:nueva -- agregar campo");
   }
 
   const ultima = existentes
-    .map((nombre) => NOMBRE_VALIDO.exec(nombre)?.[1])
+    .map((nombre) => nombreValido.exec(nombre)?.[1])
     .filter((version): version is string => version !== undefined)
     .map(Number)
     .reduce((mayor, version) => Math.max(mayor, version), 0);
 
-  return `${String(ultima + 1).padStart(4, "0")}_${limpia}.sql`;
+  return `${String(ultima + 1).padStart(4, "0")}-${limpia}.sql`;
 }
 
 async function leerAplicadas(cliente: Pick<PoolClient, "query">) {

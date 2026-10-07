@@ -10,8 +10,9 @@ Sprint 1. Cada cambio de la base queda versionado y se aplica con `npm run migra
 ### Migraciones versionadas
 
 - Cada cambio de esquema es un archivo SQL en `backend/migraciones/` con el nombre
-  `NNNN_descripcion.sql` (4 dígitos, minúsculas y `_`). Ejemplo:
-  `0004_asistencias.sql`. Se crea con `npm run migrate:nueva -- descripcion`.
+  `NNNN-descripcionEnCamelCase.sql` (4 dígitos, sin guiones bajos). Ejemplo:
+  `0005-indiceDeAsistencia.sql`. Se crea con `npm run migrate:nueva -- indice de asistencia`.
+  Los archivos anteriores se siguen leyendo con su nombre original para conservar el historial.
 - `npm run migrate` aplica en orden las migraciones pendientes. Cada una corre en
   su propia transacción: si falla, no queda a medias y las siguientes no se aplican.
 - La tabla `schema_migrations` registra versión, nombre, checksum SHA-256 y fecha.
@@ -111,8 +112,8 @@ Característica: Base de datos versionada del Sprint 1
     Entonces se detiene con un mensaje que lista las pendientes y pide npm run migrate
 
   Escenario: BD-11 Crear una migración nueva
-    Cuando se ejecuta npm run migrate:nueva -- agregar_campo
-    Entonces se crea backend/migraciones/NNNN_agregar_campo.sql con el siguiente número
+    Cuando se ejecuta npm run migrate:nueva -- agregar campo
+    Entonces se crea backend/migraciones/NNNN-agregarCampo.sql con el siguiente número
 ```
 
 ## Pruebas

@@ -1,6 +1,7 @@
 import { CircleCheck, CircleX, RefreshCw, Users, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { useRutaClases } from '@/auth/useRutaClases'
 import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { EtiquetaAsistencia } from '@/components/ui/Etiqueta'
@@ -39,6 +40,7 @@ function Metrica({
 }
 
 export function AsistenciaPagina() {
+  const rutaClases = useRutaClases()
   const { id = '' } = useParams()
   const clase = useClase(id)
   const asistencia = useAsistencia(id)
@@ -62,7 +64,7 @@ export function AsistenciaPagina() {
           Inscribe participantes desde el detalle de la clase para poder registrar su asistencia.
         </p>
         <Link
-          to={`/coordinador/clases/${id}`}
+          to={`${rutaClases}/${id}`}
           className="mt-6 inline-flex h-10 items-center rounded-lg border border-line bg-white px-5 text-sm font-medium text-ink hover:bg-surface-2"
         >
           Ir a inscribir participantes
@@ -114,7 +116,7 @@ export function AsistenciaPagina() {
   return (
     <div className="px-4 sm:px-10">
       <div className="mx-auto max-w-300 pt-8 pb-16 sm:px-6">
-        <EnlaceVolver to={`/coordinador/clases/${id}`}>Volver al detalle de la clase</EnlaceVolver>
+        <EnlaceVolver to={`${rutaClases}/${id}`}>Volver al detalle de la clase</EnlaceVolver>
 
         <header className="flex flex-wrap items-end justify-between gap-4 py-6">
           <div>

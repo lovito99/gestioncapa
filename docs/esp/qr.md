@@ -25,9 +25,10 @@ durante la sesión correcta.
   el motivo del rechazo (`INVALIDO` o `EXPIRADO`). Comparar con firma en tiempo
   constante. La usará `POST /asistencia/marcar` (historia siguiente) para que solo
   el token vigente cree registros; registrar la asistencia queda fuera de esta historia.
-- **Acceso.** Solo el instructor asignado: 403 `SIN_PERMISO` («Esta clase no está
-  asignada a ti.») para otro instructor; coordinador, participante y admin reciben
-  403 por la matriz de T-04. Clase inexistente: 404. Cancelada: 409 `CLASE_CANCELADA`.
+- **Acceso.** Administrador o instructor asignado: 403 `SIN_PERMISO` («Esta clase no está
+  asignada a ti.») para otro instructor; coordinador y participante reciben
+  403 por la matriz de T-04. El administrador puede mostrar el QR de cualquier clase
+  programada desde su detalle. Clase inexistente: 404. Cancelada: 409 `CLASE_CANCELADA`.
 - **`QR_SECRET`** es una variable requerida nueva (32+ caracteres, sin marcadores
   `CAMBIA`): el servidor no arranca sin ella (CFG-01). `npm run env:init` la genera.
 - **`GET /api/instructor/clases`**: las clases `PROGRAMADA` del instructor
@@ -64,8 +65,14 @@ Característica: QR temporal rotatorio
     Dado Lucía, instructora que no está asignada a la clase
     Cuando pide el QR de la clase de Carlos
     Entonces el servidor responde 403 SIN_PERMISO
-    Y coordinador, participante y admin también reciben 403
+    Y coordinador y participante también reciben 403
     Y una clase cancelada responde 409 y una inexistente 404
+
+  Escenario: QR-08 Administrador con acceso al QR
+    Dado un administrador autenticado
+    Cuando pide el QR de una clase programada de cualquier instructor
+    Entonces recibe un token válido para esa clase
+    Y una clase cancelada sigue respondiendo 409 CLASE_CANCELADA
 
   Escenario: QR-05 Sin QR_SECRET el servidor no arranca
     Dado que falta QR_SECRET o tiene el marcador de ejemplo
@@ -89,7 +96,7 @@ Característica: QR temporal rotatorio
 |---|---|---|
 | QR-02, QR-03 | Unitaria (reloj explícito) | `backend/test/qr.test.ts` |
 | QR-05 | Unitaria | `backend/test/env.test.ts`, `backend/test/env-init.test.ts` |
-| QR-01, QR-03, QR-04, QR-06 | Integración (Postgres y Redis) | `backend/test/integracion/qr.test.ts` |
+| QR-01, QR-03, QR-04, QR-06, QR-08 | Integración (Postgres y Redis) | `backend/test/integracion/qr.test.ts` |
 | QR-07 | E2E real | `e2e/prb/real/qr.spec.ts` |
 
 ## Ciclo aplicado (6 de octubre de 2026)

@@ -198,7 +198,7 @@ describe("Característica: Programar clase presencial", () => {
     assert.equal(qr.json().code, "CLASE_CANCELADA");
   });
 
-  for (const rol of ["INSTRUCTOR", "PARTICIPANTE", "ADMIN"] as Rol[]) {
+  for (const rol of ["INSTRUCTOR", "PARTICIPANTE"] as Rol[]) {
     test(`PRG-09: Dado ${rol}, cuando intenta crear, editar o cancelar, entonces 403 sin modificar nada`, async () => {
       const clase = await crear();
       const antes = await contarClases();

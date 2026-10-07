@@ -176,13 +176,13 @@ export const handlers = [
 
   // ---------- Catálogos ----------
   http.get(`${API}/instructores`, ({ request }) => {
-    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
     return respuesta ?? HttpResponse.json(instructores)
   }),
 
   // ---------- Clases ----------
   http.get(`${API}/clases`, async ({ request }) => {
-    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
     if (respuesta) return respuesta
     await delay(300)
     return HttpResponse.json(clases.map(conInscritos))
@@ -200,7 +200,7 @@ export const handlers = [
   }),
 
   http.get(`${API}/clases/:id`, ({ request, params }) => {
-    const { respuesta, usuario } = exigirRol(request, 'COORDINADOR', 'INSTRUCTOR')
+    const { respuesta, usuario } = exigirRol(request, 'ADMIN', 'COORDINADOR', 'INSTRUCTOR')
     if (respuesta) return respuesta
     const clase = clases.find((c) => c.id === params.id)
     if (!clase) return claseNoExiste()
@@ -211,21 +211,21 @@ export const handlers = [
   }),
 
   http.post(`${API}/clases`, async ({ request }) => {
-    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
     if (respuesta) return respuesta
     await delay(400)
     return guardar((await request.json()) as ClaseEntrada)
   }),
 
   http.put(`${API}/clases/:id`, async ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
     if (respuesta) return respuesta
     await delay(400)
     return guardar((await request.json()) as ClaseEntrada, params.id as string)
   }),
 
   http.post(`${API}/clases/:id/cancelar`, async ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
     if (respuesta) return respuesta
     await delay(300)
     const clase = clases.find((c) => c.id === params.id)
@@ -236,7 +236,7 @@ export const handlers = [
 
   // ---------- Inscripciones ----------
   http.get(`${API}/clases/:id/inscritos`, ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
     if (respuesta) return respuesta
     const ids = inscripciones[params.id as string]
     if (!ids) return claseNoExiste()
@@ -244,7 +244,7 @@ export const handlers = [
   }),
 
   http.post(`${API}/clases/:id/inscritos`, async ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
     if (respuesta) return respuesta
     await delay(300)
     const { email } = (await request.json()) as { email: string }
@@ -271,7 +271,7 @@ export const handlers = [
 
   // ---------- Asistencia (coordinador) ----------
   http.get(`${API}/clases/:id/asistencia`, ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
     if (respuesta) return respuesta
     const id = params.id as string
     const ids = inscripciones[id]
@@ -296,11 +296,11 @@ export const handlers = [
 
   // ---------- QR (instructor) ----------
   http.get(`${API}/clases/:id/qr`, ({ request, params }) => {
-    const { respuesta, usuario } = exigirRol(request, 'INSTRUCTOR')
+    const { respuesta, usuario } = exigirRol(request, 'ADMIN', 'INSTRUCTOR')
     if (respuesta) return respuesta
     const clase = clases.find((c) => c.id === params.id)
     if (!clase) return claseNoExiste()
-    if (clase.instructor.id !== usuario.id) return sinPermiso('Esta clase no está asignada a ti.')
+    if (usuario.rol !== 'ADMIN' && clase.instructor.id !== usuario.id) return sinPermiso('Esta clase no está asignada a ti.')
     if (clase.estado === 'CANCELADA') return claseCancelada()
     // El token cambia en cada "ventana" de 30 s, igual que lo haría el servidor real
     const ahora = Date.now()

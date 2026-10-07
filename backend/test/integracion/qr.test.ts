@@ -117,11 +117,21 @@ describe("Característica: QR temporal rotatorio", () => {
     assert.equal((await pedir("lucia", `/api/clases/${clases.deLucia}/qr`)).statusCode, 200);
   });
 
-  for (const cuenta of ["coordinadora", "participante", "admin"] as const) {
+  for (const cuenta of ["coordinadora", "participante"] as const) {
     test(`QR-04: Dado ${cuenta}, cuando pide un QR, entonces 403`, async () => {
       assert.equal((await pedir(cuenta, `/api/clases/${clases.deCarlos}/qr`)).statusCode, 403);
     });
   }
+
+  test("QR-08: el administrador genera el QR de cualquier clase programada", async () => {
+    for (const id of [clases.deCarlos, clases.deLucia]) {
+      const respuesta = await pedir("admin", `/api/clases/${id}/qr`);
+      assert.equal(respuesta.statusCode, 200, respuesta.body);
+      const qr = respuesta.json();
+      assert.deepEqual(verificarTokenQr(qr.token, Date.parse(qr.servidorAhora), env.QR_SECRET), { ok: true, claseId: id });
+    }
+    assert.equal((await pedir("admin", `/api/clases/${clases.cancelada}/qr`)).statusCode, 409);
+  });
 
   test("QR-04: Dado una clase cancelada o inexistente, entonces 409 o 404", async () => {
     const cancelada = await pedir("carlos", `/api/clases/${clases.cancelada}/qr`);

@@ -28,9 +28,10 @@ de asistencia.
 - **Cancelación.** `PROGRAMADA → CANCELADA`, irreversible. Una clase cancelada no
   se edita, no se vuelve a cancelar, no admite inscripciones y no genera QR:
   409 `CLASE_CANCELADA`.
-- **QR.** Generar el QR rotativo es otra historia. `GET /clases/:id/qr` ya valida
-  la clase: 404 si no existe, 403 si es de otro instructor y 409 si está
-  cancelada. Para una clase programada sigue respondiendo 501 `NO_IMPLEMENTADO`.
+- **QR.** `GET /clases/:id/qr` está implementado en [HU-07](qr.md): devuelve un token
+  firmado de 30 segundos para una clase programada. Responde 404 si no existe,
+  403 si un instructor intenta consultar una clase ajena y 409 si está cancelada.
+  El administrador puede generarlo desde el detalle de cualquier clase programada.
 - **Permisos.** Los aplica la matriz de T-04 ([permisos](permisos.md)). El
   instructor solo ve el detalle de sus propias clases.
 - Id inexistente o no numérico: 404 `CLASE_NO_EXISTE`.

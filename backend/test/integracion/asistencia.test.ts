@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { after, before, beforeEach, describe, test } from "node:test";
+import { after, afterEach, before, beforeEach, describe, test } from "node:test";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../src/app.js";
 import { env } from "../../src/config/env.js";
 import { sembrarUsuarios } from "../../src/modules/auth/auth.service.js";
-import { emitirTokenQr } from "../../src/modules/qr/qr.token.js";
+import { emitirTokenQr, reloj } from "../../src/modules/qr/qr.token.js";
 import { pool } from "../../src/shared/database.js";
 import { migrar } from "../../src/shared/migraciones.js";
 import { redis } from "../../src/shared/redis.js";
@@ -21,6 +21,22 @@ type Cuenta = keyof typeof CUENTAS;
 const sesiones = new Map<Cuenta, { token: string; id: string }>();
 const clases = { principal: "", cancelada: "", lista: "" };
 let app: FastifyInstance;
+const relojReal = reloj.ahora;
+
+async function esperarSolicitudBloqueada() {
+  for (let intento = 0; intento < 250; intento++) {
+    const resultado = await pool.query<{ bloqueada: boolean }>(
+      `select exists (
+         select 1 from pg_stat_activity
+         where datname = current_database() and wait_event_type = 'Lock'
+           and (query like '%attendances%' or query like '%classes%')
+       ) as bloqueada`
+    );
+    if (resultado.rows[0]?.bloqueada) return;
+    await new Promise((resolver) => setTimeout(resolver, 20));
+  }
+  assert.fail("La solicitud no llegó al bloqueo de la clase");
+}
 
 const llamar = (cuenta: Cuenta, method: "GET" | "POST", url: string, payload?: object) =>
   app.inject({
@@ -81,6 +97,10 @@ describe("Característica: Registrar y consultar asistencia", () => {
     await pool.query("delete from attendances where class_id = any($1)", [Object.values(clases)]);
   });
 
+  afterEach(() => {
+    reloj.ahora = relojReal;
+  });
+
   after(async () => {
     await pool.query("delete from classes where nombre like 'ASI %'");
     await app?.close();
@@ -120,6 +140,53 @@ describe("Característica: Registrar y consultar asistencia", () => {
 
     assert.deepEqual(codigos, [201, 409, 409, 409, 409]);
     assert.equal((await registros(clases.principal)).length, 1);
+  });
+
+  test("MAR-06: una cancelación confirmada mientras el escaneo espera impide registrar asistencia", async () => {
+    const cliente = await pool.connect();
+    let pendiente: ReturnType<typeof marcar> | undefined;
+    try {
+      await cliente.query("begin");
+      await cliente.query("select id from classes where id = $1 for update", [clases.principal]);
+      await cliente.query("update classes set estado = 'CANCELADA' where id = $1", [clases.principal]);
+      pendiente = marcar("maria", { token: tokenVigente(clases.principal) });
+      const respuestaPendiente = Promise.resolve(pendiente);
+      await esperarSolicitudBloqueada();
+      await cliente.query("commit");
+      const respuesta = await respuestaPendiente;
+      assert.equal(respuesta.statusCode, 409, respuesta.body);
+      assert.equal(respuesta.json().code, "CLASE_CANCELADA");
+      assert.equal((await registros(clases.principal)).length, 0);
+    } finally {
+      await cliente.query("rollback");
+      await pendiente;
+      cliente.release();
+      await pool.query("update classes set estado = 'PROGRAMADA' where id = $1", [clases.principal]);
+    }
+  });
+
+  test("MAR-07: un QR que vence mientras espera a la base se rechaza antes de insertar", async () => {
+    const cliente = await pool.connect();
+    let pendiente: ReturnType<typeof marcar> | undefined;
+    const ahora = Date.now();
+    reloj.ahora = () => ahora;
+    try {
+      await cliente.query("begin");
+      await cliente.query("select id from classes where id = $1 for update", [clases.principal]);
+      pendiente = marcar("maria", { token: emitirTokenQr(clases.principal, ahora, env.QR_SECRET).token });
+      const respuestaPendiente = Promise.resolve(pendiente);
+      await esperarSolicitudBloqueada();
+      reloj.ahora = () => ahora + 30_000;
+      await cliente.query("commit");
+      const respuesta = await respuestaPendiente;
+      assert.equal(respuesta.statusCode, 410, respuesta.body);
+      assert.equal(respuesta.json().code, "QR_EXPIRADO");
+      assert.equal((await registros(clases.principal)).length, 0);
+    } finally {
+      await cliente.query("rollback");
+      await pendiente;
+      cliente.release();
+    }
   });
 
   const rechazos: [string, () => [Cuenta, object], number, string][] = [

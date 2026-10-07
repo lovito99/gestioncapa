@@ -130,7 +130,7 @@ describe("Característica: Inscribir participante en clase", () => {
     assert.equal((await inscritos()).length, 1);
   });
 
-  for (const rol of ["PARTICIPANTE", "INSTRUCTOR", "ADMIN"] as Rol[]) {
+  for (const rol of ["PARTICIPANTE", "INSTRUCTOR"] as Rol[]) {
     test(`INS-04: Dado ${rol} que llama directamente al endpoint, entonces 403 y no se inscribe`, async () => {
       const respuesta = await inscribir(MARIA, rol);
 

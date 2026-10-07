@@ -3,6 +3,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { useAuth } from '@/auth/useAuth'
 import { BotonCerrarSesion } from '@/components/layout/Encabezado'
 import { LogoRecuadro } from '@/components/layout/Logo'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
@@ -25,6 +26,8 @@ function useSegundosRestantes(expiraEn?: string, servidorAhora?: string, recibid
 }
 
 export function QrAsistenciaPagina() {
+  const { usuario } = useAuth()
+  const rutaVolver = usuario?.rol === 'ADMIN' ? '/admin/clases' : '/instructor/clases'
   const { id = '' } = useParams()
   const clase = useClase(id)
   const qr = useQrAsistencia(id)
@@ -39,11 +42,11 @@ export function QrAsistenciaPagina() {
       <header className="border-b border-line-2/40 bg-white">
         <div className="mx-auto grid h-16 max-w-7xl grid-cols-3 items-center px-4 sm:px-6">
           <Link
-            to="/instructor/clases"
+            to={rutaVolver}
             className="flex items-center gap-1 justify-self-start text-[13px] font-medium text-muted-3 hover:text-ink"
           >
             <ArrowLeft className="size-3.25" aria-hidden />
-            Mis clases
+            {usuario?.rol === 'ADMIN' ? 'Volver a clases' : 'Mis clases'}
           </Link>
           <div className="flex items-center gap-2 justify-self-center">
             <LogoRecuadro tamano={32} />

@@ -2,12 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { env } from "../../config/env.js";
 import { validateUser, type PublicUser } from "./auth.service.js";
+import { textoObligatorio } from "../../shared/validacion.js";
 
 // El acceso de cada ruta lo aplica la matriz de backend/src/plugins/permisos.ts.
 
 const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1)
+  email: textoObligatorio("Ingresa tu correo electrónico").pipe(z.email("Ingresa un correo válido")),
+  password: z.string({ error: "Ingresa tu contraseña" }).min(1, "Ingresa tu contraseña")
 });
 
 export async function authRoutes(app: FastifyInstance) {

@@ -62,6 +62,8 @@ jobs:
           npm run seed
       - name: Pruebas de integración del seed
         run: npm run test:integracion
+      - name: Cobertura de asistencia (mínimo 60 %)
+        run: npm run test:cobertura
       - name: Registros de servicios
         if: failure()
         run: docker compose logs

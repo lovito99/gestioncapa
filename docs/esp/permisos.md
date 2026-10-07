@@ -27,23 +27,24 @@ en la interfaz no reemplaza esta validación.
 | POST | `/auth/logout` | autenticado | |
 | GET | `/auth/me` | autenticado | |
 | GET | `/health` | público | |
-| GET | `/instructores` | coordinador | |
-| GET | `/clases` | coordinador | |
-| GET | `/clases/:id` | coordinador, instructor | |
-| POST | `/clases` | coordinador | sí |
-| PUT | `/clases/:id` | coordinador | sí |
-| POST | `/clases/:id/cancelar` | coordinador | sí |
-| GET | `/clases/:id/inscritos` | coordinador | |
-| POST | `/clases/:id/inscritos` | coordinador | sí |
-| GET | `/clases/:id/asistencia` | coordinador | |
+| GET | `/instructores` | administrador, coordinador | |
+| GET | `/clases` | administrador, coordinador | |
+| GET | `/clases/:id` | administrador, coordinador, instructor | |
+| POST | `/clases` | administrador, coordinador | sí |
+| PUT | `/clases/:id` | administrador, coordinador | sí |
+| POST | `/clases/:id/cancelar` | administrador, coordinador | sí |
+| GET | `/clases/:id/inscritos` | administrador, coordinador | |
+| POST | `/clases/:id/inscritos` | administrador, coordinador | sí |
+| GET | `/clases/:id/asistencia` | administrador, coordinador | |
 | GET | `/instructor/clases` | instructor | |
-| GET | `/clases/:id/qr` | instructor | sí |
+| GET | `/clases/:id/qr` | administrador o instructor de esa clase | sí |
 | GET | `/participante/clases` | participante | |
 | POST | `/asistencia/marcar` | participante | sí |
 
-`GET /health` (fuera de `/api`) también es público. El administrador no tiene
-rutas de negocio en el Sprint 1: recibe 403 en todas las anteriores salvo las
-públicas y las de autenticado.
+`GET /health` (fuera de `/api`) también es público. El administrador puede
+gestionar clases, inscripciones y asistencia, y generar QR de cualquier clase
+programada. Las rutas personales del instructor y participante siguen reservadas
+a esos roles; el instructor solo puede generar QR de sus propias clases.
 
 ## Criterios de aceptación
 
@@ -73,7 +74,7 @@ Característica: Autorización por rol en cada ruta del servidor
 
   Escenario: PER-05 Un 403 no modifica datos
     Dado un participante autenticado
-    Cuando llama a POST /api/clases, reservado al coordinador
+    Cuando llama a POST /api/clases, reservado al administrador y coordinador
     Entonces responde 403 SIN_PERMISO
     Y el handler de la ruta no se ejecuta
 

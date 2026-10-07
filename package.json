@@ -32,6 +32,7 @@
     "verificar": "npm run typecheck && npm run build && npm run test",
     "env:init": "npm run env:init -w backend",
     "test:integracion": "npm run test:integracion -w backend",
+    "test:cobertura": "npm run test:cobertura -w backend",
     "start": "npm run start -w backend"
   },
   "devDependencies": {

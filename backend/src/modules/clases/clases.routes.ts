@@ -18,7 +18,8 @@ import {
 } from "./clases.repositorio.js";
 import { env } from "../../config/env.js";
 import { DURACION_QR_SEGUNDOS, emitirTokenQr, reloj } from "../qr/qr.token.js";
-import { validarClase, type DatosClase } from "./clases.validacion.js";
+import { esquemaInscripcion, validarClase, type DatosClase } from "./clases.validacion.js";
+import { camposDeError } from "../../shared/validacion.js";
 
 // El acceso por rol de cada ruta lo aplica la matriz de backend/src/plugins/permisos.ts.
 
@@ -36,8 +37,6 @@ const fechaLarga = (fecha: string) => formatoFecha.format(new Date(`${fecha}T00:
 
 const enviarError = (reply: FastifyReply, status: number, code: string, message: string, extra: object = {}) =>
   reply.code(status).send({ code, message, ...extra });
-
-const FORMATO_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const claseNoExiste = (reply: FastifyReply) => enviarError(reply, 404, "CLASE_NO_EXISTE", "La clase no existe.");
 
@@ -167,20 +166,12 @@ export async function clasesRoutes(app: FastifyInstance) {
     if (!id || !clase) return claseNoExiste(reply);
     if (clase.estado === "CANCELADA") return claseCancelada(reply);
 
-    const cuerpo = request.body as { email?: unknown } | null;
-    const email = typeof cuerpo?.email === "string" ? cuerpo.email.trim() : "";
-
-    if (!email) {
-      return enviarError(reply, 422, "VALIDACION", "Ingresa el correo del participante.", {
-        fields: { email: "Ingresa el correo del participante" }
-      });
+    const cuerpo = esquemaInscripcion.safeParse(request.body ?? {});
+    if (!cuerpo.success) {
+      const fields = camposDeError(cuerpo.error);
+      return enviarError(reply, 422, "VALIDACION", fields.email ?? "Ingresa un correo válido.", { fields });
     }
-
-    if (!FORMATO_CORREO.test(email)) {
-      return enviarError(reply, 422, "VALIDACION", "Ingresa un correo válido.", {
-        fields: { email: "Ingresa un correo válido" }
-      });
-    }
+    const { email } = cuerpo.data;
 
     const participante = await buscarParticipante(email);
 
@@ -212,13 +203,13 @@ export async function clasesRoutes(app: FastifyInstance) {
 
   app.get("/api/instructor/clases", async (request) => listarClasesDeInstructor(request.usuario!.id));
 
-  // QR rotativo (HU-07): solo el instructor asignado y solo para clases programadas.
+  // QR rotativo: administrador o instructor asignado, solo para clases programadas.
   app.get("/api/clases/:id/qr", async (request: ConId, reply) => {
     const id = leerId(request);
     const clase = id ? await obtenerClase(id) : null;
 
     if (!clase) return claseNoExiste(reply);
-    if (clase.instructor.id !== String(request.usuario?.id)) {
+    if (request.usuario?.role !== "admin" && clase.instructor.id !== String(request.usuario?.id)) {
       return enviarError(reply, 403, "SIN_PERMISO", "Esta clase no está asignada a ti.");
     }
     if (clase.estado === "CANCELADA") return claseCancelada(reply);

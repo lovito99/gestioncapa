@@ -6,6 +6,7 @@ import { clasesRoutes } from "./modules/clases/clases.routes.js";
 import { healthRoutes } from "./modules/health/health.routes.js";
 import { rutasPendientes } from "./modules/pendientes/pendientes.routes.js";
 import { registrarAutorizacion } from "./plugins/autorizacion.js";
+import { registrarErrores } from "./plugins/errores.js";
 import { registerHttpPlugins } from "./plugins/http.js";
 import { ensureAdminUser, findUserById } from "./modules/auth/auth.service.js";
 import { pool } from "./shared/database.js";
@@ -20,6 +21,7 @@ export async function buildApp() {
   });
 
   await registerHttpPlugins(app);
+  registrarErrores(app);
   // Antes de registrar rutas: cada una recibe el guard de la matriz de permisos.
   registrarAutorizacion(app, findUserById);
   // No migra: exige que la base esté al día (npm run migrate) antes de aceptar tráfico.

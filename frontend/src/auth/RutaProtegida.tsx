@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { sesion } from '@/lib/sesion'
 import type { Rol } from '@/types/api'
-import { useAuth } from './AuthContext'
+import { useAuth } from './useAuth'
 import { inicioPorRol } from './inicioPorRol'
 
 /** Deja pasar solo a usuarios con sesión vigente y con el rol indicado. */

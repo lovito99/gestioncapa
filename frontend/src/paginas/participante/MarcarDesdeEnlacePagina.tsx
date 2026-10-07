@@ -14,12 +14,12 @@ export function MarcarDesdeEnlacePagina() {
   const navegar = useNavigate()
   const marcar = useMarcarAsistencia()
   const { mutate } = marcar
-  const enviado = useRef(false)
+  const tokenEnviado = useRef<string | null>(null)
 
   useEffect(() => {
     // En desarrollo React monta dos veces: evitamos enviar el token dos veces
-    if (!token || enviado.current) return
-    enviado.current = true
+    if (!token || tokenEnviado.current === token) return
+    tokenEnviado.current = token
     mutate({ token })
   }, [token, mutate])
 

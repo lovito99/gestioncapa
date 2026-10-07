@@ -1,6 +1,6 @@
 import { LogOut } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '@/auth/AuthContext'
+import { useAuth } from '@/auth/useAuth'
 import { inicioPorRol } from '@/auth/inicioPorRol'
 import { cn } from '@/lib/cn'
 import { LogoPlano, LogoRecuadro } from './Logo'
