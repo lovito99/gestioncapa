@@ -5,7 +5,8 @@ import { buildApp } from "../../src/app.js";
 import { env } from "../../src/config/env.js";
 import { sembrarUsuarios } from "../../src/modules/auth/auth.service.js";
 import { usuariosSeed } from "../../src/modules/auth/usuarios-seed.js";
-import { ensureDatabase, pool } from "../../src/shared/database.js";
+import { pool } from "../../src/shared/database.js";
+import { migrar } from "../../src/shared/migraciones.js";
 import { redis } from "../../src/shared/redis.js";
 
 // Requiere Postgres y Redis activos (docker compose up -d --wait) y backend/.env.
@@ -14,7 +15,7 @@ let app: FastifyInstance;
 
 describe("Característica: Entorno local reproducible", () => {
   before(async () => {
-    await ensureDatabase();
+    await migrar(pool);
     await sembrarUsuarios();
     app = await buildApp();
   });

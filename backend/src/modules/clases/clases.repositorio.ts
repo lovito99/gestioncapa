@@ -39,8 +39,8 @@ const SELECT_CLASE = `
          to_char(c.hora_inicio, 'HH24:MI') as hora_inicio,
          to_char(c.hora_fin, 'HH24:MI') as hora_fin,
          c.lugar, c.estado,
-         (select count(*)::int from inscripciones i where i.clase_id = c.id) as inscritos
-  from clases c
+         (select count(*)::int from enrollments e where e.class_id = c.id) as inscritos
+  from classes c
   join users u on u.id = c.instructor_id
 `;
 
@@ -120,7 +120,7 @@ export async function conInstructorBloqueado<T>(instructorId: number, trabajo: (
 
 export async function insertarClase(datos: DatosClase, consultor: Consultor) {
   const resultado = await consultor.query<{ id: string }>(
-    `insert into clases (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar)
+    `insert into classes (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar)
      values ($1, $2, $3, $4, $5, $6)
      returning id`,
     [datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar]
@@ -131,7 +131,7 @@ export async function insertarClase(datos: DatosClase, consultor: Consultor) {
 /** Solo actualiza clases programadas; devuelve false si no había ninguna. */
 export async function actualizarClase(id: number, datos: DatosClase, consultor: Consultor) {
   const resultado = await consultor.query(
-    `update clases
+    `update classes
      set nombre = $2, instructor_id = $3, fecha = $4, hora_inicio = $5, hora_fin = $6, lugar = $7, updated_at = now()
      where id = $1 and estado = 'PROGRAMADA'`,
     [id, datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar]
@@ -142,7 +142,7 @@ export async function actualizarClase(id: number, datos: DatosClase, consultor: 
 /** Cambia PROGRAMADA → CANCELADA; devuelve false si no estaba programada. */
 export async function cancelarClase(id: number) {
   const resultado = await pool.query(
-    `update clases set estado = 'CANCELADA', updated_at = now() where id = $1 and estado = 'PROGRAMADA'`,
+    `update classes set estado = 'CANCELADA', updated_at = now() where id = $1 and estado = 'PROGRAMADA'`,
     [id]
   );
   return resultado.rowCount === 1;
@@ -151,9 +151,9 @@ export async function cancelarClase(id: number) {
 export async function listarInscritos(claseId: number) {
   const resultado = await pool.query<{ id: string; nombre: string; email: string }>(
     `select u.id::text as id, u.name as nombre, u.email
-     from inscripciones i
-     join users u on u.id = i.participante_id
-     where i.clase_id = $1
+     from enrollments e
+     join users u on u.id = e.user_id
+     where e.class_id = $1
      order by u.name`,
     [claseId]
   );
@@ -173,10 +173,21 @@ export async function buscarParticipante(email: string) {
 /** Inserta solo si la clase sigue programada; devuelve false si ya estaba inscrito. */
 export async function inscribir(claseId: number, participanteId: string) {
   const resultado = await pool.query(
-    `insert into inscripciones (clase_id, participante_id)
-     select $1, $2 from clases where id = $1 and estado = 'PROGRAMADA'
+    `insert into enrollments (class_id, user_id)
+     select $1, $2 from classes where id = $1 and estado = 'PROGRAMADA'
      on conflict do nothing`,
     [claseId, participanteId]
   );
   return resultado.rowCount === 1;
+}
+
+/** Inscripción existente; `inscritoEn` en ISO 8601 con la hora de Lima (UTC−5, sin horario de verano). */
+export async function buscarInscripcion(claseId: number, participanteId: string) {
+  const resultado = await pool.query<{ inscrito_en: string }>(
+    `select to_char(created_at at time zone 'America/Lima', 'YYYY-MM-DD"T"HH24:MI:SS"-05:00"') as inscrito_en
+     from enrollments
+     where class_id = $1 and user_id = $2`,
+    [claseId, participanteId]
+  );
+  return resultado.rows[0]?.inscrito_en ?? null;
 }

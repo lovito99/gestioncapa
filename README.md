@@ -11,10 +11,11 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
 
 - [Rutas, cuentas y acceso demo o real](docs/rutas.md).
 - [Playwright, carpetas y comandos E2E](docs/e2e.md).
-- [Especificaciones de entrada](docs/esp/entrada.md), [clases](docs/esp/clases.md),
-  [asistencia](docs/esp/asist.md), [calidad y entorno](docs/esp/calidad.md)
-  [acceso por rol y sesión](docs/esp/roles.md) y [autorización en el servidor](docs/esp/permisos.md),
-  [programar clase](docs/esp/programar.md) y [evitar solapamiento](docs/esp/solapamiento.md).
+- Especificaciones: [entrada](docs/esp/entrada.md), [clases](docs/esp/clases.md),
+  [asistencia](docs/esp/asist.md), [calidad y entorno](docs/esp/calidad.md),
+  [acceso por rol y sesión](docs/esp/roles.md), [autorización en el servidor](docs/esp/permisos.md),
+  [programar clase](docs/esp/programar.md), [evitar solapamiento](docs/esp/solapamiento.md),
+  [inscribir participante](docs/esp/inscripcion.md) y [base de datos](docs/esp/base-datos.md).
 - [Calidad antes de integrar](docs/calidad.md).
 
 ```bash
@@ -117,6 +118,26 @@ Usuarios que crea `npm run seed` (fuera de producción):
 Con `NODE_ENV=production` el seed solo crea el administrador. El seed es idempotente:
 no duplica usuarios ni cambia la clave de los que ya existen.
 
+### Base de datos y migraciones
+
+Cada cambio del esquema es un archivo versionado en `backend/migraciones/`
+(`0001_usuarios.sql`, `0002_organizaciones.sql`…). Detalle en
+[docs/esp/base-datos.md](docs/esp/base-datos.md).
+
+```bash
+npm run migrate                          # aplica las pendientes, en orden
+npm run migrate:estado                   # aplicadas y pendientes
+npm run migrate:nueva -- agregar_campo   # crea backend/migraciones/NNNN_agregar_campo.sql
+```
+
+- Después de `git pull`, ejecuta `npm run migrate`: el servidor y el seed no arrancan
+  si hay migraciones pendientes y te dicen cuáles.
+- **Nunca edites una migración ya aplicada** (`migrate` lo detecta por checksum). Para
+  cambiar algo, crea una migración nueva.
+- Si dos ramas crean el mismo número, `migrate` lo detecta: renumera la tuya.
+- Las tablas antiguas `clases` e `inscripciones` se convierten solas a `classes` y
+  `enrollments`, conservando los datos.
+
 ### Variables de entorno
 
 El backend valida `backend/.env` **antes** de abrir el puerto. Si falta una
@@ -216,6 +237,8 @@ Para usar el backend real, poner `VITE_USE_MOCKS=false`. En desarrollo Vite redi
 npm run dev
 npm run env:init
 npm run migrate
+npm run migrate:estado
+npm run migrate:nueva -- descripcion
 npm run seed
 npm run typecheck
 npm run build

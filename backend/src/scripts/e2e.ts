@@ -1,7 +1,8 @@
 import { Pool } from 'pg'
 import { env } from '../config/env.js'
 import { sembrarUsuarios } from '../modules/auth/auth.service.js'
-import { ensureDatabase, pool } from '../shared/database.js'
+import { pool } from '../shared/database.js'
+import { migrar } from '../shared/migraciones.js'
 
 // Este comando solo prepara una base de pruebas; nunca borra datos.
 if (env.NODE_ENV !== 'test' || env.DB_NAME !== 'gestioncapa_e2e') {
@@ -28,10 +29,10 @@ try {
 
 // Un usuario por rol (mismas cuentas que el modo demo) para las pruebas ROL-02.
 try {
-  await ensureDatabase()
+  await migrar(pool)
   await sembrarUsuarios()
   // Solo en gestioncapa_e2e (verificado arriba): cada ejecución empieza sin clases.
-  await pool.query('truncate clases restart identity cascade')
+  await pool.query('truncate classes restart identity cascade')
   console.log('Base gestioncapa_e2e lista con un usuario por rol.')
 } finally {
   await pool.end()

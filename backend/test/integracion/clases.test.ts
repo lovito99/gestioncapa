@@ -6,7 +6,8 @@ import { env } from "../../src/config/env.js";
 import { sembrarUsuarios } from "../../src/modules/auth/auth.service.js";
 import { usuariosSeed } from "../../src/modules/auth/usuarios-seed.js";
 import type { Rol } from "../../src/plugins/autorizacion.js";
-import { ensureDatabase, pool } from "../../src/shared/database.js";
+import { pool } from "../../src/shared/database.js";
+import { migrar } from "../../src/shared/migraciones.js";
 import { redis } from "../../src/shared/redis.js";
 
 // Requiere Postgres y Redis activos (docker compose up -d --wait) y backend/.env.
@@ -41,13 +42,13 @@ async function crear(cambios: object = {}) {
 }
 
 async function contarClases() {
-  const resultado = await pool.query<{ total: string }>("select count(*) as total from clases where nombre like 'PRG %'");
+  const resultado = await pool.query<{ total: string }>("select count(*) as total from classes where nombre like 'PRG %'");
   return Number(resultado.rows[0]?.total);
 }
 
 describe("Característica: Programar clase presencial", () => {
   before(async () => {
-    await ensureDatabase();
+    await migrar(pool);
     await sembrarUsuarios();
     app = await buildApp();
 
@@ -67,11 +68,11 @@ describe("Característica: Programar clase presencial", () => {
   });
 
   beforeEach(async () => {
-    await pool.query("delete from clases where nombre like 'PRG %'");
+    await pool.query("delete from classes where nombre like 'PRG %'");
   });
 
   after(async () => {
-    await pool.query("delete from clases where nombre like 'PRG %'");
+    await pool.query("delete from classes where nombre like 'PRG %'");
     await app?.close();
     await pool.end();
     redis.disconnect();
@@ -136,7 +137,7 @@ describe("Característica: Programar clase presencial", () => {
     assert.equal(cruce.json().code, "CONFLICTO_HORARIO");
     assert.equal(cruce.json().details.claseId, existente.id);
     assert.match(cruce.json().message, /PRG Existente/);
-    assert.match(cruce.json().message, /10:00 a 11:00/);
+    assert.match(cruce.json().message, /el lunes 10 de marzo de 10:00 a 11:00/);
 
     await crear({ horaInicio: "11:00", horaFin: "12:00" });
 
