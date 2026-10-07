@@ -12,7 +12,8 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
 - [Rutas, cuentas y acceso demo o real](docs/rutas.md).
 - [Playwright, carpetas y comandos E2E](docs/e2e.md).
 - [Especificaciones de entrada](docs/esp/entrada.md), [clases](docs/esp/clases.md),
-  [asistencia](docs/esp/asist.md) y [calidad y entorno](docs/esp/calidad.md).
+  [asistencia](docs/esp/asist.md), [calidad y entorno](docs/esp/calidad.md)
+  [acceso por rol y sesión](docs/esp/roles.md) y [autorización en el servidor](docs/esp/permisos.md).
 - [Calidad antes de integrar](docs/calidad.md).
 
 ```bash

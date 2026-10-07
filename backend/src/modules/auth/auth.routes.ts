@@ -1,17 +1,14 @@
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { env } from "../../config/env.js";
-import { findUserById, validateUser, type PublicUser } from "./auth.service.js";
+import { validateUser, type PublicUser } from "./auth.service.js";
+
+// El acceso de cada ruta lo aplica la matriz de backend/src/plugins/permisos.ts.
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1)
 });
-
-type JwtPayload = {
-  sub: string;
-  email: string;
-};
 
 export async function authRoutes(app: FastifyInstance) {
   app.post("/api/auth/login", async (request, reply) => {
@@ -25,6 +22,13 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
+    if (user === "inactivo") {
+      return reply.code(403).send({
+        code: "USUARIO_INACTIVO",
+        message: "Tu cuenta está desactivada. Comunícate con el administrador."
+      });
+    }
+
     const token = app.jwt.sign(
       { sub: String(user.id), email: user.email },
       { expiresIn: env.JWT_EXPIRES_IN }
@@ -34,26 +38,13 @@ export async function authRoutes(app: FastifyInstance) {
     return { token, user, usuario: toUsuario(user) };
   });
 
-  app.post("/api/auth/logout", async (request, reply) => {
-    await readBearerToken(request, app);
+  app.post("/api/auth/logout", async (_request, reply) => {
     // JWT stateless: el cliente descarta el token; no se revoca un token emitido.
     return reply.code(204).send();
   });
 
-  app.get("/api/auth/me", async (request, reply) => {
-    const payload = await readBearerToken(request, app);
-    const userId = Number(payload.sub);
-
-    if (!Number.isFinite(userId)) {
-      return reply.unauthorized("Token invalido");
-    }
-
-    const user = await findUserById(userId);
-
-    if (!user) {
-      return reply.unauthorized("Usuario no encontrado");
-    }
-
+  app.get("/api/auth/me", async (request) => {
+    const user = request.usuario!;
     return { user, usuario: toUsuario(user) };
   });
 }
@@ -73,14 +64,4 @@ function toUsuario(user: PublicUser) {
     rol,
     cargo: cargos[rol] ?? user.role
   };
-}
-
-async function readBearerToken(request: FastifyRequest, app: FastifyInstance) {
-  const authorization = request.headers.authorization;
-
-  if (!authorization?.startsWith("Bearer ")) {
-    throw app.httpErrors.unauthorized("Token requerido");
-  }
-
-  return app.jwt.verify<JwtPayload>(authorization.slice("Bearer ".length));
 }

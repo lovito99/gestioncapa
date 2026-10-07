@@ -1,5 +1,7 @@
 import { Pool } from 'pg'
 import { env } from '../config/env.js'
+import { sembrarUsuarios } from '../modules/auth/auth.service.js'
+import { ensureDatabase, pool } from '../shared/database.js'
 
 // Este comando solo prepara una base de pruebas; nunca borra datos.
 if (env.NODE_ENV !== 'test' || env.DB_NAME !== 'gestioncapa_e2e') {
@@ -20,7 +22,15 @@ try {
   if (existe.rowCount === 0) {
     await conexion.query('create database gestioncapa_e2e')
   }
-  console.log('Base gestioncapa_e2e lista. El backend creará las tablas y el administrador de pruebas.')
 } finally {
   await conexion.end()
+}
+
+// Un usuario por rol (mismas cuentas que el modo demo) para las pruebas ROL-02.
+try {
+  await ensureDatabase()
+  await sembrarUsuarios()
+  console.log('Base gestioncapa_e2e lista con un usuario por rol.')
+} finally {
+  await pool.end()
 }

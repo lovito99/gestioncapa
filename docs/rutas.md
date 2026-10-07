@@ -53,7 +53,8 @@ Los datos demo están en memoria: recargar restaura los datos iniciales.
 | Cualquier otra | Público | Página 404 |
 
 Una ruta protegida sin sesión lleva al login y conserva el destino, incluida la
-query del QR. Un usuario de otro rol vuelve a su propio inicio. Estos controles
+query del QR. Un usuario de otro rol vuelve a su propio inicio. Si el token falta,
+venció (`exp` del JWT) o el servidor lo rechaza, el login muestra «Tu sesión expiró». Estos controles
 del navegador no sustituyen la autorización del backend.
 
 ## Entrar con el backend real
