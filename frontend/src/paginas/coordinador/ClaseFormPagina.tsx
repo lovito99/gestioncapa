@@ -164,7 +164,7 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: 
       <form
         onSubmit={enviar}
         noValidate
-        className="flex flex-col gap-4 rounded-xl bg-white p-6 shadow-[0_0_0_1px_rgba(192,199,209,0.6),0_1px_2px_rgba(0,0,0,0.05)]"
+        className="flex flex-col gap-4 rounded-xl bg-white p-6 shadow-[0_0_0_1px_var(--color-line),0_1px_2px_rgba(0,0,0,0.05)]"
       >
         {isSubmitted && hayErroresDeCampo && <Alerta tipo="error">{MENSAJE_INCOMPLETO}</Alerta>}
         {conflicto && (
@@ -221,7 +221,7 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: 
           <Entrada placeholder="Ej.: Auditorio principal, piso 2" estado={estado('lugar')} {...register('lugar')} />
         </Campo>
 
-        <div className="mt-6 flex justify-end gap-3 border-t border-[#dae2fd] pt-5.25">
+        <div className="mt-6 flex justify-end gap-3 border-t border-line pt-5.25">
           <Boton variante="secundario" onClick={() => navegar(rutaClases)}>
             Volver
           </Boton>

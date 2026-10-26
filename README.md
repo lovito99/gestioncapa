@@ -108,7 +108,7 @@ npm run dev
   estado del sistema desde el menú. Instructor y participante conservan sus pantallas personales.
 - `npm run env:init` muestra la clave del administrador generada. No sobrescribe un
   `backend/.env` existente.
-- Para usar el backend real en la UI, pon `VITE_USE_MOCKS=false` en `frontend/.env`: todas
+- `frontend/.env.example` ya trae `VITE_USE_MOCKS=false`: todas
   las pantallas (coordinador, instructor, participante y admin) funcionan contra la API real.
 
 Usuarios que crea `npm run seed` (fuera de producción):
@@ -222,7 +222,7 @@ la aprobación de otro integrante. Detalles en [docs/calidad.md](docs/calidad.md
 
 ### Datos simulados (MSW)
 
-Mientras el backend no tenga todos los endpoints, el frontend usa datos simulados con MSW (`VITE_USE_MOCKS=true` en `frontend/.env`). Usuarios de prueba en ese modo:
+Sin backend, `npm run dev:demo` usa datos simulados con MSW (`VITE_USE_MOCKS=true` en `frontend/.env.demo`). Usuarios de prueba en ese modo:
 
 | Rol | Correo | Contrasena |
 |---|---|---|

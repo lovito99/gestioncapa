@@ -5,7 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '@/auth/useAuth'
 import { BotonCerrarSesion } from '@/components/layout/Encabezado'
-import { LogoRecuadro } from '@/components/layout/Logo'
+import { LogoInsignia } from '@/components/layout/Logo'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { mensajeDeError } from '@/lib/api'
 import { fechaCorta, rangoHorario } from '@/lib/formato'
@@ -49,8 +49,8 @@ export function QrAsistenciaPagina() {
             {usuario?.rol === 'ADMIN' ? 'Volver a clases' : 'Mis clases'}
           </Link>
           <div className="flex items-center gap-2 justify-self-center">
-            <LogoRecuadro tamano={32} />
-            <span className="hidden text-base font-semibold tracking-[-0.4px] text-brand-ink sm:inline">
+            <LogoInsignia alto={36} />
+            <span className="hidden font-serif text-base font-bold tracking-[-0.4px] text-brand sm:inline">
               GestionCapa
             </span>
           </div>
@@ -107,7 +107,7 @@ export function QrAsistenciaPagina() {
               </div>
 
               <div
-                className="mt-6 h-2 w-full max-w-90 overflow-hidden rounded-full bg-line-lavender"
+                className="mt-6 h-2 w-full max-w-90 overflow-hidden rounded-full bg-brand-soft"
                 role="progressbar"
                 aria-label="Tiempo restante del código"
                 aria-valuemin={0}

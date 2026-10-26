@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { inicioPorRol } from '@/auth/inicioPorRol'
 import { cn } from '@/lib/cn'
-import { LogoPlano, LogoRecuadro } from './Logo'
+import { LogoInsignia } from './Logo'
 
 export function BotonCerrarSesion({ className }: { className?: string }) {
   const { cerrar } = useAuth()
@@ -36,10 +36,10 @@ export function Encabezado() {
     <header className="fixed inset-x-0 top-0 z-40 border-b border-line-2 bg-white px-4 sm:px-10">
       <div className="mx-auto flex h-16 max-w-300 items-center justify-between gap-4 sm:px-6">
         <Link to={inicioPorRol(usuario)} className="flex items-center gap-2 rounded-lg">
-          {esCoordinador ? <LogoRecuadro /> : <LogoPlano />}
+          <LogoInsignia />
           <span
             className={cn(
-              'text-base leading-6 font-semibold tracking-[-0.4px]',
+              'font-serif text-base leading-6 font-bold tracking-[-0.4px]',
               esCoordinador ? 'text-ink-2' : 'text-brand',
             )}
           >

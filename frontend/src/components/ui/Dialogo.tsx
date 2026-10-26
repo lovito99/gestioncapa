@@ -33,7 +33,7 @@ export function Dialogo({ abierto, onCerrar, titulo, icono, children, acciones }
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(15,23,42,0.5)] p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(32,35,42,0.5)] p-4"
       onMouseDown={(e) => e.target === e.currentTarget && onCerrar()}
     >
       <div

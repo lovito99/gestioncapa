@@ -1,40 +1,46 @@
 @import 'tailwindcss';
 
-/* Tokens tomados del Figma GestionCapa */
+/* Tokens tomados del Figma GestionCapa (paleta vino y dorado del CPPP) */
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Gelasio', ui-serif, Georgia, serif;
 
-  --color-brand: #0369a1;
-  --color-brand-dark: #0c4a6e;
-  --color-brand-light: #0284c7;
-  --color-brand-ink: #00507d;
-  --color-brand-soft: #e0f2fe;
+  --color-brand: #64142b;
+  --color-brand-dark: #4a0b1d;
+  --color-brand-light: #64142b;
+  --color-brand-ink: #4a0b1d;
+  --color-brand-soft: #f5e9ed;
+  --color-brand-night: #310712;
 
-  --color-ink: #0f172a;
-  --color-ink-2: #131b2e;
-  --color-muted: #475569;
-  --color-muted-2: #40474f;
-  --color-muted-3: #707881;
-  --color-placeholder: #64748b;
+  --color-gold: #d1aa4b;
+  --color-gold-light: #efd58f;
 
-  --color-line: #cbd5e1;
-  --color-line-2: #c0c7d1;
-  --color-line-soft: #e2e8f0;
-  --color-line-lavender: #e2e7ff;
+  --color-ink: #20232a;
+  --color-ink-2: #20232a;
+  --color-muted: #616873;
+  --color-muted-2: #616873;
+  --color-muted-3: #616873;
+  --color-placeholder: #616873;
 
-  --color-page: #faf8ff;
-  --color-surface-2: #f8fafc;
-  --color-surface-3: #f1f5f9;
-  --color-surface-lavender: #f2f3ff;
+  --color-line: #e6e2dc;
+  --color-line-2: #e6e2dc;
+  --color-line-soft: #e6e2dc;
+  --color-line-lavender: #e6e2dc;
 
-  --color-danger: #b91c1c;
-  --color-danger-strong: #dc2626;
-  --color-danger-soft: #fee2e2;
-  --color-required: #ba1a1a;
-  --color-warning: #b45309;
-  --color-warning-soft: #fef3c7;
-  --color-success: #15803d;
-  --color-success-soft: #dcfce7;
+  --color-page: #fbfaf7;
+  --color-surface-2: #f5f3ef;
+  --color-surface-3: #e6e2dc;
+  --color-surface-lavender: #f5f3ef;
+
+  --color-danger: #a12a2a;
+  --color-danger-strong: #b83232;
+  --color-danger-soft: #fff0ef;
+  --color-danger-on-dark: #ffb4ab;
+  --color-required: #a12a2a;
+  --color-warning: #875b0b;
+  --color-warning-soft: #fff7de;
+  --color-success: #17643a;
+  --color-success-soft: #eaf7ef;
 }
 
 @layer base {
@@ -44,6 +50,11 @@
 
   body {
     @apply bg-page font-sans text-ink antialiased;
+  }
+
+  /* Los títulos de página usan la tipografía serif del diseño */
+  h1 {
+    @apply font-serif;
   }
 
   button:not(:disabled),

@@ -11,7 +11,7 @@ npm install --include=dev --include=optional
 npm run dev:demo        # abre http://localhost:5173/login sin backend
 ```
 
-Mientras el backend no esté listo, **MSW** responde las llamadas a la API con datos de prueba
+Sin backend, **MSW** responde las llamadas a la API con datos de prueba
 (`VITE_USE_MOCKS=true`). Los datos viven en memoria y se reinician al recargar la página.
 
 Las [rutas y el acceso real](../docs/rutas.md) y las
