@@ -90,3 +90,8 @@ La entrada del administrador está cubierta por las [pruebas reales de Playwrigh
 - **Política de solapamiento:** el frontend y la simulación aceptan que una clase empiece justo cuando termina otra. Confirmar en el Planning.
 - **HTTPS para la demo:** la cámara del celular solo funciona con https. Hay que definir cómo exponer el frontend en la demo.
 - **El token del login:** ¿lo dejamos en el encabezado `Authorization` o lo pasamos a una cookie `httpOnly`, que es más segura?
+
+## Cursos y materiales (HU-13)
+
+Contrato, permisos, cuerpos de creación y descarga de PDF en [cursos](esp/cursos.md).
+Los tipos del cliente están en `frontend/src/servicios/cursos.ts`.

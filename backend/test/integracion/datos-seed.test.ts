@@ -41,6 +41,9 @@ async function contar() {
 async function instantanea() {
   const resultado = await conexion.query(
     `select jsonb_build_object(
+       'cursos', (select jsonb_agg(to_jsonb(c) order by id) from cursos c),
+       'modulosCurso', (select jsonb_agg(to_jsonb(m) order by id) from modulos_curso m),
+       'materialesCurso', (select jsonb_agg(to_jsonb(a) order by id) from materiales_curso a),
        'usuarios', (select jsonb_agg(to_jsonb(u) order by id) from users u),
        'clases', (select jsonb_agg(to_jsonb(c) order by id) from classes c),
        'inscripciones', (select jsonb_agg(to_jsonb(e) order by id) from enrollments e),
@@ -81,6 +84,17 @@ describe("Característica: Seed completo para todos los perfiles", () => {
     assert.equal(resumen.inscripciones, 9);
     assert.equal(resumen.asistencias, 1);
     assert.equal(resumen.reuniones, 3);
+    assert.equal(resumen.cursos, 3);
+    assert.equal(resumen.modulos, 6);
+    assert.equal(resumen.materiales, 9);
+    const cursos = (await conexion.query(`select estado,count(*)::int as total from cursos group by estado order by estado`)).rows;
+    assert.deepEqual(cursos, [{ estado: 'BORRADOR', total: 1 }, { estado: 'PUBLICADO', total: 2 }]);
+    const materiales = (await conexion.query(`select tipo,count(*)::int as total from materiales_curso group by tipo order by tipo`)).rows;
+    assert.deepEqual(materiales, [{ tipo: 'ENLACE', total: 3 }, { tipo: 'PDF', total: 3 }, { tipo: 'VIDEO', total: 3 }]);
+    const pdf = (await conexion.query(`select archivo from materiales_curso where tipo='PDF' limit 1`)).rows[0].archivo as Buffer;
+    assert.ok(pdf.toString().startsWith('%PDF-1.4'));
+    assert.ok(pdf.toString().includes('startxref'));
+
     const reuniones = await conexion.query(`select reunion.estado,
       reunion."inicioProgramado" = (clase.fecha + clase.hora_inicio) at time zone 'America/Lima' as horario,
       (select count(*)::int from "participantesReunion" where "reunionIdentificador"=reunion.identificador) as participantes,
@@ -126,6 +140,10 @@ describe("Característica: Seed completo para todos los perfiles", () => {
     await conexion.query("update reuniones set titulo = 'Reunión editada', estado = 'cancelada'");
     await conexion.query(`update "participantesReunion" set estado = 'retirado' where rol = 'participante'`);
     await conexion.query(`update "notificacionesReunion" set estado = 'enviada', intentos = 1`);
+    await conexion.query("update cursos set titulo='Curso editado',estado='BORRADOR',nota_minima=18");
+    await conexion.query("update modulos_curso set titulo='Módulo editado'");
+    await conexion.query("update materiales_curso set titulo='Material editado'");
+    await conexion.query('delete from materiales_curso where id=(select min(id) from materiales_curso)');
     const anterior = await instantanea();
 
     await sembrarDatos(conexion, configuracion);
@@ -140,6 +158,9 @@ describe("Característica: Seed completo para todos los perfiles", () => {
     ]);
 
     assert.deepEqual(await contar(), { usuarios: 6, clases: 5, inscripciones: 9, asistencias: 1 });
+    assert.equal((await conexion.query('select count(*)::int as total from cursos')).rows[0].total, 3);
+    assert.equal((await conexion.query('select count(*)::int as total from modulos_curso')).rows[0].total, 6);
+    assert.equal((await conexion.query('select count(*)::int as total from materiales_curso')).rows[0].total, 9);
   });
 
   test("producción solo crea el administrador", async () => {
@@ -147,6 +168,7 @@ describe("Característica: Seed completo para todos los perfiles", () => {
 
     assert.deepEqual(await contar(), { usuarios: 1, clases: 0, inscripciones: 0, asistencias: 0 });
     assert.equal((await conexion.query("select count(*)::int as total from reuniones")).rows[0].total, 0);
+    assert.equal((await conexion.query('select count(*)::int as total from cursos')).rows[0].total, 0);
     const usuarios = await conexion.query("select role from users");
     assert.deepEqual(usuarios.rows, [{ role: "admin" }]);
   });
