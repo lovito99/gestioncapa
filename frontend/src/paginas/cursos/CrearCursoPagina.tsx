@@ -24,6 +24,7 @@ export function CrearCursoPagina() {
     const datos = new FormData(evento.currentTarget)
     const texto = (campo: string) => String(datos.get(campo) ?? '').trim()
     crear.mutate({ titulo: texto('titulo'), descripcion: texto('descripcion'), instructorId: texto('instructorId'),
+      categoria: texto('categoria') || 'General', fechaInicio: texto('fechaInicio') || null, fechaFin: texto('fechaFin') || null,
       horasLectivas: Number(texto('horasLectivas')), modalidad: texto('modalidad') as CursoEntrada['modalidad'],
       costo: Number(texto('costo')), cupos: Number(texto('cupos')), tipoCertificado: texto('tipoCertificado') as CursoEntrada['tipoCertificado'],
       ...(texto('notaMinima') === '' ? {} : { notaMinima: Number(texto('notaMinima')) }),
@@ -42,6 +43,9 @@ export function CrearCursoPagina() {
         </Selector></Campo>
         {instructores.isError && <p role="alert">No pudimos cargar instructores. <button type="button" className="underline" onClick={() => void instructores.refetch()}>Intentar de nuevo</button></p>}
         <Campo etiqueta="Descripción" error={errores.descripcion} className="sm:col-span-2"><Entrada name="descripcion" maxLength={5000} /></Campo>
+        <Campo etiqueta="Categoría" error={errores.categoria}><Entrada name="categoria" maxLength={80} defaultValue="General" /></Campo>
+        <Campo etiqueta="Fecha de inicio" error={errores.fechaInicio}><Entrada name="fechaInicio" type="date" /></Campo>
+        <Campo etiqueta="Fecha de fin" error={errores.fechaFin}><Entrada name="fechaFin" type="date" /></Campo>
         <Campo etiqueta="Horas lectivas" obligatorio error={errores.horasLectivas}><Entrada name="horasLectivas" type="number" required min="0.01" max="10000" step="any" /></Campo>
         <Campo etiqueta="Modalidad" obligatorio error={errores.modalidad}><Selector name="modalidad" required defaultValue=""><option value="" disabled>Selecciona modalidad</option><option value="PRESENCIAL">Presencial</option><option value="VIRTUAL">Virtual</option><option value="HIBRIDA">Híbrida</option></Selector></Campo>
         <Campo etiqueta="Costo (S/)" obligatorio error={errores.costo}><Entrada name="costo" type="number" required min="0" max="9999999999.99" step="0.01" /></Campo>

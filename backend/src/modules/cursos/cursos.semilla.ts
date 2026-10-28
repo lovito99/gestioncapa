@@ -1,15 +1,18 @@
 import type { PoolClient } from 'pg';
 
 const cursosDemo = [
-  { clave: 'seguridadPrimerosAuxilios', titulo: 'Demo · Seguridad y primeros auxilios', instructor: 'carlos.mendoza@organizacion.pe',
+  { categoria: 'Seguridad y salud', inicio: -15, fin: -14, clave: 'seguridadPrimerosAuxilios', titulo: 'Demo · Seguridad y primeros auxilios', instructor: 'carlos.mendoza@organizacion.pe',
     descripcion: 'Curso publicado de ejemplo con certificado de aprobación, guía PDF, enlace y video de prueba.', horas: 24, modalidad: 'HIBRIDA', costo: 150, cupos: 30, certificado: 'APROBACION', nota: 14, estado: 'PUBLICADO',
     modulos: ['Prevención y seguridad', 'Práctica de primeros auxilios'], enlace: 'https://www.gob.pe/indeci' },
-  { clave: 'didacticaEvaluacion', titulo: 'Demo · Didáctica y evaluación', instructor: 'lucia.paredes@organizacion.pe',
+  { categoria: 'Educación', inicio: -3, fin: 10, clave: 'didacticaEvaluacion', titulo: 'Demo · Didáctica y evaluación', instructor: 'lucia.paredes@organizacion.pe',
     descripcion: 'Curso gratuito publicado, con certificado de participación y módulos de ejemplo.', horas: 16, modalidad: 'PRESENCIAL', costo: 0, cupos: 50, certificado: 'PARTICIPACION', nota: 14, estado: 'PUBLICADO',
     modulos: ['Planificación didáctica', 'Evaluación del aprendizaje'], enlace: 'https://www.unesco.org/es/education' },
-  { clave: 'herramientasDigitales', titulo: 'Demo · Herramientas digitales para docentes', instructor: 'carlos.mendoza@organizacion.pe',
+  { categoria: 'Tecnología', inicio: 15, fin: 20, clave: 'herramientasDigitales', titulo: 'Demo · Herramientas digitales para docentes', instructor: 'carlos.mendoza@organizacion.pe',
     descripcion: 'Borrador de ejemplo: revisa los módulos y publícalo para verlo en el catálogo.', horas: 20, modalidad: 'VIRTUAL', costo: 120, cupos: 25, certificado: 'APROBACION', nota: 16, estado: 'BORRADOR',
     modulos: ['Recursos y herramientas digitales', 'Diseño de una actividad virtual'], enlace: 'https://www.unesco.org/es/digital-education' },
+  { categoria: 'Educación', inicio: 30, fin: 31, clave: 'catalogoSinCupos', titulo: 'Demo · Taller con cupos agotados', instructor: 'lucia.paredes@organizacion.pe',
+    descripcion: 'Curso de ejemplo con su única plaza ocupada para comprobar el estado Sin cupos.', horas: 8, modalidad: 'VIRTUAL', costo: 0, cupos: 1, certificado: 'PARTICIPACION', nota: 14, estado: 'PUBLICADO',
+    modulos: ['Introducción al taller', 'Actividad práctica'], enlace: 'https://www.unesco.org/es/education' },
 ];
 
 /** PDF pequeño y válido, sin dependencias ni descargas de servicios externos. */
@@ -36,9 +39,11 @@ export async function sembrarCursos(cliente: PoolClient, administradorEmail: str
     const docente = personas.rows.find(p => p.email === datos.instructor && p.role === 'instructor');
     if (!admin || !docente) throw new Error('Los cursos demo necesitan un administrador e instructores activos en la organización 1.');
     const curso = (await cliente.query<{ id: string }>(`insert into cursos
-      (organization_id,creador_id,instructor_id,clave_demo,titulo,descripcion,horas_lectivas,modalidad,costo,cupos,tipo_certificado,nota_minima,estado,publicado_en)
-      values (1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::varchar,case when $12::varchar='PUBLICADO' then now() end) returning id`,
-    [admin.id, docente.id, datos.clave, datos.titulo, datos.descripcion, datos.horas, datos.modalidad, datos.costo, datos.cupos, datos.certificado, datos.nota, datos.estado])).rows[0]!;
+      (organization_id,creador_id,instructor_id,clave_demo,titulo,descripcion,horas_lectivas,modalidad,costo,cupos,tipo_certificado,nota_minima,estado,publicado_en,categoria,fecha_inicio,fecha_fin)
+      values (1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::varchar,case when $12::varchar='PUBLICADO' then now() end,$13,(now() at time zone 'America/Lima')::date+$14::int,(now() at time zone 'America/Lima')::date+$15::int) returning id`,
+    [admin.id, docente.id, datos.clave, datos.titulo, datos.descripcion, datos.horas, datos.modalidad, datos.costo, datos.cupos, datos.certificado, datos.nota, datos.estado, datos.categoria, datos.inicio, datos.fin])).rows[0]!;
+    if (datos.clave === 'catalogoSinCupos') await cliente.query(`insert into inscripciones_curso(curso_id,usuario_id)
+      select $1,id from users where email='luz.apaza@demo.pe' and role='participante' and organization_id=1 on conflict do nothing`, [curso.id]);
     for (const [indice, titulo] of datos.modulos.entries()) {
       const modulo = (await cliente.query<{ id: string }>('insert into modulos_curso(curso_id,titulo,orden) values($1,$2,$3) returning id', [curso.id, titulo, indice + 1])).rows[0]!;
       if (indice === 0) {

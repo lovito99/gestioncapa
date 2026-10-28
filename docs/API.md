@@ -99,3 +99,8 @@ Los tipos del cliente están en `frontend/src/servicios/cursos.ts`.
 ## Historial del colegiado (HU-18)
 
 Datos mínimos, cálculo de asistencia y descargas protegidas en [historial](esp/historial.md).
+
+## Catálogo paginado e inscripción básica (HU-14)
+
+Filtros, metadatos, cupos disponibles e inscripción protegida en [catálogo](esp/catalogo.md).
+La ruta anterior de lista se conserva; la interfaz consulta `/catalogo/cursos/pagina`.

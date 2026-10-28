@@ -73,7 +73,8 @@ Aplicar migraciones y ejecutar `npm run seed`. Solo fuera de producción:
   terminado con asistencia del 50 % y un certificado **DEMO sin validez oficial**;
   Didáctica y evaluación está en curso, con una sesión asistida y otra futura.
 - Luz (`luz.apaza@demo.pe` / `demo123`) tiene Seguridad y primeros auxilios en
-  curso, con un registro de asistencia y sin certificado.
+  curso, con un registro de asistencia y sin certificado. También ocupa la única
+  plaza del taller demo sin cupos de HU-14, sin sesiones ni certificado.
 - Los DNI de ambas cuentas son ficticios y se asignan solo si no tienen uno.
 - Se agregan cuatro sesiones de cursos, además de las cinco clases demo previas.
   El seed conserva estados, documentos, fechas y cambios ya guardados.
@@ -106,3 +107,5 @@ npm exec -- playwright test e2e/prb/demo/historial.spec.ts --project=movil
 El preparador E2E reinicia clases exclusivamente en `gestioncapa_e2e` y después
 carga los datos demo, incluidos cursos e historial. No usar esa base en paralelo
 para otras pruebas. El build queda para ejecución manual del usuario.
+
+La inscripción básica del propio colegiado está disponible desde el [catálogo HU-14](catalogo.md) y se refleja en este historial.

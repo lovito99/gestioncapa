@@ -2,10 +2,17 @@ import { z } from 'zod';
 
 const titulo = z.string({ error: 'Ingresa un título.' }).trim().min(1, 'Ingresa un título.').max(160, 'Usa como máximo 160 caracteres.');
 export const idCurso = z.string({ error: 'Selecciona un identificador válido.' }).regex(/^[1-9]\d{0,14}$/, 'Identificador no válido.');
+const fechaCurso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa una fecha válida.').refine(valor => {
+  const fecha = new Date(`${valor}T00:00:00Z`);
+  return valor.slice(0, 4) !== '0000' && Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
+}, 'Usa una fecha válida.').nullable().default(null);
 export const esquemaCurso = z.object({
   titulo,
   descripcion: z.string({ error: 'Ingresa una descripción válida.' }).trim().max(5000, 'Usa como máximo 5000 caracteres.').default(''),
   instructorId: idCurso,
+  categoria: z.string().trim().min(1, 'Indica una categoría.').max(80).default('General'),
+  fechaInicio: fechaCurso,
+  fechaFin: fechaCurso,
   horasLectivas: z.number({ error: 'Indica las horas lectivas.' }).positive('Las horas lectivas deben ser mayores que cero.').max(10000, 'El máximo es 10000 horas.'),
   modalidad: z.enum(['PRESENCIAL', 'VIRTUAL', 'HIBRIDA'], { error: 'Selecciona una modalidad válida.' }),
   costo: z.number({ error: 'Indica un costo válido.' }).min(0, 'El costo no puede ser negativo.').max(9999999999.99, 'El costo supera el máximo permitido.').multipleOf(0.01, 'El costo admite hasta dos decimales.'),
@@ -13,7 +20,9 @@ export const esquemaCurso = z.object({
   tipoCertificado: z.enum(['PARTICIPACION', 'APROBACION'], { error: 'Selecciona el tipo de certificado.' }),
   notaMinima: z.number({ error: 'Indica una nota entre 0 y 20.' }).min(0, 'La nota mínima debe estar entre 0 y 20.').max(20, 'La nota mínima debe estar entre 0 y 20.').default(14),
   modulos: z.array(z.object({ titulo }).strict()).min(1, 'Agrega al menos un módulo.').max(100, 'El máximo es 100 módulos.'),
-}).strict();
+}).strict().refine(datos => (datos.fechaInicio === null && datos.fechaFin === null) ||
+  (!!datos.fechaInicio && !!datos.fechaFin && datos.fechaFin >= datos.fechaInicio),
+  { path: ['fechaFin'], message: 'Indica ambas fechas; la final no puede ser anterior al inicio.' });
 export type DatosCurso = z.infer<typeof esquemaCurso>;
 
 const urlSegura = z.string().max(2048).url('Ingresa una URL válida.').refine(valor => {
@@ -30,3 +39,12 @@ export const esquemaMaterial = z.discriminatedUnion('tipo', [
   z.object({ titulo, tipo: z.literal('VIDEO'), url: urlSegura }).strict(),
 ]);
 export type DatosMaterial = z.infer<typeof esquemaMaterial>;
+
+export const esquemaConsultaCatalogo = z.object({
+  buscar: z.string().trim().max(160, 'Usa como máximo 160 caracteres para buscar.').default(''),
+  modalidad: z.enum(['PRESENCIAL', 'VIRTUAL', 'HIBRIDA'], { error: 'Selecciona una modalidad válida.' }).optional(),
+  categoria: z.string().trim().min(1).max(80, 'Usa como máximo 80 caracteres en la categoría.').optional(),
+  pagina: z.coerce.number().int().min(1, 'La página debe ser mayor que cero.').max(100000).default(1),
+  tamanoPagina: z.coerce.number().int().min(1).max(50, 'El máximo es 50 cursos por página.').default(6),
+}).strict();
+export type ConsultaCatalogo = z.infer<typeof esquemaConsultaCatalogo>;
