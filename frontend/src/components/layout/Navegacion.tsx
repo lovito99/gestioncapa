@@ -30,6 +30,7 @@ export function Navegacion() {
   return (
     <nav aria-label="Navegación principal" className="border-b border-line-soft bg-white px-4 sm:px-10">
       <div className="mx-auto flex max-w-300 flex-wrap gap-2 py-3 sm:px-6">
+        <NavLink to="/reuniones" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium">Reuniones virtuales</NavLink>
         {OPCIONES[usuario.rol]?.map(({ to, texto, icono: Icono, end }) => (
           <NavLink
             key={to}

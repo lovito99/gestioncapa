@@ -94,3 +94,12 @@ describe("Característica: Configuración validada al arrancar", () => {
     assert.equal(env.JWT_SECRET, entornoValido.JWT_SECRET);
   });
 });
+
+test('Jitsi admite HTTP local en desarrollo y exige HTTPS en producción', () => {
+  const configuracion = { ...entornoValido, jitsiHabilitado: 'true', jitsiDominio: 'localhost', jitsiDireccion: 'http://localhost:8000', jitsiAplicacion: 'gestioncapa', jitsiSecreto: 'secretoExclusivoJitsiMasDe32Caracteres123' };
+  assert.equal(parseEnv(configuracion).jitsiDireccion, 'http://localhost:8000');
+  assert.match(errorDe({ ...configuracion, NODE_ENV: 'production' }).message, /producción requiere HTTPS/);
+  assert.match(errorDe({ ...configuracion, jitsiDominio: 'meet.empresa.pe', jitsiDireccion: 'http://meet.empresa.pe' }).message, /debe usar HTTPS/);
+  assert.equal(parseEnv({ ...configuracion, NODE_ENV: 'production', jitsiDominio: 'meet.empresa.pe', jitsiDireccion: 'https://meet.empresa.pe' }).jitsiHabilitado, true);
+  assert.match(errorDe({ ...configuracion, jitsiSecreto: entornoValido.JWT_SECRET }).message, /debe ser distinto/);
+});

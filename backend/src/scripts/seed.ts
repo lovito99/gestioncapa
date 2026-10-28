@@ -4,10 +4,10 @@ import { MigracionError, verificarMigraciones } from "../shared/migraciones.js";
 
 try {
   await verificarMigraciones(pool);
-  const { usuarios, clases, inscripciones, asistencias } = await sembrarDatos();
+  const { usuarios, clases, inscripciones, asistencias, reuniones } = await sembrarDatos();
   console.log("Seed ejecutado correctamente. Usuarios disponibles:");
   console.table(usuarios.map(({ email, role }) => ({ email, rol: role })));
-  console.table([{ clases, inscripciones, asistencias }]);
+  console.table([{ clases, inscripciones, asistencias, reuniones }]);
 } catch (error) {
   if (error instanceof MigracionError) {
     console.error(error.message);

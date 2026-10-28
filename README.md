@@ -26,6 +26,10 @@ npm run e2e
 npm run e2e:real # requiere Postgres y Redis; usa gestioncapa_e2e
 ```
 
+## Reuniones virtuales
+
+Integración Jitsi y sala personalizada en `/reuniones`. Preparación, rutas y alcance en [docs/reuniones.md](docs/reuniones.md).
+
 ## Requisitos
 
 - Node.js 24.x
@@ -96,8 +100,8 @@ npm install --include=dev --include=optional
 docker compose up -d --wait     # PostgreSQL 17 y Redis 8, espera a que estén sanos
 npm run env:init                # crea backend/.env con secretos aleatorios
 cp frontend/.env.example frontend/.env
-npm run migrate
-npm run seed                    # usuarios de todos los roles + clases, inscripciones y asistencia demo
+npm run bd:migrate
+npm run bd:seed                    # usuarios de todos los roles + clases, inscripciones y asistencia demo
 npm run dev
 ```
 
@@ -111,7 +115,7 @@ npm run dev
 - `frontend/.env.example` ya trae `VITE_USE_MOCKS=false`: todas
   las pantallas (coordinador, instructor, participante y admin) funcionan contra la API real.
 
-Usuarios que crea `npm run seed` (fuera de producción):
+Usuarios que crea `npm run bd:seed` (fuera de producción):
 
 | Rol | Correo | Contraseña |
 |---|---|---|
@@ -141,12 +145,12 @@ Cada cambio del esquema es un archivo versionado en `backend/migraciones/`
 [docs/esp/base-datos.md](docs/esp/base-datos.md).
 
 ```bash
-npm run migrate                          # aplica las pendientes, en orden
+npm run bd:migrate                          # aplica las pendientes, en orden
 npm run migrate:estado                   # aplicadas y pendientes
 npm run migrate:nueva -- agregar campo   # crea backend/migraciones/NNNN-agregarCampo.sql
 ```
 
-- Después de `git pull`, ejecuta `npm run migrate`: el servidor y el seed no arrancan
+- Después de `git pull`, ejecuta `npm run bd:migrate`: el servidor y el seed no arrancan
   si hay migraciones pendientes y te dicen cuáles.
 - **Nunca edites una migración ya aplicada** (`migrate` lo detecta por checksum). Para
   cambiar algo, crea una migración nueva.
@@ -253,10 +257,10 @@ Para usar el backend real, poner `VITE_USE_MOCKS=false` y `VITE_API_URL=/api`. V
 ```bash
 npm run dev
 npm run env:init
-npm run migrate
+npm run bd:migrate
 npm run migrate:estado
 npm run migrate:nueva -- descripcion
-npm run seed
+npm run bd:seed
 npm run typecheck
 npm run build
 npm test
@@ -345,8 +349,8 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 nano backend/.env
 nano frontend/.env
-npm run migrate
-npm run seed
+npm run bd:migrate
+npm run bd:seed
 npm run build
 ```
 
@@ -421,7 +425,7 @@ Runtime y herramientas:
 - npm workspaces
 - tsx para desarrollo
 - TypeScript compiler para build
-- Scripts `npm run migrate` y `npm run seed` para preparar la base
+- Scripts `npm run bd:migrate` y `npm run bd:seed` para preparar la base
 - PM2 para ejecutar en servidor
 
 Frameworks y librerias usadas:

@@ -1,6 +1,6 @@
 import type { Rol } from "./autorizacion.js";
 
-export type Metodo = "GET" | "POST" | "PUT" | "DELETE";
+export type Metodo = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
 export type Permiso = {
   metodo: Metodo;
@@ -18,6 +18,15 @@ const rolesGestionClases: Rol[] = ["ADMIN", "COORDINADOR"];
  * de lo contrario el servidor no arranca.
  */
 export const permisos: Permiso[] = [
+  { metodo: "GET", ruta: "/api/reuniones", acceso: "autenticado" },
+  { metodo: "POST", ruta: "/api/reuniones", acceso: rolesGestionClases, critica: true },
+  { metodo: "GET", ruta: "/api/reuniones/:identificador", acceso: "autenticado" },
+  { metodo: "PATCH", ruta: "/api/reuniones/:identificador", acceso: ["ADMIN", "COORDINADOR", "INSTRUCTOR"], critica: true },
+  ...["iniciar", "cancelar", "finalizar", "credencial"].map(accion => ({ metodo: "POST" as const, ruta: `/api/reuniones/:identificador/${accion}`, acceso: (accion === "credencial" ? "autenticado" : ["ADMIN", "COORDINADOR", "INSTRUCTOR"]) as Permiso["acceso"], critica: true })),
+  { metodo: "PATCH", ruta: "/api/reuniones/:identificador/politicas", acceso: ["ADMIN", "COORDINADOR", "INSTRUCTOR"], critica: true },
+  { metodo: "GET", ruta: "/api/reuniones/:identificador/participantes", acceso: "autenticado" },
+  { metodo: "POST", ruta: "/api/reuniones/:identificador/participantes/:usuarioIdentificador/retirar", acceso: ["ADMIN", "COORDINADOR", "INSTRUCTOR"], critica: true },
+
   { metodo: "GET", ruta: "/health", acceso: "publico" },
   { metodo: "GET", ruta: "/api/health", acceso: "publico" },
   { metodo: "POST", ruta: "/api/auth/login", acceso: "publico" },

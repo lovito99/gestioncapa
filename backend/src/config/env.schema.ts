@@ -55,6 +55,11 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("1d"),
   // Firma los tokens del QR de asistencia; distinto de JWT_SECRET.
   QR_SECRET: requerida((s) => s.min(32, "debe tener al menos 32 caracteres")),
+  jitsiHabilitado: booleanFromEnv.default(false),
+  jitsiDominio: z.string().regex(/^[a-zA-Z0-9.-]+$/).optional(),
+  jitsiDireccion: z.string().url().refine(valor => new URL(valor).protocol === "https:" || (new URL(valor).protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(valor).hostname)), "debe usar HTTPS; HTTP solo se admite en localhost").optional(),
+  jitsiAplicacion: z.string().min(3).optional(),
+  jitsiSecreto: z.string().min(32).optional(),
   ADMIN_NAME: z.string().default("Administrador"),
   ADMIN_EMAIL: requerida((s) => s.email("debe ser un correo válido")),
   ADMIN_PASSWORD: requerida((s) => s.min(12, "debe tener al menos 12 caracteres"))
@@ -78,7 +83,23 @@ export class EnvError extends Error {
 }
 
 export function parseEnv(source: Record<string, string | undefined>): Env {
-  const result = envSchema.safeParse(source);
+  const result = envSchema.superRefine((configuracion, contexto) => {
+    if (!configuracion.jitsiHabilitado) return;
+    for (const nombre of ["jitsiDominio", "jitsiAplicacion", "jitsiSecreto"] as const) {
+      if (!configuracion[nombre] || esValorDeEjemplo(configuracion[nombre])) {
+        contexto.addIssue({ code: "custom", path: [nombre], message: "configura un valor propio para habilitar Jitsi" });
+      }
+    }
+    if (configuracion.NODE_ENV === "production" && configuracion.jitsiDireccion && new URL(configuracion.jitsiDireccion).protocol !== "https:") {
+      contexto.addIssue({ code: "custom", path: ["jitsiDireccion"], message: "producción requiere HTTPS" });
+    }
+    if (configuracion.jitsiDireccion && new URL(configuracion.jitsiDireccion).hostname !== configuracion.jitsiDominio) {
+      contexto.addIssue({ code: "custom", path: ["jitsiDireccion"], message: "el host debe coincidir con jitsiDominio" });
+    }
+    if (configuracion.jitsiSecreto === configuracion.JWT_SECRET || configuracion.jitsiSecreto === configuracion.QR_SECRET) {
+      contexto.addIssue({ code: "custom", path: ["jitsiSecreto"], message: "debe ser distinto de los secretos de sesión y QR" });
+    }
+  }).safeParse(source);
 
   if (result.success) {
     return result.data;

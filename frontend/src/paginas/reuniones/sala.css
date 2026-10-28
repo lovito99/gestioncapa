@@ -1,0 +1,73 @@
+/* Distribución de la sala. El resto de la aplicación conserva sus estilos globales. */
+.salaVentana {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+.salaContenido { display: grid; grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; }
+.salaContenido[data-panel-visible='true'] { grid-template-columns: minmax(0, 1fr) 300px; }
+.salaEscenario { display: flex; flex-direction: column; min-height: 0; min-width: 0; padding: 0.5rem; }
+.salaEscenario:fullscreen { height: 100dvh; background: #020617; }
+.salaPanel { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.salaPanel[hidden] { display: none; }
+.salaMedios { display: grid; min-width: 0; min-height: 0; align-items: center; gap: 0.5rem; overflow: hidden; }
+.salaPantallas { display: none; }
+.salaCamaras {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 1rem;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow: auto;
+}
+.salaTarjeta { position: relative; min-width: 0; overflow: hidden; border: 1px solid #334155; border-radius: 0.75rem; background: #020617; }
+.salaVideo { display: block; width: 100%; height: 100%; max-height: 65vh; aspect-ratio: 16 / 9; object-fit: contain; background: #020617; }
+.salaMedios[data-compartiendo='true'] { grid-template-columns: minmax(0, 1fr) 150px; align-items: stretch; }
+.salaMedios[data-compartiendo='true'] .salaPantallas { display: grid; grid-auto-rows: minmax(0, 1fr); align-content: stretch; gap: 0.5rem; min-width: 0; min-height: 0; overflow: hidden; }
+.salaMedios[data-compartiendo='true'] .salaPantallas .salaTarjeta { min-height: 0; }
+.salaMedios[data-compartiendo='true'] .salaPantallas .salaVideo { height: 100%; max-height: 100%; aspect-ratio: auto; }
+.salaMedios[data-compartiendo='true'] .salaCamaras { display: flex; flex-direction: column; gap: 0.75rem; }
+.salaMedios[data-compartiendo='true'] .salaCamaras .salaTarjeta { flex: 0 0 auto; }
+.salaMedios[data-compartiendo='true'] .salaCamaras figcaption { inset-inline: 0.25rem; bottom: 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0.2rem 0.4rem; font-size: 0.7rem; }
+
+/* Estados y cola de manos, únicamente en el panel lateral. */
+.salaVentana .salaControl { transition: background-color 150ms, border-color 150ms, box-shadow 150ms; }
+.salaVentana .salaControl[aria-pressed='true'] { background: #fcd34d; border-color: #fde68a; color: #0f172a; box-shadow: 0 0 0 2px rgb(252 211 77 / 20%); }
+.salaVentana .salaControl:focus-visible { outline: 2px solid #fef3c7; outline-offset: 3px; }
+.salaNumeroTurno { display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; min-width: 1.5rem; min-height: 1.5rem; border-radius: 999px; background: #fcd34d; color: #0f172a; padding: 0.15rem 0.4rem; font-size: 0.75rem; font-weight: 700; }
+
+/* Amplitud del micrófono, sin capturas adicionales ni acceso a grabaciones. */
+.salaIconoMicrofono { display: inline-flex; align-items: center; gap: 0.4rem; }
+.salaMedidorMicrofono { display: inline-flex; height: 20px; align-items: center; gap: 2px; }
+.salaMedidorMicrofono i { display: block; width: 3px; border-radius: 2px; background: currentColor; opacity: 0.2; transition: opacity 100ms, background-color 100ms; }
+.salaMedidorMicrofono i[data-activa='true'] { opacity: 1; background: #10b981; }
+.salaControl[aria-pressed='true'] .salaMedidorMicrofono i[data-activa='true'] { background: #065f46; }
+.salaEstadoMicrofono { display: flex; align-items: center; gap: 0.75rem; font-size: 0.75rem; color: #cbd5e1; }
+
+/* Las reacciones recorren la ventana y no interceptan los controles. */
+.salaReacciones { position: absolute; inset: 0; z-index: 40; overflow: hidden; pointer-events: none; }
+.salaReaccion { position: absolute; bottom: 8%; display: flex; flex-direction: column; align-items: center; gap: 0.4rem; max-width: 9rem; animation: salaFlotarReaccion 5s ease-out both; }
+.salaEmoji { font-size: clamp(3rem, 6vw, 5.5rem); line-height: 1.2; filter: drop-shadow(0 4px 8px #0008); }
+.salaReaccionNombre { max-width: 8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border-radius: 1rem; padding: 0.25rem 0.6rem; background: rgb(15 23 42 / 85%); color: white; font-size: 0.7rem; }
+@keyframes salaFlotarReaccion {
+  0% { opacity: 0; transform: translate(-50%, 1rem) scale(0.6); }
+  12% { opacity: 1; }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -75dvh) scale(1.3); }
+}
+@media (max-width: 767px) {
+  .salaMedios[data-compartiendo='true'] { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 85px; }
+  .salaMedios[data-compartiendo='true'] .salaCamaras { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+  .salaMedios[data-compartiendo='true'] .salaCamaras .salaTarjeta { width: 135px; }
+  .salaContenido[data-panel-visible='true'] { grid-template-columns: minmax(0, 1fr); position: relative; }
+  .salaContenido[data-panel-visible='true'] .salaPanel { position: absolute; right: 0; top: 0; bottom: 0; width: min(320px, 100%); z-index: 10; }
+  .salaVentana footer button, .salaVentana footer a { padding: 0.5rem; min-height: 2.5rem; font-size: 0.75rem; }
+  #selector-reacciones { position: fixed; left: 0.5rem; right: 0.5rem; bottom: 12rem; justify-content: space-around; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .salaReaccion { animation: none; bottom: 40%; }
+  .salaControl, .salaMedidorMicrofono i { transition: none; }
+}

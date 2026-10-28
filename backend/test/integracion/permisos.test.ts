@@ -53,7 +53,7 @@ describe("Característica: Autorización por rol en cada ruta del servidor", () 
     });
 
     for (const rol of ["ADMIN", "COORDINADOR", "INSTRUCTOR", "PARTICIPANTE"] as Rol[]) {
-      const permitido = (acceso as Rol[]).includes(rol);
+      const permitido = acceso === "autenticado" || (Array.isArray(acceso) && acceso.includes(rol));
 
       test(`PER-07: ${rol} del seed en ${metodo} ${ruta} ${permitido ? "pasa el guard" : "responde 403"}`, async () => {
         const respuesta = await app.inject({

@@ -33,7 +33,9 @@
     "env:init": "npm run env:init -w backend",
     "test:integracion": "npm run test:integracion -w backend",
     "test:cobertura": "npm run test:cobertura -w backend",
-    "start": "npm run start -w backend"
+    "start": "npm run start -w backend",
+    "bd:migrate": "npm run migrate",
+    "bd:seed": "npm run seed"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

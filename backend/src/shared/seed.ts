@@ -1,3 +1,4 @@
+import { sembrarReuniones } from "../modules/reuniones/reuniones.semilla.js";
 import type { Pool } from "pg";
 import { env } from "../config/env.js";
 import { sembrarUsuarios } from "../modules/auth/auth.service.js";
@@ -30,7 +31,7 @@ const clasesDemo = [
 /** Semilla completa en una transacción; repetirla conserva los datos existentes. */
 export async function sembrarDatos(conexion: Pool = pool, configuracion: EnvSeed = env) {
   const cliente = await conexion.connect();
-  const resumen = { clases: 0, inscripciones: 0, asistencias: 0 };
+  const resumen = { clases: 0, inscripciones: 0, asistencias: 0, reuniones: 0 };
 
   try {
     await cliente.query("begin");
@@ -109,6 +110,7 @@ export async function sembrarDatos(conexion: Pool = pool, configuracion: EnvSeed
         [clasesDemo.map((clase) => clase.nombre)]
       );
       resumen.asistencias = asistencias.rows[0]!.total;
+      resumen.reuniones = await sembrarReuniones(cliente);
     }
 
     await cliente.query("commit");

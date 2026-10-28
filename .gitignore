@@ -34,3 +34,8 @@ playwright/.cache/
 Thumbs.db
 .idea/
 .vscode/
+
+# Distribuciones oficiales descargadas; se reproducen con infraestructura/jitsi/descargar.py
+infraestructura/jitsi/servidor/
+infraestructura/jitsi/biblioteca/
+infraestructura/jitsi/configuracion/

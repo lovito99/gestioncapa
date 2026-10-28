@@ -1,3 +1,4 @@
+import { ReunionesPagina, SalaReunionPagina } from "@/paginas/reuniones/ReunionesPagina"
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RutaProtegida } from '@/auth/RutaProtegida'
 import { PaginaConEncabezado } from '@/components/layout/Pagina'
@@ -80,6 +81,12 @@ export const router = createBrowserRouter([
       { path: 'clases/:id/qr', element: <QrAsistenciaPagina /> },
     ],
   },
-  { path: '/sin-permiso', element: <SinPermisoPagina /> },
+  { element: <RutaProtegida />, children: [
+    { element: <PaginaConEncabezado />, children: [
+      { path: '/reuniones', element: <ReunionesPagina /> },
+    ] },
+  ] },
+  { element: <RutaProtegida />, children: [{ path: '/reuniones/:identificador', element: <SalaReunionPagina /> }] },
+  { path: '/sin-permiso' , element: <SinPermisoPagina /> },
   { path: '*', element: <NoEncontradaPagina /> },
 ])

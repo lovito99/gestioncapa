@@ -16,9 +16,9 @@ export function registrarErrores(app: FastifyInstance) {
     const status = fallo.statusCode ?? 500;
     if (status >= 500) {
       request.log.error({ err: error }, "No se pudo completar la solicitud");
-      return reply.code(500).send({
-        code: "ERROR_INTERNO",
-        message: "No pudimos completar la solicitud. Vuelve a intentar."
+      return reply.code(status === 503 ? 503 : 500).send({
+        code: status === 503 ? "SERVICIO_NO_DISPONIBLE" : "ERROR_INTERNO",
+        message: status === 503 ? "El servicio todavía no está disponible. Revisa su configuración." : "No pudimos completar la solicitud. Vuelve a intentar."
       });
     }
 
@@ -27,6 +27,7 @@ export function registrarErrores(app: FastifyInstance) {
       401: { code: "NO_AUTENTICADO", message: "Tu sesión expiró. Vuelve a iniciar sesión." },
       403: { code: "SIN_PERMISO", message: "No tienes permiso para realizar esta acción." },
       404: { code: "RUTA_NO_EXISTE", message: "La ruta solicitada no existe." },
+      409: { code: "ESTADO_NO_PERMITIDO", message: "El estado actual no permite realizar esta operación." },
       413: { code: "SOLICITUD_MUY_GRANDE", message: "Los datos enviados superan el tamaño permitido." },
       415: { code: "FORMATO_NO_ADMITIDO", message: "Envía los datos en formato JSON." },
       429: { code: "DEMASIADAS_SOLICITUDES", message: "Espera un momento y vuelve a intentar." }

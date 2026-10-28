@@ -44,7 +44,10 @@ async function instantanea() {
        'usuarios', (select jsonb_agg(to_jsonb(u) order by id) from users u),
        'clases', (select jsonb_agg(to_jsonb(c) order by id) from classes c),
        'inscripciones', (select jsonb_agg(to_jsonb(e) order by id) from enrollments e),
-       'asistencias', (select jsonb_agg(to_jsonb(a) order by id) from attendances a)
+       'asistencias', (select jsonb_agg(to_jsonb(a) order by id) from attendances a),
+       'reuniones', (select jsonb_agg(to_jsonb(r) order by identificador) from reuniones r),
+       'participantesReunion', (select jsonb_agg(to_jsonb(p) order by "reunionIdentificador", "usuarioIdentificador") from "participantesReunion" p),
+       'notificacionesReunion', (select jsonb_agg(to_jsonb(n) order by identificador) from "notificacionesReunion" n)
      ) as datos`
   );
   return resultado.rows[0].datos;
@@ -77,6 +80,14 @@ describe("Característica: Seed completo para todos los perfiles", () => {
     assert.equal(resumen.clases, 5);
     assert.equal(resumen.inscripciones, 9);
     assert.equal(resumen.asistencias, 1);
+    assert.equal(resumen.reuniones, 3);
+    const reuniones = await conexion.query(`select reunion.estado,
+      reunion."inicioProgramado" = (clase.fecha + clase.hora_inicio) at time zone 'America/Lima' as horario,
+      (select count(*)::int from "participantesReunion" where "reunionIdentificador"=reunion.identificador) as participantes,
+      (select count(*)::int from "notificacionesReunion" where "reunionIdentificador"=reunion.identificador) as invitaciones
+      from reuniones reunion join classes clase on clase.id=reunion."claseIdentificador"`);
+    assert.equal(reuniones.rowCount, 3);
+    for (const reunion of reuniones.rows) assert.deepEqual(reunion, { estado: 'programada', horario: true, participantes: 3, invitaciones: 3 });
 
     const sinDatos = await conexion.query(
       `select id from users u
@@ -112,6 +123,9 @@ describe("Característica: Seed completo para todos los perfiles", () => {
     await conexion.query("update users set name = 'Nombre editado', password_hash = 'hash editado' where role = 'admin'");
     await conexion.query("update classes set estado = 'CANCELADA' where nombre = 'Demo · Atención al cliente'");
     await conexion.query("update attendances set timestamp_lima = timestamp_lima + interval '5 minutes'");
+    await conexion.query("update reuniones set titulo = 'Reunión editada', estado = 'cancelada'");
+    await conexion.query(`update "participantesReunion" set estado = 'retirado' where rol = 'participante'`);
+    await conexion.query(`update "notificacionesReunion" set estado = 'enviada', intentos = 1`);
     const anterior = await instantanea();
 
     await sembrarDatos(conexion, configuracion);
@@ -132,6 +146,7 @@ describe("Característica: Seed completo para todos los perfiles", () => {
     await sembrarDatos(conexion, { ...configuracion, NODE_ENV: "production" });
 
     assert.deepEqual(await contar(), { usuarios: 1, clases: 0, inscripciones: 0, asistencias: 0 });
+    assert.equal((await conexion.query("select count(*)::int as total from reuniones")).rows[0].total, 0);
     const usuarios = await conexion.query("select role from users");
     assert.deepEqual(usuarios.rows, [{ role: "admin" }]);
   });
