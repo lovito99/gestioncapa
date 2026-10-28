@@ -30,6 +30,25 @@ por lo que no debe usarse cuando se desea dejar ese paso manual.
 
 `e2e.yml` sigue ejecutando las suites de Playwright.
 
+Los workflows instalan dependencias con
+`npm install --include=dev --include=optional --package-lock=false`, porque el
+proyecto no versiona `package-lock.json`. No usan `npm ci` ni la caché npm de
+`setup-node`, que requieren un lockfile. Sin un lockfile versionado, las
+versiones resueltas pueden variar entre ejecuciones dentro de los rangos de
+`package.json`.
+
+### Jobs bloqueados por facturación
+
+La anotación `The job was not started because your account is locked due to a
+billing issue` significa que GitHub no inició el job; no es un resultado de
+las pruebas. El propietario debe revisar **Settings → Billing & licensing**
+y resolver el problema indicado. Si no aparece un problema de pago o una
+suscripción activa, debe solicitar a GitHub Support una revisión del bloqueo.
+Consulta la [guía oficial para desbloquear la cuenta](https://docs.github.com/es/billing/how-tos/troubleshooting/locked-account).
+
+Después de desbloquear la cuenta, volver a ejecutar los workflows desde
+Actions. Cambiar YAML o reinstalar dependencias no elimina ese bloqueo.
+
 ## Revisión obligatoria (configuración única del repositorio)
 
 El código no puede obligar a que otra persona revise: lo hace la protección de

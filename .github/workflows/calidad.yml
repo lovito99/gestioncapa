@@ -24,9 +24,9 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
-          cache: npm
       - name: Instalar dependencias
-        run: npm ci --include=dev --include=optional
+        # El proyecto no versiona package-lock.json; npm ci requiere ese archivo.
+        run: npm install --include=dev --include=optional --package-lock=false
       - name: Revisar tipos
         run: npm run typecheck
       - name: Compilar
@@ -44,9 +44,9 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
-          cache: npm
       - name: Instalar dependencias
-        run: npm ci --include=dev --include=optional
+        # El proyecto no versiona package-lock.json; npm ci requiere ese archivo.
+        run: npm install --include=dev --include=optional --package-lock=false
       - name: Levantar PostgreSQL 17 y Redis 8
         run: docker compose up -d --wait
       - name: Comprobar versiones
