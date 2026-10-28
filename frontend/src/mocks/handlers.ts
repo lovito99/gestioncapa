@@ -1,3 +1,4 @@
+import { handlersHistorial } from './historial'
 import { handlersCursos } from './cursos'
 import { delay, http, HttpResponse } from 'msw'
 import { fechaLarga, horaRegistro } from '@/lib/formato'
@@ -147,6 +148,7 @@ function guardar(entrada: ClaseEntrada, id?: string) {
 
 export const handlers = [
   ...handlersCursos,
+  ...handlersHistorial,
   // ---------- Salud ----------
   http.get(`${API}/health`, () =>
     HttpResponse.json<EstadoSalud>({ ok: true, api: 'v1', database: 'ready', redis: 'ready' }),

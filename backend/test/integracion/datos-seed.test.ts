@@ -41,6 +41,8 @@ async function contar() {
 async function instantanea() {
   const resultado = await conexion.query(
     `select jsonb_build_object(
+       'inscripcionesCurso', (select jsonb_agg(to_jsonb(i) order by curso_id,usuario_id) from inscripciones_curso i),
+       'certificadosCurso', (select jsonb_agg(to_jsonb(cert) order by id) from certificados_curso cert),
        'cursos', (select jsonb_agg(to_jsonb(c) order by id) from cursos c),
        'modulosCurso', (select jsonb_agg(to_jsonb(m) order by id) from modulos_curso m),
        'materialesCurso', (select jsonb_agg(to_jsonb(a) order by id) from materiales_curso a),
@@ -77,16 +79,18 @@ describe("Característica: Seed completo para todos los perfiles", () => {
   test("siembra todos los roles, clases, inscripciones y asistencia con fechas de Lima", async () => {
     const resumen = await sembrarDatos(conexion, configuracion);
 
-    assert.deepEqual(await contar(), { usuarios: 6, clases: 5, inscripciones: 9, asistencias: 1 });
+    assert.deepEqual(await contar(), { usuarios: 6, clases: 9, inscripciones: 15, asistencias: 4 });
     assert.deepEqual([...new Set(resumen.usuarios.map((u) => u.role))].sort(),
       ["admin", "coordinador", "instructor", "participante"]);
-    assert.equal(resumen.clases, 5);
-    assert.equal(resumen.inscripciones, 9);
-    assert.equal(resumen.asistencias, 1);
+    assert.equal(resumen.clases, 9);
+    assert.equal(resumen.inscripciones, 15);
+    assert.equal(resumen.asistencias, 4);
     assert.equal(resumen.reuniones, 3);
     assert.equal(resumen.cursos, 3);
     assert.equal(resumen.modulos, 6);
     assert.equal(resumen.materiales, 9);
+    assert.equal(resumen.inscripcionesCurso, 3);
+    assert.equal(resumen.certificados, 1);
     const cursos = (await conexion.query(`select estado,count(*)::int as total from cursos group by estado order by estado`)).rows;
     assert.deepEqual(cursos, [{ estado: 'BORRADOR', total: 1 }, { estado: 'PUBLICADO', total: 2 }]);
     const materiales = (await conexion.query(`select tipo,count(*)::int as total from materiales_curso group by tipo order by tipo`)).rows;
@@ -157,7 +161,7 @@ describe("Característica: Seed completo para todos los perfiles", () => {
       sembrarDatos(conexion, configuracion)
     ]);
 
-    assert.deepEqual(await contar(), { usuarios: 6, clases: 5, inscripciones: 9, asistencias: 1 });
+    assert.deepEqual(await contar(), { usuarios: 6, clases: 9, inscripciones: 15, asistencias: 4 });
     assert.equal((await conexion.query('select count(*)::int as total from cursos')).rows[0].total, 3);
     assert.equal((await conexion.query('select count(*)::int as total from modulos_curso')).rows[0].total, 6);
     assert.equal((await conexion.query('select count(*)::int as total from materiales_curso')).rows[0].total, 9);

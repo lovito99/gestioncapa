@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 const API = import.meta.env.VITE_API_URL ?? '/api'
 const demo = crearCursosDemo()
-const almacen: DetalleCurso[] = demo.cursos
+export const cursosSimulados: DetalleCurso[] = demo.cursos
 const archivos = demo.archivos
 let secuencia = demo.siguienteId
 const nuevoId = () => String(secuencia++)
@@ -20,7 +20,7 @@ function acceso(request: Request, roles?: string[]) {
 function detalle(request: Request, id: string) {
   const auth = acceso(request)
   if (auth.fallo) return { fallo: auth.fallo }
-  const curso = almacen.find(c => c.id === id)
+  const curso = cursosSimulados.find(c => c.id === id)
   if (!curso) return { fallo: error(404, 'El curso no existe.') }
   if (curso.estado === 'BORRADOR' && auth.usuario!.rol !== 'ADMIN' && curso.instructorId !== auth.usuario!.id) return { fallo: error(403, 'No tienes permiso para acceder a este curso.') }
   return { curso, usuario: auth.usuario! }
@@ -40,11 +40,11 @@ export const handlersCursos = [
   }),
   http.get(`${API}/cursos`, ({ request }) => {
     const auth = acceso(request, ['ADMIN', 'INSTRUCTOR']); if (auth.fallo) return auth.fallo
-    return HttpResponse.json(almacen.filter(c => auth.usuario!.rol === 'ADMIN' || c.instructorId === auth.usuario!.id))
+    return HttpResponse.json(cursosSimulados.filter(c => auth.usuario!.rol === 'ADMIN' || c.instructorId === auth.usuario!.id))
   }),
   http.get(`${API}/catalogo/cursos`, ({ request }) => {
     const auth = acceso(request); if (auth.fallo) return auth.fallo
-    return HttpResponse.json(almacen.filter(c => c.estado === 'PUBLICADO'))
+    return HttpResponse.json(cursosSimulados.filter(c => c.estado === 'PUBLICADO'))
   }),
   http.post(`${API}/cursos`, async ({ request }) => {
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
@@ -54,7 +54,7 @@ export const handlersCursos = [
     if (!instructor) return error(422, 'Selecciona un instructor válido.')
     const curso: DetalleCurso = { ...datos.data, id: nuevoId(), instructorNombre: instructor.nombre, estado: 'BORRADOR',
       modulos: datos.data.modulos.map((m, i) => ({ ...m, id: nuevoId(), orden: i + 1, materiales: [] })) }
-    almacen.push(curso)
+    cursosSimulados.push(curso)
     return HttpResponse.json(curso, { status: 201 })
   }),
   http.get(`${API}/cursos/:id`, ({ request, params }) => {

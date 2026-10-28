@@ -6,6 +6,7 @@ import type { Rol } from '@/types/api'
 
 const OPCIONES = {
   ADMIN: [
+    { to: '/admin/historial', texto: 'Historiales', icono: BookOpen, end: true },
     { to: '/admin', texto: 'Estado del sistema', icono: Activity, end: true },
     { to: '/admin/clases', texto: 'Clases', icono: BookOpen, end: false },
     { to: '/admin/clases/nueva', texto: 'Programar clase', icono: CalendarPlus, end: true },
@@ -19,6 +20,7 @@ const OPCIONES = {
   ],
   PARTICIPANTE: [
     { to: '/participante/clases', texto: 'Mis clases', icono: BookOpen, end: false },
+    { to: '/historial', texto: 'Mi historial', icono: BookOpen, end: true },
     { to: '/participante/escanear', texto: 'Escanear QR', icono: ScanLine, end: true },
   ],
 } satisfies Record<Rol, { to: string; texto: string; icono: typeof Activity; end: boolean }[]>

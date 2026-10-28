@@ -1,3 +1,4 @@
+import { sembrarHistorial } from "../modules/historial/historial.semilla.js";
 import { sembrarCursos } from "../modules/cursos/cursos.semilla.js";
 import { sembrarReuniones } from "../modules/reuniones/reuniones.semilla.js";
 import type { Pool } from "pg";
@@ -32,7 +33,7 @@ const clasesDemo = [
 /** Semilla completa en una transacción; repetirla conserva los datos existentes. */
 export async function sembrarDatos(conexion: Pool = pool, configuracion: EnvSeed = env) {
   const cliente = await conexion.connect();
-  const resumen = { clases: 0, inscripciones: 0, asistencias: 0, reuniones: 0, cursos: 0, modulos: 0, materiales: 0 };
+  const resumen = { clases: 0, inscripciones: 0, asistencias: 0, reuniones: 0, cursos: 0, modulos: 0, materiales: 0, inscripcionesCurso: 0, certificados: 0 };
 
   try {
     await cliente.query("begin");
@@ -113,6 +114,12 @@ export async function sembrarDatos(conexion: Pool = pool, configuracion: EnvSeed
       resumen.asistencias = asistencias.rows[0]!.total;
       resumen.reuniones = await sembrarReuniones(cliente);
       Object.assign(resumen, await sembrarCursos(cliente, configuracion.ADMIN_EMAIL));
+      const historial = await sembrarHistorial(cliente);
+      resumen.clases += historial.sesionesHistorial;
+      resumen.inscripciones += historial.inscripcionesHistorial;
+      resumen.asistencias += historial.asistenciasHistorial;
+      resumen.inscripcionesCurso = historial.inscripcionesCurso;
+      resumen.certificados = historial.certificados;
     }
 
     await cliente.query("commit");
