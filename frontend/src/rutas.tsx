@@ -1,3 +1,4 @@
+import { HistorialPagina, HistorialesAdminPagina } from '@/paginas/historial/HistorialPagina'
 import { CursosPagina } from '@/paginas/cursos/CursosPagina'
 import { CrearCursoPagina } from '@/paginas/cursos/CrearCursoPagina'
 import { DetalleCursoPagina } from '@/paginas/cursos/DetalleCursoPagina'
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
         element: <PaginaConEncabezado />,
         children: [
           { index: true, element: <AdminPagina /> },
+          { path: 'historial', element: <HistorialesAdminPagina /> },
           { path: 'cursos/nuevo', element: <CrearCursoPagina /> },
           { path: 'clases', element: <ClasesPagina /> },
           { path: 'clases/nueva', element: <ClaseFormPagina /> },
@@ -89,6 +91,8 @@ export const router = createBrowserRouter([
     { element: <PaginaConEncabezado />, children: [
       { path: '/reuniones', element: <ReunionesPagina /> },
       { path: '/catalogo', element: <CursosPagina catalogo /> },
+      { path: '/historial', element: <HistorialPagina /> },
+      { path: '/historial/:usuarioId', element: <HistorialPagina /> },
       { path: '/cursos', element: <CursosPagina /> },
       { path: '/cursos/:id', element: <DetalleCursoPagina /> },
     ] },

@@ -1,3 +1,4 @@
+import { registrarHistorial } from "./modules/historial/historial.rutas.js";
 import { registrarCursos } from "./modules/cursos/cursos.rutas.js";
 import { registrarRutasReuniones } from "./modules/reuniones/reuniones.rutas.js";
 import Fastify from "fastify";
@@ -46,6 +47,7 @@ export async function buildApp() {
   await app.register(authRoutes);
   await app.register(clasesRoutes);
   await app.register(registrarCursos);
+  await app.register(registrarHistorial);
   await app.register(asistenciaRoutes);
   // Al final: solo agrega las rutas del contrato que aún no existen (501).
   await app.register(registrarRutasReuniones);
