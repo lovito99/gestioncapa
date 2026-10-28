@@ -46,9 +46,9 @@ function TarjetaClase({ clase }: { clase: ClaseParticipante }) {
   const cancelada = clase.estado === 'CANCELADA'
 
   return (
-    <article className="flex flex-col gap-3 rounded-xl border border-line bg-white p-4">
+    <article className="flex min-w-0 flex-col gap-3 rounded-xl wrap-anywhere border border-line bg-white p-4">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-base leading-6 font-semibold text-ink">{clase.nombre}</h2>
+        <h2 className="min-w-0 text-base leading-6 font-semibold text-ink">{clase.nombre}</h2>
         {cancelada && <EtiquetaEstadoClase estado={clase.estado} />}
       </div>
 

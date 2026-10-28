@@ -9,6 +9,7 @@ import type { MarcarAsistenciaRespuesta } from '@/types/api'
 
 interface Presentacion {
   titulo: string
+  mensaje?: string
   Icono: LucideIcon
   color: string
   /** Si tiene sentido volver a escanear (p. ej. el QR venció mientras se leía) */
@@ -16,10 +17,10 @@ interface Presentacion {
 }
 
 const POR_CODIGO: Record<string, Presentacion> = {
-  QR_EXPIRADO: { titulo: 'El código QR expiró', Icono: Clock, color: 'text-warning', reintentable: true },
+  QR_EXPIRADO: { mensaje: 'Este código ya venció. Pide al instructor el QR actualizado y escanéalo de nuevo.', titulo: 'El código QR expiró', Icono: Clock, color: 'text-warning', reintentable: true },
   QR_INVALIDO: { titulo: 'Código QR no válido', Icono: CircleAlert, color: 'text-danger', reintentable: true },
   QR_OTRA_CLASE: { titulo: 'Este QR es de otra clase', Icono: CircleAlert, color: 'text-danger', reintentable: true },
-  NO_INSCRITO: { titulo: 'No estás inscrito(a) en esta clase', Icono: CircleAlert, color: 'text-danger', reintentable: false },
+  NO_INSCRITO: { mensaje: 'No tienes una inscripción vigente en esta clase. Pide al coordinador que revise tu inscripción.', titulo: 'No estás inscrito(a) en esta clase', Icono: CircleAlert, color: 'text-danger', reintentable: false },
   ASISTENCIA_YA_REGISTRADA: {
     titulo: 'Tu asistencia ya estaba registrada',
     Icono: CircleCheck,
@@ -27,7 +28,7 @@ const POR_CODIGO: Record<string, Presentacion> = {
     reintentable: false,
   },
   CLASE_CANCELADA: { titulo: 'La clase está cancelada', Icono: CircleAlert, color: 'text-danger', reintentable: false },
-  ERROR_DE_RED: { titulo: 'Sin conexión', Icono: CircleAlert, color: 'text-danger', reintentable: true },
+  ERROR_DE_RED: { mensaje: 'No pudimos confirmar el registro con el servidor. Revisa tu conexión y vuelve a escanear. Si ya se registró, te lo indicaremos sin duplicarlo.', titulo: 'Sin conexión', Icono: CircleAlert, color: 'text-danger', reintentable: true },
 }
 
 const GENERICO: Presentacion = {
@@ -44,7 +45,7 @@ function Tarjeta({ children }: { children: ReactNode }) {
   return (
     <section
       aria-live="polite"
-      className="flex w-full flex-col items-center gap-3 rounded-xl border border-line bg-white px-5 py-8 text-center"
+      className="flex w-full min-w-0 flex-col items-center gap-3 rounded-xl wrap-anywhere border border-line bg-white px-5 py-8 text-center"
     >
       {children}
     </section>
@@ -69,8 +70,8 @@ export function AsistenciaRegistrada({ resultado }: { resultado: MarcarAsistenci
 
 export function AsistenciaRechazada({ error, onReintentar }: { error: unknown; onReintentar?: () => void }) {
   const codigo = error instanceof ApiError ? error.code : ''
-  const { titulo, Icono, color, reintentable } = POR_CODIGO[codigo] ?? GENERICO
-  const mensaje = error instanceof ApiError ? error.message : 'Ocurrió un error inesperado. Intenta de nuevo.'
+  const { titulo, mensaje: orientacion, Icono, color, reintentable } = POR_CODIGO[codigo] ?? GENERICO
+  const mensaje = orientacion ?? (error instanceof ApiError ? error.message : 'Ocurrió un error inesperado. Intenta de nuevo.')
 
   return (
     <Tarjeta>

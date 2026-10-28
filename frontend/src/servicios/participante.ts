@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import type { ClaseParticipante, MarcarAsistenciaEntrada, MarcarAsistenciaRespuesta } from '@/types/api'
 
 export const clavesParticipante = {
@@ -17,8 +17,16 @@ export function useClasesParticipante() {
 export function useMarcarAsistencia() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (entrada: MarcarAsistenciaEntrada) =>
-      (await api.post<MarcarAsistenciaRespuesta>('/asistencia/marcar', entrada)).data,
+    // Mostrar el fallo y permitir reescaneo incluso si el celular está sin red.
+    networkMode: 'always',
+    retry: false,
+    mutationFn: async (entrada: MarcarAsistenciaEntrada) => {
+      if (!navigator.onLine) throw new ApiError(0, {
+        code: 'ERROR_DE_RED',
+        message: 'Sin conexión. Revisa tu conexión y vuelve a escanear.',
+      })
+      return (await api.post<MarcarAsistenciaRespuesta>('/asistencia/marcar', entrada, { timeout: 15000 })).data
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: clavesParticipante.misClases }),
   })
 }
