@@ -47,9 +47,10 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
-          cache: npm
+          # No se versionan lockfiles; desactivar también la caché automática.
+          package-manager-cache: false
       - name: Instalar dependencias
-        run: npm ci --include=dev --include=optional
+        run: npm install --include=dev --include=optional --package-lock=false
       - name: Instalar Chromium
         run: npx playwright install --with-deps chromium
       - name: Revisar tipos
