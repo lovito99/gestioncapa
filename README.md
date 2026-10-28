@@ -2,6 +2,9 @@
 
 Proyecto en modo desarrollo/test con backend TypeScript en Node 24, frontend Vite/React en TypeScript, autenticacion JWT, Postgres y Redis levantados con Docker Compose.
 
+Versionado: [convención Git de cinco niveles](VERSIONING.md). El agente recomienda
+versiones y comandos; las operaciones Git las ejecuta el usuario manualmente.
+
 ## Entrar rápidamente y ejecutar E2E
 
 Desde la raíz, `npm run dev:demo` abre la aplicación con datos demo en
