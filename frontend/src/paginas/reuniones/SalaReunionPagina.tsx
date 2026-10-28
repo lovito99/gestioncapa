@@ -30,6 +30,7 @@ function ContenidoSalaReunion({ identificador }: { identificador: string }) {
   const sala = useRef<Awaited<ReturnType<typeof conectarSala>> | null>(null)
   const [moderacion, cambiarModeracion] = useState<EstadoModeracion>(moderacionInicial)
   const [pantallaCompleta, cambiarPantallaCompleta] = useState<Element | null>(null)
+  const [habilitarMedios, cambiarHabilitarMedios] = useState<boolean | null>(null)
   const [estado, cambiarEstado] = useState('Conectando…')
   const [nivelMicrofono, cambiarNivelMicrofono] = useState(0)
   const [medios, cambiarMedios] = useState<EstadoSala>(estadoInicial)
@@ -49,6 +50,7 @@ function ContenidoSalaReunion({ identificador }: { identificador: string }) {
   const inscritos = useQuery({ queryKey: ['participantesReunion', identificador], queryFn: () => reuniones.participantes(identificador), enabled: puedeConsultarInscritos, refetchInterval: 30000 })
 
   useEffect(() => {
+    if (habilitarMedios === null) return
     let cancelada = false
     void reuniones.credencial(identificador).then(async credencial => {
       if (cancelada || !contenedor.current || !usuario) return
@@ -60,12 +62,12 @@ function ContenidoSalaReunion({ identificador }: { identificador: string }) {
         moderacion: valor => { if (!cancelada) cambiarModeracion(valor) },
         reaccion: reaccion => { if (!cancelada) cambiarReacciones(anteriores => [...anteriores.slice(-4), reaccion]) },
         mensaje: mensaje => { if (!cancelada) cambiarMensajes(anteriores => anteriores.some(anterior => anterior.identificador === mensaje.identificador) ? anteriores : [...anteriores.slice(-199), mensaje]) },
-      })
+      }, { habilitarMedios })
       if (cancelada) await conexion.cerrar()
       else sala.current = conexion
     }).catch(fallo => { if (!cancelada) { cambiarEstado('No se pudo entrar'); cambiarError(fallo.message) } })
     return () => { cancelada = true; void sala.current?.cerrar().catch(() => undefined); sala.current = null }
-  }, [identificador, usuario])
+  }, [identificador, usuario, habilitarMedios])
 
   useEffect(() => {
     const actualizar = () => { void navigator.mediaDevices?.enumerateDevices().then(cambiarDispositivos).catch(() => undefined) }
@@ -119,6 +121,17 @@ function ContenidoSalaReunion({ identificador }: { identificador: string }) {
       {reacciones.map(reaccion => <div className="salaReaccion" key={reaccion.identificador} style={{ left: `${10 + parseInt(reaccion.identificador.slice(0, 8), 16) % 80}%` }}><span className="salaEmoji" aria-hidden>{reaccion.emoji}</span><span className="salaReaccionNombre">{reaccion.nombre}</span><span className="sr-only">{reaccionesDisponibles.find(opcion => opcion.emoji === reaccion.emoji)?.nombre}</span></div>)}
     </div>)
   return <main className="salaVentana bg-slate-950 text-slate-100">
+    {habilitarMedios === null && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4">
+      <section role="dialog" aria-modal="true" aria-labelledby="permisos-titulo" aria-describedby="permisos-descripcion" className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-xl">
+        <h2 id="permisos-titulo" className="mb-3 text-xl font-semibold">Habilitar micrófono y cámara</h2>
+        <p id="permisos-descripcion" className="mb-5 text-sm text-slate-300">Para participar con audio y vídeo, permite el acceso cuando el navegador lo solicite. Puedes apagar los dispositivos en cualquier momento.</p>
+        <div className="flex flex-col gap-3">
+          <button autoFocus className={boton} onClick={() => cambiarHabilitarMedios(true)}><Mic size={18} /><Camera size={18} />Habilitar y entrar</button>
+          <button className={boton} onClick={() => cambiarHabilitarMedios(false)}>Entrar sin micrófono ni cámara</button>
+        </div>
+        <p className="mt-4 text-xs text-slate-400">Si ya diste permiso, el navegador no volverá a preguntarlo. Si lo bloqueaste, puedes cambiarlo desde el icono de permisos junto a la dirección.</p>
+      </section>
+    </div>}
     {pantallaCompleta ? createPortal(reaccionesVisibles, pantallaCompleta) : reaccionesVisibles}
     <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-2">
       <div className="min-w-0"><Link to="/reuniones" className="text-xs text-slate-400 hover:text-white">← Reuniones · GestionCapa</Link>
@@ -199,8 +212,8 @@ function ContenidoSalaReunion({ identificador }: { identificador: string }) {
       </aside>
     </div>
     <footer className="relative flex shrink-0 flex-wrap items-center justify-center gap-2 border-t border-slate-700 bg-slate-900 p-2">
-      <Control activo={medios.microfonoActivo} disabled={bloqueado || !medios.microfonoDisponible || (!moderacion.permitidos.audio && !medios.microfonoActivo)} onClick={() => void ejecutar(() => usarSala().alternar('audio'))} icono={<span className="salaIconoMicrofono">{medios.microfonoActivo ? <Mic size={20} /> : <MicOff size={20} />}<MedidorMicrofono intensidad={intensidad} /></span>}>{medios.microfonoActivo ? 'Silenciar' : 'Activar micrófono'}</Control>
-      <Control activo={medios.camaraActiva} disabled={bloqueado || !medios.camaraDisponible || (!moderacion.permitidos.video && !medios.camaraActiva)} onClick={() => void ejecutar(() => usarSala().alternar('video'))} icono={medios.camaraActiva ? <Camera size={20} /> : <CameraOff size={20} />}>{medios.camaraActiva ? 'Apagar cámara' : 'Activar cámara'}</Control>
+      <Control activo={medios.microfonoActivo} disabled={bloqueado || (!moderacion.permitidos.audio && !medios.microfonoActivo)} onClick={() => void ejecutar(() => usarSala().alternar('audio'))} icono={<span className="salaIconoMicrofono">{medios.microfonoActivo ? <Mic size={20} /> : <MicOff size={20} />}<MedidorMicrofono intensidad={intensidad} /></span>}>{medios.microfonoActivo ? 'Silenciar' : 'Activar micrófono'}</Control>
+      <Control activo={medios.camaraActiva} disabled={bloqueado || (!moderacion.permitidos.video && !medios.camaraActiva)} onClick={() => void ejecutar(() => usarSala().alternar('video'))} icono={medios.camaraActiva ? <Camera size={20} /> : <CameraOff size={20} />}>{medios.camaraActiva ? 'Apagar cámara' : 'Activar cámara'}</Control>
       <Control activo={medios.compartiendoPantalla} disabled={bloqueado || (!moderacion.permitidos.desktop && !medios.compartiendoPantalla)} onClick={() => void ejecutar(() => usarSala().compartirPantalla())} icono={<MonitorUp size={20} />}>{medios.compartiendoPantalla ? 'Dejar de compartir' : 'Compartir pantalla'}</Control>
       <Control activo={mano} disabled={bloqueado} onClick={() => void ejecutar(() => usarSala().levantarMano())} icono={<Hand size={20} />}>{mano ? 'Bajar mano' : 'Levantar mano'}</Control>
       <button className={`${boton} salaControl`} aria-pressed={panelVisible && panel === 'participantes'} onClick={() => { cambiarPanel('participantes'); cambiarPanelVisible(!(panelVisible && panel === 'participantes')) }}><Users size={18} />Personas</button>

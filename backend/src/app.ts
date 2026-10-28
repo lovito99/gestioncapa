@@ -17,7 +17,19 @@ import { ensureRedis } from "./shared/redis.js";
 export async function buildApp() {
   const app = Fastify({
     logger: {
-      level: env.LOG_LEVEL
+      level: env.LOG_LEVEL,
+      ...(env.NODE_ENV === "development"
+        ? {
+            transport: {
+              target: "pino-pretty",
+              options: {
+                colorize: true,
+                translateTime: "SYS:standard",
+                ignore: "pid,hostname"
+              }
+            }
+          }
+        : {})
     }
   });
 

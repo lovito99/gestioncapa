@@ -58,6 +58,26 @@ async function entrar() {
 }
 
 describe('Controles de la conferencia', () => {
+  it('entrar sin dispositivos no solicita captura y permite activarlos después', async () => {
+    const observar = observadores()
+    const sala = await conectarSala(credencial, contenedor(), vi.fn(), observar, { habilitarMedios: false })
+    expect(biblioteca.createLocalTracks).not.toHaveBeenCalled()
+    await sala.alternar('audio')
+    expect(observar.estado).toHaveBeenLastCalledWith(expect.objectContaining({ microfonoActivo: true, camaraActiva: false }))
+    await sala.alternar('video')
+    expect(observar.estado).toHaveBeenLastCalledWith(expect.objectContaining({ microfonoActivo: true, camaraActiva: true }))
+    await sala.cerrar()
+  })
+  it('permite reintentar desde el control después de denegar el micrófono al entrar', async () => {
+    vi.mocked(biblioteca.createLocalTracks).mockRejectedValueOnce(new DOMException('Sin permiso', 'NotAllowedError'))
+    const observar = observadores()
+    const sala = await conectarSala(credencial, contenedor(), vi.fn(), observar)
+    await vi.waitFor(() => expect(observar.estado).toHaveBeenLastCalledWith(expect.objectContaining({ microfonoDisponible: false, camaraDisponible: true })))
+    await sala.alternar('audio')
+    expect(conferencia.addTrack).toHaveBeenCalledWith(microfono.pista)
+    expect(observar.estado).toHaveBeenLastCalledWith(expect.objectContaining({ microfonoActivo: true, camaraActiva: true }))
+    await sala.cerrar()
+  })
   it('comparte cámara y pantalla simultáneamente y retira solo pantalla al detener', async () => {
     const { sala, observar } = await entrar()
     await sala.compartirPantalla()

@@ -79,6 +79,12 @@ Las fechas del formulario usan la zona de tu dispositivo y se
 envían con zona explícita. El instructor asignado o el gestor puede iniciarla.
 El participante inscrito entra mediante `/reuniones/:identificador`.
 
+Al entrar aparece un diálogo para habilitar micrófono y cámara o entrar sin dispositivos.
+La solicitud de permisos la realiza el navegador, no el backend. Los permisos ya
+concedidos no generan una nueva pregunta; los bloqueados se restablecen desde los
+permisos del sitio. Los botones de micrófono y cámara permiten reintentar la
+activación si no se abrieron al ingresar.
+
 La cámara y el micrófono requieren HTTPS (o localhost por HTTP) y permisos del navegador. Se muestran
 pistas locales y remotas; salir elimina las pistas y desconecta. Esta conexión
 es audiovisual directa con Jitsi, no a través de WebSockets de negocio.

@@ -75,7 +75,7 @@ async function cargarBiblioteca(direccionServidor: string) {
   return cargaBiblioteca
 }
 
-export async function conectarSala(credencial: CredencialReunion, contenedor: HTMLElement, informar: (mensaje: string) => void, observadores: ObservadoresSala) {
+export async function conectarSala(credencial: CredencialReunion, contenedor: HTMLElement, informar: (mensaje: string) => void, observadores: ObservadoresSala, opciones: { habilitarMedios?: boolean } = {}) {
   const biblioteca = await cargarBiblioteca(credencial.direccionServidor)
   biblioteca.init({ disableAudioLevels: false })
   const conexion = new biblioteca.JitsiConnection(null, credencial.token, {
@@ -263,7 +263,7 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
       moderacion?.publicar()
       publicarEstado()
       void serializar(async () => {
-        for (const tipo of ['audio', 'video'] as const) {
+        for (const tipo of opciones.habilitarMedios === false ? [] : ['audio', 'video'] as const) {
           try {
             const pista = await crearPista(tipo)
             if (moderacion && !moderacion.estado().permitidos[tipo]) await pista.mute()
@@ -282,7 +282,16 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
   return {
     alternar: (tipo: 'audio' | 'video') => serializar(async () => {
       const pista = tipo === 'audio' ? microfono : camara
-      if (!pista) throw new Error('Selecciona un dispositivo disponible en Opciones.')
+      if (!pista) {
+        if (moderacion && !moderacion.estado().permitidos[tipo]) throw new Error('Levanta la mano y espera la autorización del anfitrión.')
+        const nueva = await crearPista(tipo)
+        try { await conferencia!.addTrack(nueva) } catch (error) { await liberarPista(nueva); throw error }
+        if (tipo === 'audio') microfono = nueva
+        else camara = nueva
+        mostrarPista(nueva)
+        publicarEstado()
+        return
+      }
       if (pista.isMuted()) {
         if (moderacion && !moderacion.estado().permitidos[tipo]) throw new Error('Levanta la mano y espera la autorización del anfitrión.')
         await pista.unmute()
