@@ -1,12 +1,17 @@
+import type { Response } from '@playwright/test'
 import { expect, test } from '../../ayud/prueba'
-import { cambiarAParticipante } from '../../ayud/qr'
 import { cuentas } from '../../ayud/datos'
 import { apiReal, rutas } from '../../ayud/rutas'
 import { completarAcceso, entrar } from '../../ayud/sesion'
+import type { QrAsistencia } from '../../../frontend/src/types/api'
 
 const NOMBRE = 'Asistencia completa E2E'
 
-test('VIN-01: flujo completo de asistencia por QR con el backend real', async ({ page, request }) => {
+test('VIN-01: flujo completo de asistencia por QR con el backend real', async ({ page, request, context }, intento) => {
+  test.setTimeout(60000)
+  // Los reintentos y repeticiones no comparten nombre ni horario.
+  const nombre = `${NOMBRE} ${intento.repeatEachIndex}-${intento.retry}`
+  const fecha = new Date(Date.UTC(2030, 4, 20 + intento.repeatEachIndex * 10 + intento.retry)).toISOString().slice(0, 10)
   // Coordinadora: clase de Carlos con María inscrita (por la API real, fecha propia).
   const { token } = await (await request.post(`${apiReal}/auth/login`, { data: cuentas.coord })).json()
   const headers = { Authorization: `Bearer ${token}` }
@@ -14,9 +19,9 @@ test('VIN-01: flujo completo de asistencia por QR con el backend real', async ({
   const creada = await request.post(`${apiReal}/clases`, {
     headers,
     data: {
-      nombre: NOMBRE,
+      nombre,
       instructorId: instructores.find((i) => i.nombre === 'Carlos Mendoza Ríos')!.id,
-      fecha: '2030-05-20',
+      fecha,
       horaInicio: '10:00',
       horaFin: '11:00',
       lugar: 'Sala de pruebas',
@@ -26,19 +31,34 @@ test('VIN-01: flujo completo de asistencia por QR con el backend real', async ({
   const { id } = await creada.json()
   expect((await request.post(`${apiReal}/clases/${id}/inscritos`, { headers, data: { email: cuentas.part.email } })).status()).toBe(201)
 
-  // Instructor: el QR lo emite el servidor real desde su pantalla.
-  await entrar(page, cuentas.instr)
-  const respuestaQr = page.waitForResponse((r) => new URL(r.url()).pathname === `/api/clases/${id}/qr` && r.status() === 200)
-  await page.goto(rutas.qr(id))
-  const { token: tokenQr } = (await (await respuestaQr).json()) as { token: string }
-
-  // Participante: abre el enlace del QR antes de que venza.
-  await cambiarAParticipante(page)
+  // El colegiado inicia sesión antes de leer el QR, en una pestaña independiente.
+  // Ambas identidades usan el flujo real; sessionStorage está separado por pestaña.
+  await entrar(page, cuentas.part)
+  const paginaInstructor = await context.newPage()
+  await entrar(paginaInstructor, cuentas.instr)
+  const esQr = (respuesta: Response) => new URL(respuesta.url()).pathname === `/api/clases/${id}/qr` && respuesta.status() === 200
+  const respuestaQr = paginaInstructor.waitForResponse(esQr)
+  await paginaInstructor.goto(rutas.qr(id))
+  let qr = await (await respuestaQr).json() as QrAsistencia
+  // El token vence al terminar la ventana, por lo que puede nacer con pocos
+  // segundos restantes. En ese caso esperamos la renovación real de la pantalla.
+  if (Date.parse(qr.expiraEn) - Date.parse(qr.servidorAhora) < 10000) {
+    const renovacion = await paginaInstructor.waitForResponse(async respuesta => {
+      if (!esQr(respuesta)) return false
+      const siguiente = await respuesta.json() as QrAsistencia
+      return Date.parse(siguiente.expiraEn) - Date.parse(siguiente.servidorAhora) >= 10000
+    })
+    qr = await renovacion.json() as QrAsistencia
+  }
+  expect(Date.parse(qr.expiraEn) - Date.parse(qr.servidorAhora)).toBeGreaterThanOrEqual(10000)
+  const tokenQr = qr.token
+  // El registro sigue usando el token firmado y el reloj real del backend.
   await page.goto(rutas.marcar(tokenQr))
   await expect(page.getByRole('heading', { name: '¡Asistencia registrada!' })).toBeVisible()
-  await expect(page.getByText(NOMBRE, { exact: true })).toBeVisible()
+  await paginaInstructor.close()
+  await expect(page.getByText(nombre, { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Volver a mis clases' }).click()
-  const clase = page.getByRole('article').filter({ hasText: NOMBRE })
+  const clase = page.getByRole('article').filter({ hasText: nombre })
   await expect(clase).toContainText('Asistencia registrada a las')
   await expect(clase.getByRole('link', { name: 'Registrar asistencia' })).toHaveCount(0)
 
