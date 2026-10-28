@@ -21,6 +21,7 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
   [inscribir participante](docs/esp/inscripcion.md), [base de datos](docs/esp/base-datos.md)
   [QR rotativo](docs/esp/qr.md) y [registrar y consultar asistencia](docs/esp/asistencia.md).
 - [Calidad antes de integrar](docs/calidad.md).
+- [HU-10: asistencia móvil y medición pendiente SCRUM-96](docs/esp/experiencia-movil.md).
 - [Ajustes y evidencia según el documento del proceso de desarrollo](docs/esp/ajustes.md).
 
 ```bash

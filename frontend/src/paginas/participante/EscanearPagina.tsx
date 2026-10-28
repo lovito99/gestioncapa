@@ -68,13 +68,23 @@ export function EscanearPagina() {
       highlightCodeOutline: true,
       returnDetailedScanResult: true,
     })
+    let cancelada = false
     escaner.current = instancia
-    instancia
-      .start()
-      .then(() => setEstado({ tipo: 'escaneando' }))
-      .catch((error: unknown) => setEstado({ tipo: 'error-camara', mensaje: mensajeCamara(error) }))
+    const elementoVideo = video.current
+    // Abrir directamente conserva el error original: qr-scanner transforma
+    // algunos rechazos de permiso en «Camera not found».
+    void (async () => {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera not found')
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } })
+      if (cancelada) { stream.getTracks().forEach(pista => pista.stop()); return }
+      elementoVideo.srcObject = stream
+      await instancia.start()
+    })()
+      .then(() => { if (!cancelada) setEstado({ tipo: 'escaneando' }) })
+      .catch((error: unknown) => { if (!cancelada) setEstado({ tipo: 'error-camara', mensaje: mensajeCamara(error) }) })
 
     return () => {
+      cancelada = true
       instancia.destroy()
       escaner.current = null
     }
@@ -89,7 +99,7 @@ export function EscanearPagina() {
 
   return (
     <div className="px-4 py-6">
-      <div className="mx-auto flex w-full max-w-120 flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-120 min-w-0 flex-col wrap-anywhere gap-4">
         <EnlaceVolver to="/participante/clases">Mis clases</EnlaceVolver>
 
         {marcar.isPending && <Enviando />}
