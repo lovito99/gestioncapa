@@ -18,6 +18,14 @@ export const usuarios: (Usuario & { password: string })[] = [
     cargo: 'Instructor',
     password: 'demo123',
   },
+  {
+    id: 'i-2',
+    nombre: 'Lucía Paredes Quispe',
+    email: 'lucia.paredes@organizacion.pe',
+    rol: 'INSTRUCTOR',
+    cargo: 'Instructora',
+    password: 'demo123',
+  },
   // Los participantes usan el mismo id que en la lista de participantes
   {
     id: 'p-1',

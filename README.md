@@ -21,6 +21,7 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
   [inscribir participante](docs/esp/inscripcion.md), [base de datos](docs/esp/base-datos.md)
   [QR rotativo](docs/esp/qr.md) y [registrar y consultar asistencia](docs/esp/asistencia.md).
 - [Calidad antes de integrar](docs/calidad.md).
+- [HU-13: cursos, módulos, catálogo y materiales](docs/esp/cursos.md).
 - [HU-10: asistencia móvil y medición pendiente SCRUM-96](docs/esp/experiencia-movil.md).
 - [Ajustes y evidencia según el documento del proceso de desarrollo](docs/esp/ajustes.md).
 
@@ -29,6 +30,14 @@ npm run e2e:inst
 npm run e2e
 npm run e2e:real # requiere Postgres y Redis; usa gestioncapa_e2e
 ```
+
+## Cursos demo
+
+El modo demo incluye tres cursos con módulos, PDF descargable, enlaces y video de
+prueba. Con el backend real, se cargan con `npm run migrate` y `npm run seed`.
+Administrador e instructor los ven en **Mis cursos**; los colegiados ven los
+publicados en **Catálogo de cursos**. Uno queda en borrador para probar la
+publicación. [Cursos, cuentas y materiales demo](docs/esp/cursos.md#cursos-demo-precargados).
 
 ## Reuniones virtuales
 

@@ -31,6 +31,8 @@ export function Navegacion() {
     <nav aria-label="Navegación principal" className="border-b border-line-soft bg-white px-4 sm:px-10">
       <div className="mx-auto flex max-w-300 flex-wrap gap-2 py-3 sm:px-6">
         <NavLink to="/reuniones" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium">Reuniones virtuales</NavLink>
+        <NavLink to="/catalogo" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium">Catálogo de cursos</NavLink>
+        {['ADMIN', 'INSTRUCTOR'].includes(usuario.rol) && <NavLink to="/cursos" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium">Mis cursos</NavLink>}
         {OPCIONES[usuario.rol]?.map(({ to, texto, icono: Icono, end }) => (
           <NavLink
             key={to}

@@ -1,3 +1,6 @@
+import { CursosPagina } from '@/paginas/cursos/CursosPagina'
+import { CrearCursoPagina } from '@/paginas/cursos/CrearCursoPagina'
+import { DetalleCursoPagina } from '@/paginas/cursos/DetalleCursoPagina'
 import { ReunionesPagina, SalaReunionPagina } from "@/paginas/reuniones/ReunionesPagina"
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RutaProtegida } from '@/auth/RutaProtegida'
@@ -71,6 +74,7 @@ export const router = createBrowserRouter([
         element: <PaginaConEncabezado />,
         children: [
           { index: true, element: <AdminPagina /> },
+          { path: 'cursos/nuevo', element: <CrearCursoPagina /> },
           { path: 'clases', element: <ClasesPagina /> },
           { path: 'clases/nueva', element: <ClaseFormPagina /> },
           { path: 'clases/:id', element: <DetalleClasePagina /> },
@@ -84,6 +88,9 @@ export const router = createBrowserRouter([
   { element: <RutaProtegida />, children: [
     { element: <PaginaConEncabezado />, children: [
       { path: '/reuniones', element: <ReunionesPagina /> },
+      { path: '/catalogo', element: <CursosPagina catalogo /> },
+      { path: '/cursos', element: <CursosPagina /> },
+      { path: '/cursos/:id', element: <DetalleCursoPagina /> },
     ] },
   ] },
   { element: <RutaProtegida />, children: [{ path: '/reuniones/:identificador', element: <SalaReunionPagina /> }] },
