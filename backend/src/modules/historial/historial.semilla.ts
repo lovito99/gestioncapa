@@ -53,7 +53,7 @@ export async function sembrarHistorial(cliente: PoolClient) {
     cardinality($1::bigint[]) as "sesionesHistorial",
     (select count(*)::int from enrollments where class_id=any($1::bigint[])) as "inscripcionesHistorial",
     (select count(*)::int from attendances where class_id=any($1::bigint[])) as "asistenciasHistorial",
-    (select count(*)::int from inscripciones_curso where usuario_id=any($2::bigint[]) and curso_id=any($3::bigint[])) as "inscripcionesCurso",
-    (select count(*)::int from certificados_curso where codigo='DEMO-HU18-MARIA-SEGURIDAD') as certificados`, [clases, usuarios.map(u => u.id), cursos.map(c => c.id)])).rows[0]!;
+    (select count(*)::int from inscripciones_curso where usuario_id=any($2::bigint[]) and curso_id in (select id from cursos where organization_id=1 and clave_demo is not null)) as "inscripcionesCurso",
+    (select count(*)::int from certificados_curso where codigo='DEMO-HU18-MARIA-SEGURIDAD') as certificados`, [clases, usuarios.map(u => u.id)])).rows[0]!;
   return totales;
 }

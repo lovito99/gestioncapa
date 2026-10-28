@@ -18,13 +18,16 @@ export function crearCursosDemo() {
   const nuevoId = () => String(secuencia++)
   const archivos = new Map<string, Uint8Array>()
   const cursos: DetalleCurso[] = [
-    { titulo: 'Demo · Seguridad y primeros auxilios', descripcion: 'Curso publicado con certificado de aprobación, PDF, enlace y video de prueba.', instructorId: 'i-1', instructorNombre: 'Carlos Mendoza Ríos', horasLectivas: 24, modalidad: 'HIBRIDA', costo: 150, cupos: 30, tipoCertificado: 'APROBACION', notaMinima: 14, estado: 'PUBLICADO',
+    { categoria: 'Seguridad y salud', inicio: -15, fin: -14, titulo: 'Demo · Seguridad y primeros auxilios', descripcion: 'Curso publicado con certificado de aprobación, PDF, enlace y video de prueba.', instructorId: 'i-1', instructorNombre: 'Carlos Mendoza Ríos', horasLectivas: 24, modalidad: 'HIBRIDA', costo: 150, cupos: 30, tipoCertificado: 'APROBACION', notaMinima: 14, estado: 'PUBLICADO',
       titulos: ['Prevención y seguridad', 'Práctica de primeros auxilios'], enlace: 'https://www.gob.pe/indeci' },
-    { titulo: 'Demo · Didáctica y evaluación', descripcion: 'Curso gratuito publicado, con certificado de participación y módulos de ejemplo.', instructorId: 'i-2', instructorNombre: 'Lucía Paredes Quispe', horasLectivas: 16, modalidad: 'PRESENCIAL', costo: 0, cupos: 50, tipoCertificado: 'PARTICIPACION', notaMinima: 14, estado: 'PUBLICADO',
+    { categoria: 'Educación', inicio: -3, fin: 10, titulo: 'Demo · Didáctica y evaluación', descripcion: 'Curso gratuito publicado, con certificado de participación y módulos de ejemplo.', instructorId: 'i-2', instructorNombre: 'Lucía Paredes Quispe', horasLectivas: 16, modalidad: 'PRESENCIAL', costo: 0, cupos: 50, tipoCertificado: 'PARTICIPACION', notaMinima: 14, estado: 'PUBLICADO',
       titulos: ['Planificación didáctica', 'Evaluación del aprendizaje'], enlace: 'https://www.unesco.org/es/education' },
-    { titulo: 'Demo · Herramientas digitales para docentes', descripcion: 'Borrador de ejemplo: revisa los módulos y publícalo para verlo en el catálogo.', instructorId: 'i-1', instructorNombre: 'Carlos Mendoza Ríos', horasLectivas: 20, modalidad: 'VIRTUAL', costo: 120, cupos: 25, tipoCertificado: 'APROBACION', notaMinima: 16, estado: 'BORRADOR',
+    { categoria: 'Tecnología', inicio: 15, fin: 20, titulo: 'Demo · Herramientas digitales para docentes', descripcion: 'Borrador de ejemplo: revisa los módulos y publícalo para verlo en el catálogo.', instructorId: 'i-1', instructorNombre: 'Carlos Mendoza Ríos', horasLectivas: 20, modalidad: 'VIRTUAL', costo: 120, cupos: 25, tipoCertificado: 'APROBACION', notaMinima: 16, estado: 'BORRADOR',
       titulos: ['Recursos y herramientas digitales', 'Diseño de una actividad virtual'], enlace: 'https://www.unesco.org/es/digital-education' },
-  ].map(({ titulos, enlace, ...curso }) => ({ ...curso, id: nuevoId(), modulos: titulos.map((titulo, indice) => {
+    { categoria: 'Educación', inicio: 30, fin: 31, titulo: 'Demo · Taller con cupos agotados', descripcion: 'Curso de ejemplo con su única plaza ocupada.', instructorId: 'i-2', instructorNombre: 'Lucía Paredes Quispe', horasLectivas: 8, modalidad: 'VIRTUAL', costo: 0, cupos: 1, tipoCertificado: 'PARTICIPACION', notaMinima: 14, estado: 'PUBLICADO',
+      titulos: ['Introducción al taller', 'Actividad práctica'], enlace: 'https://www.unesco.org/es/education' },
+  ].map(({ titulos, enlace, inicio, fin, ...curso }) => ({ ...curso, cuposDisponibles: curso.cupos,
+    fechaInicio: new Date(Date.now()+inicio*86400000).toISOString().slice(0,10), fechaFin: new Date(Date.now()+fin*86400000).toISOString().slice(0,10), id: nuevoId(), modulos: titulos.map((titulo, indice) => {
     const id = nuevoId()
     if (indice === 0) {
       const pdfId = nuevoId()

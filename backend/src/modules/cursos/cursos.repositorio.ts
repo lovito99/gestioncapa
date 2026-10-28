@@ -1,15 +1,18 @@
 import type { PoolClient } from 'pg';
 import { pool } from '../../shared/database.js';
-import type { DatosCurso, DatosMaterial } from './cursos.validacion.js';
+import type { ConsultaCatalogo, DatosCurso, DatosMaterial } from './cursos.validacion.js';
 
 export type Curso = {
   id: string; organizacionId: string; instructorId: string; instructorNombre: string;
   titulo: string; descripcion: string; horasLectivas: number; modalidad: string; costo: number;
+  categoria: string; fechaInicio: string | null; fechaFin: string | null; cuposDisponibles: number; inscrito?: boolean;
   cupos: number; tipoCertificado: string; notaMinima: number; estado: 'BORRADOR' | 'PUBLICADO';
 };
 const columnas = `c.id::text, c.organization_id::text as "organizacionId", c.instructor_id::text as "instructorId",
   u.name as "instructorNombre", c.titulo, c.descripcion, c.horas_lectivas as "horasLectivas",
-  c.modalidad, c.costo::float8, c.cupos, c.tipo_certificado as "tipoCertificado", c.nota_minima as "notaMinima", c.estado`;
+  c.modalidad, c.costo::float8, c.cupos, c.tipo_certificado as "tipoCertificado", c.nota_minima as "notaMinima", c.estado,
+  c.categoria,to_char(c.fecha_inicio,'YYYY-MM-DD') as "fechaInicio",to_char(c.fecha_fin,'YYYY-MM-DD') as "fechaFin",
+  greatest(c.cupos-(select count(*) from inscripciones_curso ins where ins.curso_id=c.id),0)::int as "cuposDisponibles"`;
 export async function organizacionUsuario(id: number) {
   return (await pool.query<{ id: string }>('select organization_id::text as id from users where id=$1 and active', [id])).rows[0]?.id;
 }
@@ -18,8 +21,8 @@ export async function listarCursos(organizacion: string, instructorId?: number, 
     where c.organization_id=$1 and ($2::bigint is null or c.instructor_id=$2)
     and (not $3::boolean or c.estado='PUBLICADO') order by c.id desc`, [organizacion, instructorId ?? null, catalogo])).rows;
 }
-export async function obtenerCurso(id: string) {
-  const curso = (await pool.query<Curso>(`select ${columnas} from cursos c join users u on u.id=c.instructor_id where c.id=$1`, [id])).rows[0];
+export async function obtenerCurso(id: string, usuarioId?: number) {
+  const curso = (await pool.query<Curso>(`select ${columnas},exists(select 1 from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as inscrito from cursos c join users u on u.id=c.instructor_id where c.id=$1`, [id, usuarioId ?? null])).rows[0];
   if (!curso) return null;
   const modulos = (await pool.query<{ id: string; titulo: string; orden: number }>('select id::text,titulo,orden from modulos_curso where curso_id=$1 order by orden', [id])).rows;
   const materiales = (await pool.query<{ id: string; moduloId: string; titulo: string; tipo: string; url: string | null }>(`
@@ -39,9 +42,9 @@ export async function crearCurso(datos: DatosCurso, usuarioId: number, organizac
     const instructor = await cliente.query(`select id from users where id=$1 and organization_id=$2 and role='instructor' and active for share`, [datos.instructorId, organizacion]);
     if (!instructor.rowCount) return null;
     const id = (await cliente.query<{ id: string }>(`insert into cursos
-      (organization_id,creador_id,instructor_id,titulo,descripcion,horas_lectivas,modalidad,costo,cupos,tipo_certificado,nota_minima)
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning id::text`,
-    [organizacion, usuarioId, datos.instructorId, datos.titulo, datos.descripcion, datos.horasLectivas, datos.modalidad, datos.costo, datos.cupos, datos.tipoCertificado, datos.notaMinima])).rows[0]!.id;
+      (organization_id,creador_id,instructor_id,titulo,descripcion,horas_lectivas,modalidad,costo,cupos,tipo_certificado,nota_minima,categoria,fecha_inicio,fecha_fin)
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) returning id::text`,
+    [organizacion, usuarioId, datos.instructorId, datos.titulo, datos.descripcion, datos.horasLectivas, datos.modalidad, datos.costo, datos.cupos, datos.tipoCertificado, datos.notaMinima, datos.categoria, datos.fechaInicio, datos.fechaFin])).rows[0]!.id;
     for (const [indice, modulo] of datos.modulos.entries()) await cliente.query('insert into modulos_curso(curso_id,titulo,orden) values($1,$2,$3)', [id, modulo.titulo, indice + 1]);
     return id;
   });
@@ -63,4 +66,42 @@ export async function publicarCurso(id: string, organizacion: string) {
 export async function obtenerArchivo(cursoId: string, moduloId: string, materialId: string) {
   return (await pool.query<{ archivo: Buffer }>(`select a.archivo from materiales_curso a join modulos_curso m on m.id=a.modulo_id
     where m.curso_id=$1 and m.id=$2 and a.id=$3 and a.tipo='PDF'`, [cursoId, moduloId, materialId])).rows[0]?.archivo;
+}
+
+export async function paginaCatalogo(organizacion: string, usuarioId: number, consulta: ConsultaCatalogo) {
+  // Un solo snapshot para resultados, total y categorías; nunca incluye borradores.
+  const datos = (await pool.query<{ items: Curso[]; total: number; categorias: string[] }>(`with publicados as (
+      select ${columnas},exists(select 1 from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$7) as inscrito
+      from cursos c join users u on u.id=c.instructor_id where c.organization_id=$1 and c.estado='PUBLICADO'
+    ), filtrados as (
+      select * from publicados where
+      strpos(translate(lower(titulo),'áéíóúüñ','aeiouun'),translate(lower($2),'áéíóúüñ','aeiouun')) > 0
+      and ($3::text is null or modalidad=$3) and ($4::text is null or categoria=$4)
+    ), pagina as (select * from filtrados order by id::bigint desc limit $5 offset $6)
+    select coalesce((select jsonb_agg(to_jsonb(p) order by p.id::bigint desc) from pagina p),'[]'::jsonb) as items,
+      (select count(*)::int from filtrados) as total,
+      coalesce((select jsonb_agg(categoria order by categoria) from (select distinct categoria from publicados) cat),'[]'::jsonb) as categorias`,
+    [organizacion, consulta.buscar, consulta.modalidad ?? null, consulta.categoria ?? null, consulta.tamanoPagina,
+      (consulta.pagina - 1) * consulta.tamanoPagina, usuarioId])).rows[0]!;
+  return { ...datos, pagina: consulta.pagina, tamanoPagina: consulta.tamanoPagina, totalPaginas: Math.ceil(datos.total / consulta.tamanoPagina) };
+}
+
+export async function inscribirseEnCurso(cursoId: string, usuarioId: number) {
+  return transaccion(async cliente => {
+    // El bloqueo del curso serializa todas las solicitudes a la última plaza.
+    const curso = (await cliente.query<{ organization_id: string; estado: string; cupos: number }>('select organization_id,estado,cupos from cursos where id=$1 for update', [cursoId])).rows[0];
+    if (!curso) return 'NO_EXISTE' as const;
+    const persona = (await cliente.query<{ organization_id: string }>(`select organization_id from users where id=$1 and active and role='participante' for share`, [usuarioId])).rows[0];
+    if (!persona || curso.organization_id !== persona.organization_id) return 'SIN_PERMISO' as const;
+    if (curso.estado !== 'PUBLICADO') return 'NO_PUBLICADO' as const;
+    const inscripcion = (await cliente.query<{ estado: string }>('select estado from inscripciones_curso where curso_id=$1 and usuario_id=$2', [cursoId, usuarioId])).rows[0];
+    if (inscripcion) return inscripcion.estado === 'TERMINADO' ? 'YA_TERMINADO' as const : 'YA_INSCRITO' as const;
+    const inscritos = (await cliente.query<{ total: number }>('select count(*)::int as total from inscripciones_curso where curso_id=$1', [cursoId])).rows[0]!.total;
+    if (inscritos >= curso.cupos) return 'SIN_CUPOS' as const;
+    await cliente.query('insert into inscripciones_curso(curso_id,usuario_id) values($1,$2)', [cursoId, usuarioId]);
+    await cliente.query(`insert into enrollments(organization_id,class_id,user_id)
+      select organization_id,id,$2 from classes where curso_id=$1 and organization_id=$3 and estado='PROGRAMADA'
+      on conflict(class_id,user_id) do nothing`, [cursoId, usuarioId, curso.organization_id]);
+    return 'INSCRITO' as const;
+  });
 }

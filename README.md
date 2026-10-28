@@ -22,6 +22,7 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
   [QR rotativo](docs/esp/qr.md) y [registrar y consultar asistencia](docs/esp/asistencia.md).
 - [Calidad antes de integrar](docs/calidad.md).
 - [HU-13: cursos, módulos, catálogo y materiales](docs/esp/cursos.md).
+- [HU-14: búsqueda, filtros y cupos del catálogo](docs/esp/catalogo.md).
 - [HU-18: historial, asistencia y descarga de certificados](docs/esp/historial.md).
 - [HU-10: asistencia móvil y medición pendiente SCRUM-96](docs/esp/experiencia-movil.md).
 - [Ajustes y evidencia según el documento del proceso de desarrollo](docs/esp/ajustes.md).
@@ -34,11 +35,11 @@ npm run e2e:real # requiere Postgres y Redis; usa gestioncapa_e2e
 
 ## Cursos demo
 
-El modo demo incluye tres cursos con módulos, PDF descargable, enlaces y video de
+El modo demo incluye cuatro cursos con módulos, PDF descargable, enlaces y video de
 prueba. Con el backend real, se cargan con `npm run migrate` y `npm run seed`.
 Administrador e instructor los ven en **Mis cursos**; los colegiados ven los
 publicados en **Catálogo de cursos**. Uno queda en borrador para probar la
-publicación. [Cursos, cuentas y materiales demo](docs/esp/cursos.md#cursos-demo-precargados).
+publicación y otro está sin cupos para comprobar el bloqueo. [Cursos, cuentas y materiales demo](docs/esp/cursos.md#cursos-demo-precargados).
 
 ## Reuniones virtuales
 

@@ -112,6 +112,7 @@ fuera de producción. En `npm run dev:demo` ya vienen cargados en memoria.
 | Demo · Seguridad y primeros auxilios | Carlos Mendoza | Publicado | 24 h / S/ 150 / Aprobación, nota 14 |
 | Demo · Didáctica y evaluación | Lucía Paredes | Publicado | 16 h / Gratis / Participación |
 | Demo · Herramientas digitales para docentes | Carlos Mendoza | Borrador | 20 h / S/ 120 / Aprobación, nota 16 |
+| Demo · Taller con cupos agotados | Lucía Paredes | Publicado, sin plazas disponibles | 8 h / Gratis / Participación |
 
 Cada curso contiene dos módulos en orden y tres materiales: guía PDF descargable,
 un enlace de referencia y un video de prueba identificado como tal. Son ejemplos
@@ -125,7 +126,7 @@ para explorar el producto, no contenido formativo oficial.
 - Lucía: `lucia.paredes@organizacion.pe` / `demo123`, abrir **Mis cursos** para
   ver únicamente su curso asignado. No puede modificar los de Carlos.
 - Colegiado: `maria.quispe@demo.pe` / `demo123`, abrir **Catálogo de cursos**:
-  inicialmente aparecen dos cursos; el borrador aparece al publicarse.
+  inicialmente aparecen tres cursos; el borrador aparece al publicarse.
 
 La migración `0007-identidadCursosDemo.sql` da a las semillas una identidad que
 no depende del título editable. Repetir el seed no duplica ni sobrescribe títulos,
@@ -133,3 +134,5 @@ estados, notas, módulos o materiales existentes. No repone material eliminado
 de un curso ya sembrado. En producción no crea cursos, módulos ni materiales demo.
 Las credenciales demo solo se usan fuera de producción. El modo demo en memoria
 se restaura al recargar; el backend real conserva los cambios.
+
+HU-14 amplía este catálogo con [búsqueda, filtros, fechas, cupos e inscripción básica](catalogo.md).

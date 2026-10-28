@@ -1,3 +1,4 @@
+import { FechasCurso } from './CursosPagina'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
@@ -25,6 +26,9 @@ export function DetalleCursoPagina() {
   const { usuario } = useAuth()
   const cache = useQueryClient()
   const consulta = useQuery({ queryKey: ['curso', id], queryFn: () => cursos.obtener(id) })
+  const inscripcion = useMutation({ mutationFn: () => cursos.inscribirme(id), onSuccess: async () => {
+    await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] }), cache.invalidateQueries({ queryKey: ['historial'] }), cache.invalidateQueries({ queryKey: ['participante', 'clases'] })])
+  }, onError: async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] })]) } })
   const publicar = useMutation({ mutationFn: () => cursos.publicar(id), onSuccess: async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] })]) } })
   if (consulta.isPending) return <Cargando texto="Cargando curso…" />
   if (consulta.isError) return <ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar el curso.')} onReintentar={consulta.refetch} />
@@ -42,11 +46,19 @@ export function DetalleCursoPagina() {
         <div><dt className="font-semibold">Horas lectivas</dt><dd>{curso.horasLectivas}</dd></div>
         <div><dt className="font-semibold">Modalidad</dt><dd>{{ PRESENCIAL: 'Presencial', VIRTUAL: 'Virtual', HIBRIDA: 'Híbrida' }[curso.modalidad]}</dd></div>
         <div><dt className="font-semibold">Costo</dt><dd>S/ {curso.costo.toFixed(2)}</dd></div>
-        <div><dt className="font-semibold">Cupos</dt><dd>{curso.cupos}</dd></div>
+        <div><dt className="font-semibold">Cupos disponibles</dt><dd>{curso.cuposDisponibles === 0 ? 'Sin cupos' : curso.cuposDisponibles}</dd></div>
+        <div><dt className="font-semibold">Categoría</dt><dd>{curso.categoria}</dd></div>
+        <div><dt className="font-semibold">Fechas</dt><dd><FechasCurso curso={curso} /></dd></div>
         <div><dt className="font-semibold">Certificado</dt><dd>{curso.tipoCertificado === 'APROBACION' ? 'Aprobación' : 'Participación'}</dd></div>
         <div><dt className="font-semibold">Nota mínima</dt><dd>{curso.notaMinima}</dd></div>
       </dl>
       {usuario?.rol === 'ADMIN' && curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
+      {usuario?.rol === 'PARTICIPANTE' && curso.estado === 'PUBLICADO' && <div className="space-y-2">
+        <Boton disabled={curso.inscrito || curso.cuposDisponibles === 0} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? 'Ya estás inscrito(a)' : curso.cuposDisponibles === 0 ? 'Sin cupos' : 'Inscribirme'}</Boton>
+        {curso.costo > 0 && !curso.inscrito && <p className="text-sm text-muted">La inscripción no realiza un cobro.</p>}
+        {inscripcion.isSuccess && <p role="status" className="text-success">Inscripción registrada. Puedes consultar el curso en Mi historial.</p>}
+        {inscripcion.isError && <p role="alert" className="text-danger">{mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.')}</p>}
+      </div>}
       {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
     </header>
     <h2 className="text-xl font-semibold">Módulos y material</h2>
