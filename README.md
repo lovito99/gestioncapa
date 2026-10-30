@@ -173,6 +173,12 @@ npm run migrate:nueva -- agregar campo   # crea backend/migraciones/NNNN-agregar
 - Las tablas antiguas `clases` e `inscripciones` se convierten solas a `classes` y
   `enrollments`, conservando los datos.
 
+Para disponer de reuniones demo iniciadas, ejecuta `npm run bd:seed:reuniones`
+(desde la raíz o `backend/`). Asegura los datos de prueba, inicia solo las salas
+demo programadas de clases activas y muestra sus enlaces. Conserva las canceladas,
+finalizadas y los accesos revocados; no se admite en producción. La conexión
+audiovisual requiere [Jitsi configurado y activo](docs/reuniones.md#preparación).
+
 ### Variables de entorno
 
 El backend valida `backend/.env` **antes** de abrir el puerto. Si falta una
@@ -208,6 +214,33 @@ docker compose down               # borrar contenedores, conserva datos
 docker compose down -v            # borrar contenedores y datos de desarrollo
 docker exec -it gestioncapa-postgres psql -U gestiondecapacitacion -d gestiondecapacitacion
 docker exec -it gestioncapa-redis redis-cli -a gestiondecapacitacion ping
+```
+
+Si `npm run bd:migrate` falla con `ECONNREFUSED 127.0.0.1:5432` aunque los
+contenedores aparezcan como `Up`, comprueba los puertos publicados y sus redes:
+
+```bash
+docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+docker inspect gestioncapa-postgres gestioncapa-redis --format '{{.Name}} puertos={{json .NetworkSettings.Ports}} redes={{json .NetworkSettings.Networks}}'
+```
+
+Con los puertos por defecto deben aparecer `5432->5432/tcp` para PostgreSQL y
+`6379->6379/tcp` para Redis. Si los contenedores creados con `docker run` muestran
+`puertos={}` y `redes={}`, quedaron desconectados de la red de Docker. Para cada
+contenedor que muestre ese estado, recupera su conexión a `bridge`:
+
+```bash
+docker network connect bridge gestioncapa-postgres
+docker network connect bridge gestioncapa-redis
+```
+
+Esto conserva los contenedores y sus volúmenes, y reactiva los puertos configurados
+al crearlos. Confirma que los puertos aparecen en `docker ps` y vuelve a ejecutar,
+desde la raíz del repositorio:
+
+```bash
+npm run bd:migrate
+npm run migrate:estado
 ```
 
 Si antes creaste los contenedores con `docker run`, elimínalos una vez y pasa a
@@ -290,6 +323,12 @@ Backend build/start:
 npm run build -w backend
 npm run start -w backend
 ```
+
+En desarrollo/test, `npm start` desde `backend/` también levanta Jitsi local
+cuando está habilitado en `backend/.env` y `jitsiDireccion` apunta a localhost.
+Usa las imágenes ya descargadas y espera a que Jitsi esté disponible antes de
+abrir la API. Requiere Docker activo y la [preparación de reuniones](docs/reuniones.md#preparación).
+Las reuniones demo listas para entrar se preparan con `npm run bd:seed:reuniones`.
 
 Frontend build/start:
 

@@ -10,6 +10,7 @@
     "migrate:estado": "tsx src/scripts/migrate-estado.ts",
     "migrate:nueva": "tsx src/scripts/migrate-nueva.ts",
     "seed": "tsx src/scripts/seed.ts",
+    "seed:reuniones": "tsx src/scripts/seed.ts --reuniones-disponibles",
     "e2e:prep": "tsx src/scripts/e2e.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node server.js",
@@ -19,7 +20,8 @@
     "test:integracion": "node --import tsx --test --test-concurrency=1 \"test/integracion/*.test.ts\"",
     "test:cobertura": "node --import tsx --experimental-test-coverage --test-coverage-include=\"src/modules/asistencia/*.ts\" --test-coverage-lines=60 --test-coverage-branches=60 --test-coverage-functions=60 --test --test-concurrency=1 test/integracion/asistencia.test.ts",
     "bd:migrate": "npm run migrate",
-    "bd:seed": "npm run seed"
+    "bd:seed": "npm run seed",
+    "bd:seed:reuniones": "npm run seed:reuniones"
   },
   "engines": {
     "node": ">=24.0.0"

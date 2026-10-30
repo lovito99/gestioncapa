@@ -70,6 +70,41 @@ El puerto de diagnóstico de JVB se publica en `127.0.0.1:18080` para no ocupar 
 El modo producción se prepara en su propio despliegue; el preparador no sobrescribe el entorno local existente.
 Consulta la [guía oficial Docker](https://jitsi.github.io/handbook/docs/devops-guide/devops-guide-docker/).
 
+### Arranque con el backend
+
+Con la preparación local completada, puedes iniciar el backend y Jitsi juntos:
+
+```bash
+cd backend
+npm start
+```
+
+Desde la raíz, `npm start` o `npm run start -w backend` hacen lo mismo. En
+desarrollo/test, con `jitsiHabilitado=true` y una dirección de localhost,
+el lanzador inicia Docker Compose con las imágenes existentes y espera a que
+la web de Jitsi responda antes de iniciar la API. Los fallos de Docker o de la
+preparación detienen el arranque con un mensaje para corregirlos.
+
+La descarga y la preparación inicial se realizan con los pasos anteriores. Para
+crear las reuniones demo listas para entrar, ejecuta `npm run bd:seed:reuniones`.
+En producción y con servidores Jitsi remotos se conserva la gestión independiente
+de la infraestructura. `npm run dev` sigue usando el arranque manual de Compose.
+Los contenedores de Jitsi permanecen activos al detener el backend; se detienen
+con `docker compose stop` desde `infraestructura/jitsi/servidor`.
+
+Los cambios de `backend/.env` se leen al arrancar el backend. Después de preparar
+Jitsi, reinícialo para que lea la configuración nueva. Si usas `npm start`, también
+debes ejecutar manualmente `npm run build -w backend` desde la raíz cuando cambie
+el código TypeScript: ese comando de arranque ejecuta `backend/dist/`. En desarrollo,
+`npm run dev -w backend` ejecuta los fuentes y observa sus cambios.
+
+Si falla `POST /api/reuniones/:identificador/credencial`, distingue la respuesta:
+
+- `409`: la reunión aún no está iniciada, ya se cerró o su clase está cancelada.
+- `503`: Jitsi está deshabilitado en la configuración que cargó el backend.
+- `200`: el backend emitió la credencial; comprueba que Jitsi esté activo y accesible
+  en `jitsiDireccion` para completar la conexión de la sala.
+
 ## Uso
 
 Abre `/reuniones` con cualquier usuario autenticado. Administrador o coordinador
@@ -78,6 +113,12 @@ título y horario. HTTP se admite únicamente para localhost en desarrollo; NODE
 Las fechas del formulario usan la zona de tu dispositivo y se
 envían con zona explícita. El instructor asignado o el gestor puede iniciarla.
 El participante inscrito entra mediante `/reuniones/:identificador`.
+
+Una reunión iniciada permite entrar y volver a conectarse aunque haya pasado
+`finProgramado`. El horario es una previsión; el instructor o gestor cierra el
+acceso con **Cerrar acceso a reunión**. Las reuniones programadas, canceladas o
+finalizadas y las clases canceladas no emiten credenciales. Los JWT de Jitsi
+siguen durando cinco minutos y requieren una autorización vigente.
 
 Al entrar aparece un diálogo para habilitar micrófono y cámara o entrar sin dispositivos.
 La solicitud de permisos la realiza el navegador, no el backend. Los permisos ya
@@ -158,6 +199,19 @@ npm run dev
 `bd:migrate` y `bd:seed` también funcionan dentro de `backend/`. Los comandos
 anteriores `migrate` y `seed` se conservan por compatibilidad.
 
+Para dejar las reuniones demo listas para entrar en desarrollo o test:
+
+```bash
+npm run bd:seed:reuniones
+```
+
+Este comando asegura los datos demo e inicia únicamente sus reuniones programadas
+de clases activas. Muestra el estado, la disponibilidad y el enlace de cada sala.
+Conserva las reuniones canceladas o finalizadas, los horarios, las salas y los
+participantes retirados; repetirlo no duplica datos. Se rechaza en producción.
+Jitsi debe estar configurado y activo para conectar; el seed no descarga ni inicia
+sus contenedores. El comando también funciona desde `backend/`.
+
 Fuera de producción, el seed carga estas reuniones en estado `programada`:
 
 | Reunión | Instructor | Participantes |
@@ -175,7 +229,7 @@ clases, usuarios ni reuniones demo: solo asegura el administrador.
 
 1. Abre `http://localhost:5173/reuniones` con
    `ana.torres@organizacion.pe` / `demo123` para ver las tres reuniones.
-2. Pulsa **Iniciar** en una reunión cuyo horario de fin aún no haya pasado.
+2. Pulsa **Iniciar** en una reunión programada, aunque su horario previsto ya haya pasado.
    También puedes iniciarla con su instructor asignado:
    `carlos.mendoza@organizacion.pe` o `lucia.paredes@organizacion.pe`, clave `demo123`.
 3. En otra ventana de incógnito entra con `maria.quispe@demo.pe` / `demo123`,

@@ -105,7 +105,8 @@ export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
     respuesta.header("Cache-Control", "no-store");
     return conReunion(solicitud, false, async (cliente, reunion) => {
       const acceso = await comprobarAcceso(cliente, reunion, solicitud.usuario!);
-      if (!acceso?.activa || reunion.estado !== 'iniciada' || Date.now() > new Date(reunion.finProgramado).getTime()) {
+      // El anfitrión cierra el acceso al finalizar; el horario previsto puede superarse.
+      if (!acceso?.activa || reunion.estado !== 'iniciada') {
         throw aplicacion.httpErrors.conflict();
       }
       if (!env.jitsiHabilitado) throw aplicacion.httpErrors.serviceUnavailable();

@@ -26,6 +26,7 @@
     "migrate:estado": "npm run migrate:estado -w backend",
     "migrate:nueva": "npm run migrate:nueva -w backend --",
     "seed": "npm run seed -w backend",
+    "seed:reuniones": "npm run seed:reuniones -w backend",
     "build": "npm run build --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
@@ -35,7 +36,8 @@
     "test:cobertura": "npm run test:cobertura -w backend",
     "start": "npm run start -w backend",
     "bd:migrate": "npm run migrate",
-    "bd:seed": "npm run seed"
+    "bd:seed": "npm run seed",
+    "bd:seed:reuniones": "npm run seed:reuniones"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",
