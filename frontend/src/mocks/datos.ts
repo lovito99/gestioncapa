@@ -74,6 +74,7 @@ const instructor = (id: string) => instructores.find((i) => i.id === id)!
 export const clases: Omit<Clase, 'inscritos'>[] = [
   {
     id: 'c-1',
+    curso: null,
     nombre: 'Seguridad y salud en el trabajo',
     instructor: instructor('i-1'),
     fecha: '2026-10-12',
@@ -84,6 +85,7 @@ export const clases: Omit<Clase, 'inscritos'>[] = [
   },
   {
     id: 'c-2',
+    curso: null,
     nombre: 'Atención al cliente',
     instructor: instructor('i-2'),
     fecha: '2026-10-14',
@@ -94,6 +96,7 @@ export const clases: Omit<Clase, 'inscritos'>[] = [
   },
   {
     id: 'c-3',
+    curso: null,
     nombre: 'Primeros auxilios básicos',
     instructor: instructor('i-1'),
     fecha: '2026-10-16',
@@ -104,6 +107,7 @@ export const clases: Omit<Clase, 'inscritos'>[] = [
   },
   {
     id: 'c-4',
+    curso: null,
     nombre: 'Liderazgo de equipos',
     instructor: instructor('i-3'),
     fecha: '2026-10-19',
@@ -114,6 +118,7 @@ export const clases: Omit<Clase, 'inscritos'>[] = [
   },
   {
     id: 'c-5',
+    curso: null,
     nombre: 'Manejo de extintores',
     instructor: instructor('i-1'),
     fecha: '2026-10-20',

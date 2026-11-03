@@ -17,7 +17,7 @@ test('VAL-07: el formulario permite reintentar si no pudo cargar los instructore
       body: JSON.stringify({ code: 'SERVICIO_NO_DISPONIBLE', message: 'Vuelve a intentar.' }),
     })
   })
-  await page.getByRole('navigation').getByRole('link', { name: 'Programar clase' }).click()
+  await page.getByRole('link', { name: 'Nueva clase' }).click()
   await expect(page.getByRole('alert')).toContainText('No pudimos cargar los instructores')
   await page.unroute('**/api/instructores')
   await page.getByRole('button', { name: 'Reintentar' }).click()

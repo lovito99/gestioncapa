@@ -1,5 +1,6 @@
 import { handlersHistorial } from './historial'
-import { handlersCursos } from './cursos'
+import { handlersCertificados } from './certificados'
+import { cursosSimulados, handlersCursos } from './cursos'
 import { delay, http, HttpResponse } from 'msw'
 import { fechaLarga, horaRegistro } from '@/lib/formato'
 import type {
@@ -12,6 +13,7 @@ import type {
   MarcarAsistenciaEntrada,
   MarcarAsistenciaRespuesta,
   QrAsistencia,
+  RegistroEntrada,
   Rol,
 } from '@/types/api'
 import { asistencias, clases, inscripciones, instructores, participantes, usuarios } from './datos'
@@ -22,6 +24,9 @@ const DURACION_QR = 30
 const SECRETO_QR = 'secreto-de-demostracion'
 
 const error = (status: number, cuerpo: ErrorApi) => HttpResponse.json(cuerpo, { status })
+
+/** DNI ya usados en la simulación; 45671234 sirve para probar "Ya tienes una cuenta" */
+const dnisRegistrados = new Set(['45671234'])
 
 const conInscritos = (clase: (typeof clases)[number]): Clase => ({
   ...clase,
@@ -87,6 +92,8 @@ function leerToken(token: string) {
 
 function validar(entrada: Partial<ClaseEntrada>) {
   const fields: Record<string, string> = {}
+  if (!entrada.cursoId) fields.cursoId = 'Selecciona el curso al que pertenece la clase'
+  else if (!cursosSimulados.some((c) => c.id === entrada.cursoId)) fields.cursoId = 'El curso elegido no existe'
   if (!entrada.nombre?.trim()) fields.nombre = 'Ingresa el nombre de la clase'
   if (!entrada.instructorId) fields.instructorId = 'Selecciona un instructor'
   if (!entrada.fecha) fields.fecha = 'Ingresa la fecha de la clase'
@@ -126,7 +133,9 @@ function guardar(entrada: ClaseEntrada, id?: string) {
     })
   }
   const instructor = instructores.find((i) => i.id === entrada.instructorId)!
+  const curso = cursosSimulados.find((c) => c.id === entrada.cursoId)!
   const datos = {
+    curso: { id: curso.id, titulo: curso.titulo },
     nombre: entrada.nombre.trim(),
     instructor,
     fecha: entrada.fecha,
@@ -149,6 +158,7 @@ function guardar(entrada: ClaseEntrada, id?: string) {
 export const handlers = [
   ...handlersCursos,
   ...handlersHistorial,
+  ...handlersCertificados,
   // ---------- Salud ----------
   http.get(`${API}/health`, () =>
     HttpResponse.json<EstadoSalud>({ ok: true, api: 'v1', database: 'ready', redis: 'ready' }),
@@ -167,6 +177,37 @@ export const handlers = [
     }
     const { password: _omitida, ...publico } = usuario
     return HttpResponse.json({ token: `demo-${usuario.id}`, usuario: publico })
+  }),
+
+  http.post(`${API}/auth/registro`, async ({ request }) => {
+    await delay(400)
+    const entrada = (await request.json()) as RegistroEntrada
+    const email = entrada.email.trim().toLowerCase()
+    const fields: Record<string, string> = {}
+    if (!/^\d{8}$/.test(entrada.dni)) fields.dni = 'El DNI debe tener 8 dígitos.'
+    if (!/^9\d{8}$/.test(entrada.celular)) fields.celular = 'El celular debe tener 9 dígitos y empezar con 9.'
+    if (entrada.password.length < 8) fields.password = 'La contraseña debe tener al menos 8 caracteres.'
+    if (Object.keys(fields).length) {
+      return error(400, { code: 'VALIDACION', message: 'Revisa los campos marcados para crear tu cuenta.', fields })
+    }
+    if (dnisRegistrados.has(entrada.dni) || usuarios.some((u) => u.email === email)) {
+      return error(409, {
+        code: 'CUENTA_YA_REGISTRADA',
+        message: 'El DNI o el correo que ingresaste ya está registrado.',
+      })
+    }
+    const nuevo = {
+      id: `p-${Date.now()}`,
+      nombre: `${entrada.nombres.trim()} ${entrada.apellidos.trim()}`,
+      email,
+      rol: 'PARTICIPANTE' as const,
+      cargo: 'Participante',
+      password: entrada.password,
+    }
+    usuarios.push(nuevo)
+    dnisRegistrados.add(entrada.dni)
+    const { password: _omitida, ...publico } = nuevo
+    return HttpResponse.json({ token: `demo-${nuevo.id}`, usuario: publico }, { status: 201 })
   }),
 
   http.post(`${API}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
@@ -260,7 +301,7 @@ export const handlers = [
     if (!participante) {
       return error(404, {
         code: 'PARTICIPANTE_NO_EXISTE',
-        message: `No encontramos un participante con el correo ${email.trim()}. Verifica que esté bien escrito o pide al administrador que cree su cuenta.`,
+        message: `No encontramos un agremiado con el correo ${email.trim()}. Verifica que esté bien escrito o pide al administrador que cree su cuenta.`,
       })
     }
     if (ids.includes(participante.id)) {

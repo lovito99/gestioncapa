@@ -1,23 +1,32 @@
+import { Calendar } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { Boton } from '@/components/ui/Boton'
+import { Campo } from '@/components/ui/Campo'
+import { Selector } from '@/components/ui/Entrada'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
+import { Etiqueta } from '@/components/ui/Etiqueta'
 import { mensajeDeError } from '@/lib/api'
-import { guardarDescarga, historiales, type ResumenAsistencia, type SesionHistorial } from '@/servicios/historial'
+import { cn } from '@/lib/cn'
+import { fechaCorta, rangoFechasCorto } from '@/lib/formato'
+import { CERTIFICADOS_CURSO } from '@/servicios/cursos'
+import { guardarDescarga, historiales, type Historial, type ResumenAsistencia, type SesionHistorial } from '@/servicios/historial'
 
-function Resumen({ asistencia }: { asistencia: ResumenAsistencia }) {
-  return <p className="text-sm"><strong>{asistencia.porcentaje === null ? 'Sin sesiones realizadas' : `${asistencia.porcentaje.toLocaleString('es-PE')} % de asistencia`}</strong>{asistencia.realizadas > 0 && ` · ${asistencia.presentes} de ${asistencia.realizadas} sesiones realizadas`}</p>
+type CursoHistorial = Historial['cursos'][number]
+
+const ESTADO_SESION: Record<SesionHistorial['estado'], { texto: string; tono: 'exito' | 'peligro' | 'neutro' }> = {
+  PRESENTE: { texto: 'Presente', tono: 'exito' },
+  AUSENTE: { texto: 'Ausente', tono: 'peligro' },
+  PENDIENTE: { texto: 'Pendiente', tono: 'neutro' },
+  CANCELADA: { texto: 'Cancelada', tono: 'neutro' },
 }
-function Sesiones({ sesiones }: { sesiones: SesionHistorial[] }) {
-  const estados = { PRESENTE: 'Presente', AUSENTE: 'Ausente', PENDIENTE: 'Pendiente', CANCELADA: 'Cancelada' }
-  return sesiones.length ? <ul className="space-y-2">{sesiones.map(s => <li key={s.id} className="rounded-lg border border-line px-3 py-2 text-sm">
-    <p className="font-semibold">{s.titulo}</p><p>{s.fecha} · {s.horaInicio}–{s.horaFin} (hora de Lima)</p>
-    <p className={s.estado === 'PRESENTE' ? 'font-semibold text-success' : 'text-ink-2'}>{estados[s.estado]}</p>
-    {s.horaRegistro && <p>Registro: {new Date(s.horaRegistro).toLocaleString('es-PE', { timeZone: 'America/Lima' })}</p>}
-  </li>)}</ul> : <p className="text-sm text-muted">Sin sesiones registradas.</p>
-}
+
+const tarjeta = 'flex min-w-0 flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)]'
+const anioEnLima = (fechaIso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric' }).format(new Date(fechaIso))
+
+/** 4.1 · Mi historial (y el historial de un colegiado cuando lo abre el administrador). */
 export function HistorialPagina() {
   const { usuarioId } = useParams()
   const { usuario } = useAuth()
@@ -25,6 +34,7 @@ export function HistorialPagina() {
   const consulta = useQuery({ queryKey: ['historial', usuario?.id, id], queryFn: () => historiales.obtener(id), enabled: !!id, retry: false })
   const [descargando, cambiarDescargando] = useState(false)
   const [error, cambiarError] = useState('')
+  const [anio, cambiarAnio] = useState(() => anioEnLima(new Date().toISOString()))
   const descargar = async (certificadoId?: string) => {
     if (descargando) return
     cambiarDescargando(true); cambiarError('')
@@ -35,38 +45,110 @@ export function HistorialPagina() {
   if (consulta.isPending) return <Cargando texto="Cargando historial…" />
   if (consulta.isError) return <div className="mx-auto max-w-240 px-4 py-6"><ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar el historial.')} onReintentar={consulta.refetch} /></div>
   const historial = consulta.data
-  return <div className="mx-auto max-w-240 space-y-5 px-4 py-6 wrap-anywhere">
-    <header className="space-y-3">
-      {usuario?.rol === 'ADMIN' && <Link className="text-brand underline" to="/admin/historial">Volver a historiales</Link>}
-      <h1 className="text-2xl font-semibold">{usuario?.rol === 'ADMIN' ? 'Historial del colegiado' : 'Mi historial'}</h1>
-      <p className="font-semibold">{historial.colegiado.nombre}</p>
-      <p>DNI: {historial.colegiado.dniEnmascarado ?? 'No registrado'}</p>
-      <Boton disabled={descargando} onClick={() => void descargar()}>Descargar historial PDF</Boton>
-      {error && <p role="alert" className="text-danger">{error}</p>}
-    </header>
-    <section aria-labelledby="resumen-asistencia" className="space-y-2 rounded-xl border border-line bg-white p-4">
-      <h2 id="resumen-asistencia" className="text-lg font-semibold">Asistencia general</h2>
-      <Resumen asistencia={historial.asistenciaGeneral} />
-      <p className="text-sm text-muted">El porcentaje cuenta las sesiones iniciadas. Excluye las futuras y canceladas.</p>
+  const esAdmin = usuario?.rol === 'ADMIN'
+  // Cada curso con certificado suma sus horas una sola vez, en el año en que se emitió
+  const certificadosPorAnio = historial.cursos.flatMap(c => c.certificados.map(cert => ({ anio: anioEnLima(cert.emitidoEn), cursoId: c.id, horas: c.horasLectivas })))
+  const anios = [...new Set([anio, ...certificadosPorAnio.map(c => c.anio)])].sort().reverse()
+  const horas = [...new Map(certificadosPorAnio.filter(c => c.anio === anio).map(c => [c.cursoId, c.horas])).values()].reduce((suma, h) => suma + h, 0)
+  const enCurso = historial.cursos.filter(c => c.estado === 'EN_CURSO')
+  const terminados = historial.cursos.filter(c => c.estado === 'TERMINADO')
+
+  const selectorAnio = (oculto: string) => <Campo etiqueta="Año" className={oculto}>
+    <Selector value={anio} onChange={e => cambiarAnio(e.target.value)} className="sm:h-12 sm:text-base">
+      {anios.map(a => <option key={a} value={a}>{a}</option>)}
+    </Selector>
+  </Campo>
+  const botonResumen = <Boton variante="secundario" className="h-12 w-full text-base sm:h-10 sm:text-sm" disabled={descargando} onClick={() => void descargar()}>Descargar resumen en PDF</Boton>
+
+  return <div className="mx-auto flex max-w-160 flex-col gap-4 px-4 pt-6 pb-8 wrap-anywhere sm:max-w-200 sm:pt-10">
+    {esAdmin && <Link className="text-sm font-semibold text-brand hover:underline" to="/admin/historial">← Volver a historiales</Link>}
+    <h1 className="text-[22px] font-bold text-ink">{esAdmin ? 'Historial del colegiado' : 'Mi historial'}</h1>
+    {esAdmin
+      ? <p className="text-sm text-muted"><strong className="font-semibold text-ink">{historial.colegiado.nombre}</strong> · DNI {historial.colegiado.dniEnmascarado ?? 'no registrado'}</p>
+      : <p className="text-sm text-muted">Tus cursos, asistencias y certificados.</p>}
+
+    <div className="grid gap-4 sm:grid-cols-[1fr_14.5rem] sm:items-stretch sm:gap-5">
+    <section aria-labelledby="horas-acumuladas" className={cn(tarjeta, 'gap-2')}>
+      <h2 id="horas-acumuladas" className="text-sm font-semibold text-muted">Horas de capacitación acumuladas</h2>
+      <p className="font-serif text-[32px] font-bold text-brand">{horas.toLocaleString('es-PE')} {horas === 1 ? 'hora' : 'horas'}</p>
+      <p className="text-[13px] text-muted">{horas > 0
+        ? 'Suma de las horas lectivas de tus certificados válidos.'
+        : 'Aún no tienes certificados válidos. Las horas se suman cuando obtienes un certificado.'}</p>
+      {/* En celular (4.1) el año va dentro de la tarjeta; en escritorio (5.1), a la derecha */}
+      {selectorAnio('sm:hidden')}
     </section>
-    <h2 className="text-xl font-semibold">Mis cursos</h2>
-    {historial.cursos.length === 0 ? <p>Aún no tienes cursos inscritos.</p> : historial.cursos.map(curso => <article key={curso.id} className="min-w-0 space-y-4 rounded-xl border border-line bg-white p-4">
-      <header><h3 className="text-lg font-semibold">{curso.titulo}</h3><p>{curso.estado === 'EN_CURSO' ? 'En curso' : 'Terminado'} · {curso.horasLectivas} horas lectivas</p></header>
-      <Resumen asistencia={curso.asistencia} />
-      <h4 className="font-semibold">Asistencia por sesión</h4>
-      <Sesiones sesiones={curso.sesiones} />
-      <h4 className="font-semibold">Certificados</h4>
-      {curso.certificados.length === 0 ? <p className="text-sm text-muted">Sin certificados emitidos.</p> : <ul className="space-y-3">{curso.certificados.map(cert => <li key={cert.id} className="space-y-2">
-        <p className="text-sm">{cert.tipo === 'APROBACION' ? 'Aprobación' : 'Participación'} · {cert.codigo} · {new Date(cert.emitidoEn).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}</p>
-        <Boton variante="secundario" className="h-auto min-h-11 whitespace-normal" disabled={descargando} onClick={() => void descargar(cert.id)} aria-label={`Descargar certificado ${cert.codigo}`}>Descargar certificado</Boton>
-      </li>)}</ul>}
-    </article>)}
-    <section aria-labelledby="sesiones-independientes" className="space-y-3">
-      <h2 id="sesiones-independientes" className="text-xl font-semibold">Otras sesiones de capacitación</h2>
+    <div className="flex flex-col gap-3 sm:justify-between">
+      {selectorAnio('max-sm:hidden')}
+      {botonResumen}
+    </div>
+    </div>
+    {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+
+    <h2 className="text-lg font-bold text-ink">Cursos en curso</h2>
+    {enCurso.length === 0
+      ? <p className="text-sm text-muted">No tienes cursos en curso.</p>
+      : enCurso.map(curso => <TarjetaCurso key={curso.id} curso={curso} descargando={descargando} onDescargar={certificadoId => void descargar(certificadoId)} />)}
+
+    <h2 className="text-lg font-bold text-ink">Cursos terminados</h2>
+    {terminados.length === 0
+      ? <p className="text-sm text-muted">Todavía no has terminado ningún curso.</p>
+      : terminados.map(curso => <TarjetaCurso key={curso.id} curso={curso} descargando={descargando} onDescargar={certificadoId => void descargar(certificadoId)} />)}
+
+    {historial.sesionesIndependientes.length > 0 && <section aria-labelledby="sesiones-independientes" className="flex flex-col gap-2.5">
+      <h2 id="sesiones-independientes" className="text-lg font-bold text-ink">Otras sesiones de capacitación</h2>
       <p className="text-sm text-muted">Clases inscritas que no figuran en los cursos de este historial.</p>
-      <Sesiones sesiones={historial.sesionesIndependientes} />
-    </section>
+      <div className={tarjeta}><Sesiones sesiones={historial.sesionesIndependientes} conTitulo /></div>
+    </section>}
   </div>
+}
+
+function TarjetaCurso({ curso, descargando, onDescargar }: { curso: CursoHistorial; descargando: boolean; onDescargar: (certificadoId: string) => void }) {
+  const terminado = curso.estado === 'TERMINADO'
+  const fechas = curso.sesiones.map(s => s.fecha).sort()
+  return <article className={tarjeta}>
+    <div className="flex items-start gap-2">
+      <h3 className="min-w-0 flex-1 text-base font-semibold text-ink">{curso.titulo}</h3>
+      <Etiqueta tono={terminado ? 'exito' : 'marca'}>{terminado ? 'Terminado' : 'En curso'}</Etiqueta>
+    </div>
+    {fechas.length > 0 && <p className="flex items-center gap-2 text-sm text-muted">
+      <Calendar className="size-4 shrink-0 text-brand" aria-hidden />{rangoFechasCorto(fechas[0]!, fechas.at(-1)!)}
+    </p>}
+    <Avance asistencia={curso.asistencia} />
+    {curso.sesiones.length > 0 && <div className="border-t border-line pt-2.5"><Sesiones sesiones={curso.sesiones} /></div>}
+    {terminado && curso.certificados.length === 0 && curso.asistencia.porcentaje !== null && curso.asistencia.porcentaje < curso.requisitoAsistencia &&
+      <p className="rounded-lg border border-warning bg-warning-soft px-4 py-3 text-sm text-warning">
+        No obtuviste la constancia: tu asistencia fue {curso.asistencia.porcentaje.toLocaleString('es-PE')} % y se necesita {curso.requisitoAsistencia} %.
+      </p>}
+    {curso.certificados.map(cert => <div key={cert.id} className="flex flex-col gap-2 rounded-lg bg-brand-soft p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-semibold text-brand">{CERTIFICADOS_CURSO[cert.tipo]}</p>
+        <p className="text-[13px] text-muted">Código {cert.codigo} · {curso.horasLectivas} horas lectivas</p>
+      </div>
+      <div className="flex flex-col items-center gap-2 sm:flex-row-reverse sm:gap-4">
+        <Boton variante="secundario" className="w-full sm:w-auto" disabled={descargando} onClick={() => onDescargar(cert.id)} aria-label={`Descargar certificado ${cert.codigo}`}>Descargar certificado</Boton>
+        <Link to={`/certificados/${encodeURIComponent(cert.codigo)}`} className="text-sm font-semibold text-brand underline">Ver certificado</Link>
+      </div>
+    </div>)}
+  </article>
+}
+
+/** Texto y barra de asistencia: verde al 100 %, vino mientras falte. */
+function Avance({ asistencia }: { asistencia: ResumenAsistencia }) {
+  if (asistencia.porcentaje === null) return <p className="text-sm font-medium text-ink">Asistencia: sin sesiones realizadas</p>
+  const completo = asistencia.porcentaje >= 100
+  return <>
+    <p className="text-sm font-medium text-ink">Asistencia: {asistencia.porcentaje.toLocaleString('es-PE')} % ({asistencia.presentes} de {asistencia.realizadas} {asistencia.realizadas === 1 ? 'sesión' : 'sesiones'})</p>
+    <div role="progressbar" aria-label="Asistencia" aria-valuemin={0} aria-valuemax={100} aria-valuenow={asistencia.porcentaje} className="h-2 w-full overflow-hidden rounded bg-line">
+      <div className={cn('h-full rounded', completo ? 'bg-success' : 'bg-brand')} style={{ width: `${Math.min(100, asistencia.porcentaje)}%` }} />
+    </div>
+  </>
+}
+
+function Sesiones({ sesiones, conTitulo = false }: { sesiones: SesionHistorial[]; conTitulo?: boolean }) {
+  return <ul className="flex flex-col gap-2">{sesiones.map((s, i) => <li key={s.id} className="flex items-center justify-between gap-3 text-sm text-muted">
+    <span className="min-w-0">{conTitulo ? s.titulo : `Sesión ${i + 1}`} · {fechaCorta(s.fecha)}</span>
+    <Etiqueta tono={ESTADO_SESION[s.estado].tono}>{ESTADO_SESION[s.estado].texto}</Etiqueta>
+  </li>)}</ul>
 }
 
 export function HistorialesAdminPagina() {

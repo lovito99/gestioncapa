@@ -32,10 +32,10 @@ test('HU-10: registra a 360 px con un toque y lectura real de QR mediante cámar
     navigator.mediaDevices.getUserMedia = async () => lienzo.captureStream(10)
   }, imagen.toString('base64'))
   await sinDesborde(page)
-  const clase = page.getByRole('article').filter({ hasText: 'Primeros auxilios básicos' })
-  // Un toque en la aplicación; el permiso nativo puede añadir otro en un celular real.
-  await clase.getByRole('link', { name: 'Registrar asistencia' }).click()
-  await expect(page.getByRole('heading', { name: '¡Asistencia registrada!' })).toBeVisible()
+  // 3.1 → 3.2 → 3.3: se abre la clase y se toca «Marcar asistencia»; el permiso nativo puede añadir otro toque.
+  await page.getByRole('link', { name: 'Primeros auxilios básicos', exact: true }).click()
+  await page.getByRole('link', { name: 'Marcar asistencia' }).click()
+  await expect(page.getByRole('heading', { name: 'Asistencia registrada', exact: true })).toBeVisible()
   await sinDesborde(page)
 })
 
@@ -44,15 +44,17 @@ test('HU-10: cámara denegada explica cómo permitir acceso y ofrece reintento',
     navigator.mediaDevices.getUserMedia = async () => { throw new DOMException('Permiso denegado', 'NotAllowedError') }
   })
   await entrar(page, cuentas.part)
-  await page.getByRole('article').filter({ hasText: 'Primeros auxilios básicos' }).getByRole('link', { name: 'Registrar asistencia' }).click()
-  await expect(page.getByRole('alert')).toContainText('permite el acceso y vuelve a intentar')
-  await expect(page.getByRole('button', { name: 'Intentar de nuevo' })).toBeVisible()
+  await page.getByRole('link', { name: 'Primeros auxilios básicos', exact: true }).click()
+  await page.getByRole('link', { name: 'Marcar asistencia' }).click()
+  await expect(page.getByRole('heading', { name: 'No tenemos acceso a la cámara' })).toBeVisible()
+  await expect(page.getByRole('alert')).toContainText('permite el uso de la cámara en tu navegador')
+  await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible()
   await sinDesborde(page)
 })
 
 for (const caso of [
-  { clase: 'c-3', cuenta: cuentas.part, vencido: true, titulo: 'El código QR expiró', accion: 'Pide al instructor el QR actualizado' },
-  { clase: 'c-1', cuenta: cuentas.luz, vencido: false, titulo: 'No estás inscrito(a) en esta clase', accion: 'Pide al coordinador que revise tu inscripción' },
+  { clase: 'c-3', cuenta: cuentas.part, vencido: true, titulo: 'QR expirado', accion: 'Pide al instructor que muestre el código actual' },
+  { clase: 'c-1', cuenta: cuentas.luz, vencido: false, titulo: 'No estás inscrito en esta clase', accion: 'comunícate con el administrador' },
 ]) {
   test(`HU-10: ${caso.titulo} a 360 px`, async ({ page }) => {
     await page.clock.setFixedTime(horaPrueba)
@@ -75,8 +77,8 @@ test('HU-10: conexión perdida muestra una acción sin quedar esperando', async 
     window.history.pushState({}, '', '/asistencia/marcar?token=sin-red')
     window.dispatchEvent(new PopStateEvent('popstate'))
   })
-  await expect(page.getByRole('heading', { name: 'Sin conexión', exact: true })).toBeVisible()
-  await expect(page.getByText('Revisa tu conexión y vuelve a escanear.', { exact: false })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Escanear de nuevo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Sin conexión a internet', exact: true })).toBeVisible()
+  await expect(page.getByText('Revisa tu internet y vuelve a intentarlo.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible()
   await sinDesborde(page)
 })

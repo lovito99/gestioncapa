@@ -50,13 +50,13 @@ test('CLA-03: advierte un conflicto y permite elegir otro horario', async ({ pag
   await expect(page.getByRole('row').filter({ hasText: claseNueva.nombre })).toBeVisible()
 })
 
-test('CLA-04: inscribe un participante y evita duplicados o cuentas inexistentes', async ({ page }) => {
+test('CLA-04: inscribe un agremiado y evita duplicados o cuentas inexistentes', async ({ page }) => {
   await page.getByRole('link', { name: 'Ver detalle de Seguridad y salud en el trabajo' }).click()
   await expect(page.getByRole('heading', { name: 'Inscritos (6)', exact: true })).toBeVisible()
-  const correo = page.getByLabel('Correo del participante')
+  const correo = page.getByLabel('Correo del agremiado')
   await correo.fill('persona-inexistente@demo.pe')
   await page.getByRole('button', { name: 'Inscribir', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('No encontramos un participante')
+  await expect(page.getByRole('alert')).toContainText('No encontramos un agremiado')
   await correo.fill(cuentas.part.email)
   await page.getByRole('button', { name: 'Inscribir', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('ya está inscrito(a)')
@@ -73,7 +73,7 @@ test('CLA-05: muestra asistencia y el estado vacío de una clase sin inscritos',
   await expect(page.getByRole('heading', { name: 'Asistencia', exact: true })).toBeVisible()
   await expect(page.getByRole('row').filter({ hasText: cuentas.part.email })).toContainText('Presente')
   await page.goto(rutas.asistencia('c-2'))
-  await expect(page.getByRole('heading', { name: 'Esta clase aún no tiene participantes inscritos' })).toBeVisible()
-  await page.getByRole('link', { name: 'Ir a inscribir participantes' }).click()
+  await expect(page.getByRole('heading', { name: 'Esta clase aún no tiene agremiados inscritos' })).toBeVisible()
+  await page.getByRole('link', { name: 'Ir a inscribir agremiados' }).click()
   await expect(page).toHaveURL(rutas.detalle('c-2'))
 })

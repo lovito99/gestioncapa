@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Globe } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { useRutaClases } from '@/auth/useRutaClases'
@@ -14,10 +14,12 @@ import { Entrada, Selector } from '@/components/ui/Entrada'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { esApiError } from '@/lib/api'
 import { useClase, useGuardarClase, useInstructores } from '@/servicios/clases'
+import { useCursosParaClase } from '@/servicios/cursos'
 import { CODIGOS_ERROR, type ClaseEntrada } from '@/types/api'
 
 const esquema = z
   .object({
+    cursoId: z.string().min(1, 'Selecciona el curso al que pertenece la clase'),
     nombre: z.string().trim().min(1, 'Ingresa el nombre de la clase')
       .max(160, 'El nombre admite hasta 160 caracteres'),
     instructorId: z.string().min(1, 'Selecciona un instructor'),
@@ -33,7 +35,7 @@ const esquema = z
   })
 
 type Formulario = z.infer<typeof esquema>
-const VACIO: Formulario = { nombre: '', instructorId: '', fecha: '', horaInicio: '', horaFin: '', lugar: '' }
+const VACIO: Formulario = { cursoId: '', nombre: '', instructorId: '', fecha: '', horaInicio: '', horaFin: '', lugar: '' }
 
 const MENSAJE_INCOMPLETO = 'No se pudo guardar la clase. Completa los campos obligatorios marcados.'
 
@@ -42,6 +44,9 @@ export function ClaseFormPagina() {
   const esEdicion = Boolean(id)
   const clase = useClase(id ?? '')
   const instructores = useInstructores()
+  const cursos = useCursosParaClase()
+  // «Programar sesión» desde un curso (2.2) llega con el curso ya elegido
+  const [parametros] = useSearchParams()
 
   if (instructores.isError) {
     return (
@@ -61,6 +66,7 @@ export function ClaseFormPagina() {
 
   const iniciales: Formulario = clase.data
     ? {
+        cursoId: clase.data.curso?.id ?? '',
         nombre: clase.data.nombre,
         instructorId: clase.data.instructor.id,
         fecha: clase.data.fecha,
@@ -68,7 +74,7 @@ export function ClaseFormPagina() {
         horaFin: clase.data.horaFin,
         lugar: clase.data.lugar,
       }
-    : VACIO
+    : { ...VACIO, cursoId: parametros.get('curso') ?? '' }
 
   return (
     <Contenedor>
@@ -78,6 +84,8 @@ export function ClaseFormPagina() {
         iniciales={iniciales}
         instructores={instructores.data ?? []}
         cargandoInstructores={instructores.isPending}
+        cursos={cursos.data ?? []}
+        cargandoCursos={cursos.isPending}
       />
     </Contenedor>
   )
@@ -96,11 +104,14 @@ interface PropsFormulario {
   iniciales: Formulario
   instructores: { id: string; nombre: string }[]
   cargandoInstructores: boolean
+  cursos: { id: string; titulo: string }[]
+  cargandoCursos: boolean
 }
 
-function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: PropsFormulario) {
+function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cursos, cargandoCursos }: PropsFormulario) {
   const rutaClases = useRutaClases()
   const navegar = useNavigate()
+  const desdeCurso = useSearchParams()[0].get('curso')
   const guardar = useGuardarClase(id)
   const [aviso, setAviso] = useState<{ mensaje: string; firma: string } | null>(null)
   const [errorGeneral, setErrorGeneral] = useState<string | null>(null)
@@ -114,9 +125,9 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: 
   } = useForm<Formulario>({ resolver: zodResolver(esquema), defaultValues: iniciales })
 
   // El aviso de conflicto solo aplica mientras no cambien instructor, fecha ni horas
-  const [instructorId, fecha, horaInicio, horaFin] = useWatch({
+  const [instructorId, fecha, horaInicio, horaFin, cursoId] = useWatch({
     control,
-    name: ['instructorId', 'fecha', 'horaInicio', 'horaFin'],
+    name: ['instructorId', 'fecha', 'horaInicio', 'horaFin', 'cursoId'],
   })
   const firmaActual = [instructorId, fecha, horaInicio, horaFin].join('|')
   const conflicto = aviso?.firma === firmaActual ? aviso.mensaje : null
@@ -129,7 +140,8 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: 
       guardar.mutate(datos satisfies ClaseEntrada, {
         onSuccess: (guardada) => {
           toast.success(id ? 'Clase actualizada.' : `Clase «${guardada.nombre}» creada.`)
-          navegar(rutaClases)
+          // Si se programó desde «Sesiones del curso», se vuelve al curso para ver la sesión nueva
+          navegar(desdeCurso ? `/admin/cursos/${desdeCurso}/editar` : rutaClases)
         },
         onError: (error) => {
           if (esApiError(error, CODIGOS_ERROR.CONFLICTO_HORARIO)) {
@@ -174,9 +186,26 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores }: 
         )}
         {errorGeneral && <Alerta tipo="error">{errorGeneral}</Alerta>}
 
+        {/* 3.2: cada clase es una sesión de un curso; cuenta para su asistencia y certificado */}
+        <Campo etiqueta="Curso" obligatorio error={errors.cursoId?.message}>
+          <Selector
+            estado={estado('cursoId')}
+            disabled={cargandoCursos}
+            className={cursoId ? '' : 'text-muted-3'}
+            {...register('cursoId')}
+          >
+            <option value="">{cargandoCursos ? 'Cargando cursos…' : 'Selecciona el curso al que pertenece la clase'}</option>
+            {cursos.map((c) => (
+              <option key={c.id} value={c.id} className="text-ink">
+                {c.titulo}
+              </option>
+            ))}
+          </Selector>
+        </Campo>
+
         <Campo etiqueta="Nombre de la clase" obligatorio error={errors.nombre?.message}>
           <Entrada
-            placeholder="Ej.: Seguridad y salud en el trabajo"
+            placeholder="Ej.: Evaluación formativa en el aula"
             estado={estado('nombre')}
             {...register('nombre')}
           />

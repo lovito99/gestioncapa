@@ -5,6 +5,8 @@ export type ColegiadoHistorial = { id: string; nombre: string; dniEnmascarado: s
 export type Historial = {
   colegiado: ColegiadoHistorial; generadoEn: string; asistenciaGeneral: ResumenAsistencia; sesionesIndependientes: SesionHistorial[];
   cursos: { id: string; titulo: string; estado: 'EN_CURSO' | 'TERMINADO'; horasLectivas: number; modalidad: string; inscritoEn: string; terminadoEn: string | null;
+    /** Porcentaje mínimo de asistencia para la constancia (SCRUM-171); explica por qué no se emitió */
+    requisitoAsistencia: number;
     asistencia: ResumenAsistencia; sesiones: SesionHistorial[]; certificados: { id: string; cursoId: string; codigo: string; tipo: 'PARTICIPACION' | 'APROBACION'; emitidoEn: string }[] }[]
 }
 export const historiales = {

@@ -6,7 +6,7 @@ import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { EtiquetaAsistencia } from '@/components/ui/Etiqueta'
 import { cn } from '@/lib/cn'
-import { fechaCorta, horaRegistro, rangoHorario } from '@/lib/formato'
+import { fechaCorta, horaCorta, rangoHorario } from '@/lib/formato'
 import { useAsistencia, useClase } from '@/servicios/clases'
 
 const th = 'px-6 py-3 text-left text-[11px] leading-3.5 font-semibold tracking-[0.55px] text-muted-3 uppercase'
@@ -58,16 +58,16 @@ export function AsistenciaPagina() {
           <Users className="size-8 text-muted-2" aria-hidden />
         </span>
         <h2 className="mt-4 text-base leading-5 font-semibold text-ink">
-          Esta clase aún no tiene participantes inscritos
+          Esta clase aún no tiene agremiados inscritos
         </h2>
         <p className="mt-2 max-w-100 text-sm leading-5 text-muted">
-          Inscribe participantes desde el detalle de la clase para poder registrar su asistencia.
+          Inscribe agremiados desde el detalle de la clase para poder registrar su asistencia.
         </p>
         <Link
           to={`${rutaClases}/${id}`}
           className="mt-6 inline-flex h-10 items-center rounded-lg border border-line bg-white px-5 text-sm font-medium text-ink hover:bg-surface-2"
         >
-          Ir a inscribir participantes
+          Ir a inscribir agremiados
         </Link>
       </div>
     )
@@ -77,9 +77,9 @@ export function AsistenciaPagina() {
         <div className="overflow-hidden rounded-xl bg-white shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
           <div className="overflow-x-auto">
             <table className="w-full min-w-180">
-              <thead className="bg-surface-lavender">
+              <thead className="bg-brand-soft">
                 <tr>
-                  <th className={th}>Participante</th>
+                  <th className={th}>Agremiado</th>
                   <th className={th}>Correo</th>
                   <th className={th}>Estado</th>
                   <th className={th}>Hora de registro</th>
@@ -95,7 +95,7 @@ export function AsistenciaPagina() {
                     </td>
                     <td className="px-6 py-3.5 text-sm leading-5 text-ink-2">
                       {r.horaRegistro ? (
-                        horaRegistro(r.horaRegistro)
+                        horaCorta(r.horaRegistro)
                       ) : (
                         <span className="text-muted-3" aria-label="Sin registro">
                           —
@@ -128,7 +128,7 @@ export function AsistenciaPagina() {
               </p>
             )}
           </div>
-          <span className="flex items-center gap-1.5 rounded-lg bg-surface-lavender px-3 py-1.5 text-xs leading-4 text-muted-3">
+          <span className="flex items-center gap-1.5 rounded-lg bg-brand-soft px-3 py-1.5 text-xs leading-4 text-brand">
             <RefreshCw
               className={cn('size-3 text-brand', asistencia.isFetching && 'animate-spin')}
               aria-hidden

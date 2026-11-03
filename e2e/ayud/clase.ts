@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import { claseNueva } from './datos'
 
 export async function completarClase(page: Page, datos = claseNueva) {
+  await page.getByRole('combobox', { name: 'Curso', exact: true }).selectOption({ label: datos.curso })
   await page.getByLabel('Nombre de la clase').fill(datos.nombre)
   await page.getByRole('combobox', { name: 'Instructor', exact: true }).selectOption({ label: datos.instructor })
   await page.getByLabel('Fecha').fill(datos.fecha)

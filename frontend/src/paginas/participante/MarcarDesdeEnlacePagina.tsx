@@ -23,22 +23,17 @@ export function MarcarDesdeEnlacePagina() {
     mutate({ token })
   }, [token, mutate])
 
-  return (
-    <div className="px-4 py-6">
-      <div className="mx-auto flex w-full max-w-120 flex-col gap-4">
-        {!token ? (
-          <Alerta tipo="error" titulo="Falta el código QR">
-            Este enlace no tiene un código de asistencia. Escanea el QR que muestra tu instructor.
-          </Alerta>
-        ) : marcar.isSuccess ? (
-          <AsistenciaRegistrada resultado={marcar.data} />
-        ) : marcar.isError ? (
-          // Reintentar desde aquí reenviaría el mismo token: mejor abrir el escáner
-          <AsistenciaRechazada error={marcar.error} onReintentar={() => navegar('/participante/escanear')} />
-        ) : (
-          <Enviando />
-        )}
+  if (!token) {
+    return (
+      <div className="mx-auto w-full max-w-120 px-4 py-6">
+        <Alerta tipo="error" titulo="Falta el código QR">
+          Este enlace no tiene un código de asistencia. Escanea el QR que muestra tu instructor.
+        </Alerta>
       </div>
-    </div>
-  )
+    )
+  }
+  if (marcar.isSuccess) return <AsistenciaRegistrada resultado={marcar.data} />
+  // Reintentar desde aquí reenviaría el mismo token: mejor abrir el escáner
+  if (marcar.isError) return <AsistenciaRechazada error={marcar.error} onReintentar={() => navegar('/participante/escanear')} />
+  return <Enviando />
 }
