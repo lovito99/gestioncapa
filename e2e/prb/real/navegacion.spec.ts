@@ -17,6 +17,8 @@ test('VAL-07: el formulario permite reintentar si no pudo cargar los instructore
       body: JSON.stringify({ code: 'SERVICIO_NO_DISPONIBLE', message: 'Vuelve a intentar.' }),
     })
   })
+  // «+ Nueva clase» está en la lista de clases (3.1), ya no en el menú
+  await page.getByRole('navigation', { name: 'Navegación principal' }).getByRole('link', { name: 'Clases', exact: true }).click()
   await page.getByRole('link', { name: 'Nueva clase' }).click()
   await expect(page.getByRole('alert')).toContainText('No pudimos cargar los instructores')
   await page.unroute('**/api/instructores')

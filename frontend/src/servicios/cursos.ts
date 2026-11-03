@@ -58,16 +58,29 @@ export function leerPdfBase64(archivo: File): Promise<string> {
 export type MaterialEntrada = { titulo: string } & ({ tipo: 'PDF'; contenidoBase64: string } | { tipo: 'ENLACE' | 'VIDEO'; url: string })
 export type FiltrosCatalogo = { buscar?: string; modalidad?: string; categoria?: string; pagina?: number; tamanoPagina?: number }
 export type PaginaCatalogo = { items: Curso[]; total: number; pagina: number; tamanoPagina: number; totalPaginas: number; categorias: string[] }
+/** Porcentaje de asistencia que pide el Figma cuando el curso no indica otro */
+export const REQUISITO_ASISTENCIA_POR_DEFECTO = 80
+
+/**
+ * Transición: el backend actual aún no envía `sesiones` ni `requisitoAsistencia`
+ * (ver docs/esp/pantallas-figma.md). Con estos valores las pantallas no se rompen; cuando el
+ * backend los envíe, se usan los suyos.
+ */
+function conValoresNuevos<T extends Curso>(curso: T): T & { sesiones: SesionCurso[] } {
+  const enviado = curso as T & Partial<Pick<DetalleCurso, 'sesiones' | 'requisitoAsistencia'>>
+  return { ...curso, sesiones: enviado.sesiones ?? [], requisitoAsistencia: enviado.requisitoAsistencia ?? REQUISITO_ASISTENCIA_POR_DEFECTO }
+}
+
 export const cursos = {
   catalogo: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo>('/catalogo/cursos/pagina', { params: filtros })).data,
   inscribirme: async (id: string) => (await api.post<{ cursoId: string; estado: string; yaInscrito: boolean }>(`/cursos/${id}/inscribirme`)).data,
-  listar: async (catalogo = false) => (await api.get<Curso[]>(catalogo ? '/catalogo/cursos' : '/cursos')).data,
-  obtener: async (id: string) => (await api.get<DetalleCurso>(`/cursos/${id}`)).data,
+  listar: async (catalogo = false) => (await api.get<Curso[]>(catalogo ? '/catalogo/cursos' : '/cursos')).data.map(conValoresNuevos),
+  obtener: async (id: string) => conValoresNuevos((await api.get<DetalleCurso>(`/cursos/${id}`)).data),
   instructores: async () => (await api.get<{ id: string; nombre: string }[]>('/cursos/instructores')).data,
-  crear: async (entrada: CursoEntrada) => (await api.post<DetalleCurso>('/cursos', entrada)).data,
-  actualizar: async (id: string, entrada: CursoEntrada) => (await api.put<DetalleCurso>(`/cursos/${id}`, entrada)).data,
+  crear: async (entrada: CursoEntrada) => conValoresNuevos((await api.post<DetalleCurso>('/cursos', entrada)).data),
+  actualizar: async (id: string, entrada: CursoEntrada) => conValoresNuevos((await api.put<DetalleCurso>(`/cursos/${id}`, entrada)).data),
   quitarMaterial: async (id: string, moduloId: string, materialId: string) => { await api.delete(`/cursos/${id}/modulos/${moduloId}/materiales/${materialId}`) },
-  publicar: async (id: string) => (await api.post<DetalleCurso>(`/cursos/${id}/publicar`)).data,
+  publicar: async (id: string) => conValoresNuevos((await api.post<DetalleCurso>(`/cursos/${id}/publicar`)).data),
   material: async (id: string, moduloId: string, entrada: MaterialEntrada) => (await api.post<MaterialCurso>(`/cursos/${id}/modulos/${moduloId}/materiales`, entrada)).data,
   cierre: async (id: string) => (await api.get<CierreCurso>(`/cursos/${id}/cierre`)).data,
   cerrar: async (id: string, excepciones: ExcepcionCierre[]) => (await api.post<{ emitidos: number }>(`/cursos/${id}/cerrar`, { excepciones })).data,

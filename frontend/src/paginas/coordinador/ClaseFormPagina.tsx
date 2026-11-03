@@ -19,7 +19,8 @@ import { CODIGOS_ERROR, type ClaseEntrada } from '@/types/api'
 
 const esquema = z
   .object({
-    cursoId: z.string().min(1, 'Selecciona el curso al que pertenece la clase'),
+    // Obligatorio solo si hay cursos para elegir; se valida al enviar (ver `enviar`)
+    cursoId: z.string(),
     nombre: z.string().trim().min(1, 'Ingresa el nombre de la clase')
       .max(160, 'El nombre admite hasta 160 caracteres'),
     instructorId: z.string().min(1, 'Selecciona un instructor'),
@@ -86,6 +87,10 @@ export function ClaseFormPagina() {
         cargandoInstructores={instructores.isPending}
         cursos={cursos.data ?? []}
         cargandoCursos={cursos.isPending}
+        errorCursos={cursos.isError}
+        // Transición: si el backend aún no devuelve `curso` en la clase, no lo guarda;
+        // exigirlo al editar dejaría la clase imposible de actualizar.
+        backendConCurso={!clase.data || 'curso' in clase.data}
       />
     </Contenedor>
   )
@@ -106,9 +111,11 @@ interface PropsFormulario {
   cargandoInstructores: boolean
   cursos: { id: string; titulo: string }[]
   cargandoCursos: boolean
+  errorCursos: boolean
+  backendConCurso: boolean
 }
 
-function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cursos, cargandoCursos }: PropsFormulario) {
+function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cursos, cargandoCursos, errorCursos, backendConCurso }: PropsFormulario) {
   const rutaClases = useRutaClases()
   const navegar = useNavigate()
   const desdeCurso = useSearchParams()[0].get('curso')
@@ -134,9 +141,14 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cu
 
   const hayErroresDeCampo = Object.keys(errors).length > 0
 
+  const exigirCurso = cursos.length > 0 && backendConCurso
   const enviar = handleSubmit(
     (datos) => {
       setErrorGeneral(null)
+      if (exigirCurso && !datos.cursoId) {
+        setError('cursoId', { message: 'Selecciona el curso al que pertenece la clase' })
+        return
+      }
       guardar.mutate(datos satisfies ClaseEntrada, {
         onSuccess: (guardada) => {
           toast.success(id ? 'Clase actualizada.' : `Clase «${guardada.nombre}» creada.`)
@@ -156,7 +168,11 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cu
         },
       })
     },
-    () => setAviso(null),
+    () => {
+      setAviso(null)
+      // Marca también el curso para que todos los faltantes se vean a la vez
+      if (exigirCurso && !cursoId) setError('cursoId', { message: 'Selecciona el curso al que pertenece la clase' })
+    },
   )
 
   const estado = (campo: keyof Formulario, enConflicto = false): EstadoCampo =>
@@ -187,10 +203,15 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cu
         {errorGeneral && <Alerta tipo="error">{errorGeneral}</Alerta>}
 
         {/* 3.2: cada clase es una sesión de un curso; cuenta para su asistencia y certificado */}
-        <Campo etiqueta="Curso" obligatorio error={errors.cursoId?.message}>
+        <Campo
+          etiqueta="Curso"
+          obligatorio={!errorCursos}
+          error={errors.cursoId?.message}
+          ayuda={errorCursos ? 'No pudimos cargar los cursos. Puedes guardar la clase y asignarle un curso después.' : undefined}
+        >
           <Selector
             estado={estado('cursoId')}
-            disabled={cargandoCursos}
+            disabled={cargandoCursos || errorCursos}
             className={cursoId ? '' : 'text-muted-3'}
             {...register('cursoId')}
           >

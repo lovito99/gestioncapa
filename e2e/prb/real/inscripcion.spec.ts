@@ -25,7 +25,7 @@ test('INS-07: la coordinadora inscribe a una participante sin duplicarla con el 
   await entrar(page, cuentas.coord)
   await page.goto(rutas.detalle(id))
   await expect(page.getByRole('heading', { name: 'Inscritos (0)', exact: true })).toBeVisible()
-  const correo = page.getByLabel('Correo del participante')
+  const correo = page.getByLabel('Correo del agremiado')
   const inscribir = page.getByRole('button', { name: 'Inscribir', exact: true })
 
   await correo.fill('persona-inexistente@demo.pe')
