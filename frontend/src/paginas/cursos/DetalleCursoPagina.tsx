@@ -72,10 +72,12 @@ export function DetalleCursoPagina() {
     {usuario?.rol === 'PARTICIPANTE' && curso.estado === 'PUBLICADO' && <div className="flex flex-col gap-3">
       {/* 2.2a: sin cupos se avisa y el botón queda deshabilitado */}
       {sinCupos && !curso.inscrito && <Alerta tipo="error">Este curso no tiene cupos disponibles. No es posible inscribirse.</Alerta>}
-      {inscripcion.isSuccess && <Alerta tipo="exito">Inscripción registrada. Puedes consultar el curso en Mi historial.</Alerta>}
+      {inscripcion.isSuccess && (inscripcion.data.estado === 'PENDIENTE_PAGO'
+        ? <Alerta tipo="advertencia" titulo="Inscripción pendiente de pago">Tu vacante quedó reservada. Podrás pagar cuando se habilite el pago en línea; mientras tanto, el curso aparece en Mis cursos.</Alerta>
+        : <Alerta tipo="exito">Inscripción registrada. Puedes ver el curso en Mis cursos.</Alerta>)}
       {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.')}</Alerta>}
       <Boton className="h-12 w-full text-base disabled:bg-surface-3 disabled:text-muted" disabled={curso.inscrito || sinCupos} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? 'Ya estás inscrito(a)' : sinCupos ? 'Sin cupos' : 'Inscribirme'}</Boton>
-      {curso.costo > 0 && !curso.inscrito && !sinCupos && <p className="text-sm text-muted">La inscripción no realiza un cobro.</p>}
+      {curso.costo > 0 && !curso.inscrito && !sinCupos && <p className="text-sm text-muted">La inscripción queda pendiente de pago hasta que se habilite el pago en línea.</p>}
     </div>}
     {publicar.isError && <Alerta tipo="error">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</Alerta>}
     <h2 className="mt-4 font-serif text-xl font-bold text-ink">Módulos y material</h2>

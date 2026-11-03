@@ -116,4 +116,5 @@ El frontend ya tiene estas pantallas con datos simulados. Su contrato completo e
 - `GET /cursos/:id/cierre`, `POST /cursos/:id/cerrar` y `GET /cursos/:id/certificados` (SCRUM-171).
 - `POST /certificados/:codigo/anular` y `POST /certificados/:codigo/corregir` (SCRUM-171).
 - `GET /certificados/:codigo`: verificación pública (SCRUM-138).
-- Campos nuevos: `requisitoAsistencia`, `sesiones` y el estado `CERRADO` en los cursos; `requisitoAsistencia` en cada curso del historial.
+- Campos nuevos: `requisitoAsistencia`, `sesiones` y el estado `CERRADO` en los cursos; `requisitoAsistencia` y `pagoPendiente` en cada curso del historial, y `estado` en cada uno de sus certificados.
+- `POST /cursos/:id/inscribirme` responde `estado: 'PENDIENTE_PAGO'` si el curso tiene costo.

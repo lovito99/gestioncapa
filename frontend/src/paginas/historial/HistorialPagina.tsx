@@ -12,6 +12,7 @@ import { mensajeDeError } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { fechaCorta, rangoFechasCorto } from '@/lib/formato'
 import { CERTIFICADOS_CURSO } from '@/servicios/cursos'
+import { queTeFalta, type Aviso } from './progreso'
 import { guardarDescarga, historiales, type Historial, type ResumenAsistencia, type SesionHistorial } from '@/servicios/historial'
 
 type CursoHistorial = Historial['cursos'][number]
@@ -47,7 +48,8 @@ export function HistorialPagina() {
   const historial = consulta.data
   const esAdmin = usuario?.rol === 'ADMIN'
   // Cada curso con certificado suma sus horas una sola vez, en el año en que se emitió
-  const certificadosPorAnio = historial.cursos.flatMap(c => c.certificados.map(cert => ({ anio: anioEnLima(cert.emitidoEn), cursoId: c.id, horas: c.horasLectivas })))
+  const certificadosPorAnio = historial.cursos.flatMap(c => c.certificados.filter(cert => cert.estado === 'VALIDO')
+    .map(cert => ({ anio: anioEnLima(cert.emitidoEn), cursoId: c.id, horas: c.horasLectivas })))
   const anios = [...new Set([anio, ...certificadosPorAnio.map(c => c.anio)])].sort().reverse()
   const horas = [...new Map(certificadosPorAnio.filter(c => c.anio === anio).map(c => [c.cursoId, c.horas])).values()].reduce((suma, h) => suma + h, 0)
   const enCurso = historial.cursos.filter(c => c.estado === 'EN_CURSO')
@@ -115,11 +117,11 @@ function TarjetaCurso({ curso, descargando, onDescargar }: { curso: CursoHistori
     </p>}
     <Avance asistencia={curso.asistencia} />
     {curso.sesiones.length > 0 && <div className="border-t border-line pt-2.5"><Sesiones sesiones={curso.sesiones} /></div>}
-    {terminado && curso.certificados.length === 0 && curso.asistencia.porcentaje !== null && curso.asistencia.porcentaje < curso.requisitoAsistencia &&
-      <p className="rounded-lg border border-warning bg-warning-soft px-4 py-3 text-sm text-warning">
-        No obtuviste la constancia: tu asistencia fue {curso.asistencia.porcentaje.toLocaleString('es-PE')} % y se necesita {curso.requisitoAsistencia} %.
-      </p>}
-    {curso.certificados.map(cert => <div key={cert.id} className="flex flex-col gap-2 rounded-lg bg-brand-soft p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+    {terminado && <AvisoProgreso aviso={queTeFalta(curso)} />}
+    {curso.certificados.filter(cert => cert.estado === 'ANULADO').map(cert => <p key={cert.id} className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
+      <Etiqueta tono="peligro">Anulado</Etiqueta> {CERTIFICADOS_CURSO[cert.tipo]} · código {cert.codigo}. No suma horas.
+    </p>)}
+    {curso.certificados.filter(cert => cert.estado === 'VALIDO').map(cert => <div key={cert.id} className="flex flex-col gap-2 rounded-lg bg-brand-soft p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-brand">{CERTIFICADOS_CURSO[cert.tipo]}</p>
         <p className="text-[13px] text-muted">Código {cert.codigo} · {curso.horasLectivas} horas lectivas</p>
@@ -132,8 +134,19 @@ function TarjetaCurso({ curso, descargando, onDescargar }: { curso: CursoHistori
   </article>
 }
 
+const TONO_AVISO = {
+  exito: 'border-success bg-success-soft text-success',
+  advertencia: 'border-warning bg-warning-soft text-warning',
+  peligro: 'border-danger bg-danger-soft text-danger',
+}
+
+export function AvisoProgreso({ aviso }: { aviso: Aviso | null }) {
+  if (!aviso) return null
+  return <p className={cn('rounded-lg border px-4 py-3 text-sm', TONO_AVISO[aviso.tono])}>{aviso.texto}</p>
+}
+
 /** Texto y barra de asistencia: verde al 100 %, vino mientras falte. */
-function Avance({ asistencia }: { asistencia: ResumenAsistencia }) {
+export function Avance({ asistencia }: { asistencia: ResumenAsistencia }) {
   if (asistencia.porcentaje === null) return <p className="text-sm font-medium text-ink">Asistencia: sin sesiones realizadas</p>
   const completo = asistencia.porcentaje >= 100
   return <>

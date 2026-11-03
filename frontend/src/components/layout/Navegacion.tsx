@@ -25,7 +25,7 @@ const OPCIONES: Record<Rol, Opcion[]> = {
   INSTRUCTOR: [{ to: '/instructor/clases', texto: 'Mis clases' }, { to: '/cursos', texto: 'Mis cursos' }, REUNIONES],
   PARTICIPANTE: [
     { to: '/catalogo', texto: 'Catálogo', end: true },
-    { to: '/participante/clases', texto: 'Mis cursos' },
+    { to: '/participante/cursos', texto: 'Mis cursos' },
     { to: '/historial', texto: 'Historial', end: true },
     REUNIONES,
   ],

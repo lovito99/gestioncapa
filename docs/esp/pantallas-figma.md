@@ -145,9 +145,29 @@ CertificadoPublico = {
 - Cada curso de `GET /colegiados/:id/historial` suma `requisitoAsistencia`. Con ese dato, el
   frontend muestra «No obtuviste la constancia: tu asistencia fue 75 % y se necesita 80 %.»
   cuando el curso terminó sin certificado.
+- Cada certificado del historial suma `estado: 'VALIDO' | 'ANULADO' | 'REEMPLAZADO'`. Un anulado
+  se muestra pero **no suma horas** (HU-34, criterio 2). Los reemplazados no se envían: se envía
+  el nuevo.
+- Cada curso suma `pagoPendiente: boolean`: es `true` si el curso tiene costo y el pago no está
+  confirmado (HU-16, criterio 4). Se muestra «Pendiente de pago» y la constancia queda retenida.
 - «Horas de capacitación acumuladas» se calcula en el frontend: suma las horas de los cursos con
-  certificado emitido en el año elegido. Si el backend prefiere enviarlo calculado, hay que
-  avisar para cambiar el frontend.
+  certificado **válido** emitido en el año elegido. Cada curso suma una sola vez. Si el backend
+  prefiere enviarlo calculado, hay que avisar para cambiar el frontend.
+- La pantalla **«Mis cursos»** del agremiado (`/participante/cursos`) usa este mismo endpoint:
+  muestra las inscripciones y «qué te falta» para la constancia, calculado con `sesiones`,
+  `asistencia` y `requisitoAsistencia`.
+
+## 8. Inscripción a un curso con costo (HU-16)
+
+- `POST /cursos/:id/inscribirme` responde `estado: 'PENDIENTE_PAGO'` cuando el curso tiene costo.
+  Si es gratuito, responde `estado: 'EN_CURSO'`. El frontend muestra «Inscripción pendiente de pago».
+
+## 9. Datos de demostración con el lenguaje del CPPP (HU-35)
+
+La interfaz ya no dice «organización» ni «coordinador». Lo que falta está en los datos, y lo
+comparten la semilla del backend y las pruebas E2E, así que hay que cambiarlo **en los dos lados a
+la vez**: los correos `@organizacion.pe` y la clase «Manejo de extintores» de la semilla, de
+`frontend/src/mocks/datos.ts` y de `e2e/ayud/datos.ts`.
 
 ## Datos de prueba de los mocks
 

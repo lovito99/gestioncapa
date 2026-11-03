@@ -15,7 +15,7 @@ export function SinPermisoPagina() {
       <p className="text-sm font-semibold text-danger">Error 403</p>
       <h1 className="text-2xl font-semibold text-ink">No tienes permiso para ver esta página</h1>
       <p className="max-w-105 text-sm text-muted">
-        Tu cuenta no tiene acceso a esta sección. Si crees que es un error, pide ayuda al coordinador.
+        Tu cuenta no tiene acceso a esta sección. Si crees que es un error, pide ayuda al administrador del CPPP.
       </p>
       <div className="mt-2 flex items-center gap-4">
         {inicio !== '/sin-permiso' && (
