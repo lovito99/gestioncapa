@@ -5,11 +5,17 @@ export type ColegiadoHistorial = { id: string; nombre: string; dniEnmascarado: s
 export type Historial = {
   colegiado: ColegiadoHistorial; generadoEn: string; asistenciaGeneral: ResumenAsistencia; sesionesIndependientes: SesionHistorial[];
   cursos: { id: string; titulo: string; estado: 'EN_CURSO' | 'TERMINADO'; horasLectivas: number; modalidad: string; inscritoEn: string; terminadoEn: string | null;
+    /** Porcentaje mínimo de asistencia para la constancia (SCRUM-171); explica por qué no se emitió */
+    requisitoAsistencia: number;
     asistencia: ResumenAsistencia; sesiones: SesionHistorial[]; certificados: { id: string; cursoId: string; codigo: string; tipo: 'PARTICIPACION' | 'APROBACION'; emitidoEn: string }[] }[]
 }
 export const historiales = {
   colegiados: async () => (await api.get<ColegiadoHistorial[]>('/colegiados')).data,
-  obtener: async (usuarioId: string) => (await api.get<Historial>(`/colegiados/${usuarioId}/historial`)).data,
+  obtener: async (usuarioId: string) => {
+    const historial = (await api.get<Historial>(`/colegiados/${usuarioId}/historial`)).data
+    // Transición: si el backend aún no envía el requisito, se usa el 80 % del Figma
+    return { ...historial, cursos: historial.cursos.map(c => ({ ...c, requisitoAsistencia: c.requisitoAsistencia ?? 80 })) }
+  },
   pdf: async (usuarioId: string) => (await api.get<Blob>(`/colegiados/${usuarioId}/historial/pdf`, { responseType: 'blob' })).data,
   certificado: async (usuarioId: string, certificadoId: string) => (await api.get<Blob>(`/colegiados/${usuarioId}/certificados/${certificadoId}/archivo`, { responseType: 'blob' })).data,
 }

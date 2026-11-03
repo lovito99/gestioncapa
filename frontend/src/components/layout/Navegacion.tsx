@@ -1,51 +1,56 @@
-import { Activity, BookOpen, CalendarPlus, ScanLine } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { cn } from '@/lib/cn'
 import type { Rol } from '@/types/api'
 
-const OPCIONES = {
-  ADMIN: [
-    { to: '/admin/historial', texto: 'Historiales', icono: BookOpen, end: true },
-    { to: '/admin', texto: 'Estado del sistema', icono: Activity, end: true },
-    { to: '/admin/clases', texto: 'Clases', icono: BookOpen, end: false },
-    { to: '/admin/clases/nueva', texto: 'Programar clase', icono: CalendarPlus, end: true },
-  ],
-  COORDINADOR: [
-    { to: '/coordinador/clases', texto: 'Clases', icono: BookOpen, end: false },
-    { to: '/coordinador/clases/nueva', texto: 'Programar clase', icono: CalendarPlus, end: true },
-  ],
-  INSTRUCTOR: [
-    { to: '/instructor/clases', texto: 'Mis clases', icono: BookOpen, end: false },
-  ],
-  PARTICIPANTE: [
-    { to: '/participante/clases', texto: 'Mis clases', icono: BookOpen, end: false },
-    { to: '/historial', texto: 'Mi historial', icono: BookOpen, end: true },
-    { to: '/participante/escanear', texto: 'Escanear QR', icono: ScanLine, end: true },
-  ],
-} satisfies Record<Rol, { to: string; texto: string; icono: typeof Activity; end: boolean }[]>
+type Opcion = { to: string; texto: string; end?: boolean }
 
+const REUNIONES: Opcion = { to: '/reuniones', texto: 'Reuniones virtuales' }
+
+/**
+ * Menú de cada rol según el encabezado del Figma (HU-49): primero las opciones del diseño, en su
+ * orden. Al final quedan las que existen en la aplicación pero el diseño aún no incluye.
+ * «+ Nueva clase» vive en la lista de clases y «Escanear QR» en el detalle de cada clase.
+ */
+const OPCIONES: Record<Rol, Opcion[]> = {
+  ADMIN: [
+    { to: '/cursos', texto: 'Cursos' },
+    { to: '/admin/clases', texto: 'Clases' },
+    { to: '/admin/certificados', texto: 'Certificados' },
+    { to: '/admin/historial', texto: 'Usuarios', end: true },
+    REUNIONES,
+    { to: '/admin', texto: 'Estado del sistema', end: true },
+  ],
+  COORDINADOR: [{ to: '/coordinador/clases', texto: 'Clases' }, REUNIONES],
+  INSTRUCTOR: [{ to: '/instructor/clases', texto: 'Mis clases' }, { to: '/cursos', texto: 'Mis cursos' }, REUNIONES],
+  PARTICIPANTE: [
+    { to: '/catalogo', texto: 'Catálogo', end: true },
+    { to: '/participante/clases', texto: 'Mis cursos' },
+    { to: '/historial', texto: 'Historial', end: true },
+    REUNIONES,
+  ],
+}
+
+/** Menú en pestañas bajo el encabezado del CPPP; la activa lleva el subrayado vino. */
 export function Navegacion() {
   const { usuario } = useAuth()
   if (!usuario) return null
 
   return (
-    <nav aria-label="Navegación principal" className="border-b border-line-soft bg-white px-4 sm:px-10">
-      <div className="mx-auto flex max-w-300 flex-wrap gap-2 py-3 sm:px-6">
-        <NavLink to="/reuniones" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium">Reuniones virtuales</NavLink>
-        <NavLink to="/catalogo" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium">Catálogo de cursos</NavLink>
-        {['ADMIN', 'INSTRUCTOR'].includes(usuario.rol) && <NavLink to="/cursos" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium">Mis cursos</NavLink>}
-        {OPCIONES[usuario.rol]?.map(({ to, texto, icono: Icono, end }) => (
+    <nav aria-label="Navegación principal" className="border-t border-line px-4 sm:px-10">
+      <div className="mx-auto flex h-11 max-w-300 gap-8 overflow-x-auto sm:px-6">
+        {OPCIONES[usuario.rol]?.map(({ to, texto, end }) => (
           <NavLink
             key={to}
             to={to}
             end={end}
-            className={({ isActive }) => cn(
-              'inline-flex min-h-11 items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand',
-              isActive ? 'bg-brand-soft text-brand-dark' : 'text-muted hover:bg-surface-3 hover:text-ink',
-            )}
+            className={({ isActive }) =>
+              cn(
+                'inline-flex shrink-0 items-center border-b-3 text-sm whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-brand',
+                isActive ? 'border-brand font-semibold text-brand' : 'border-transparent font-medium text-muted hover:text-ink',
+              )
+            }
           >
-            <Icono className="size-4 shrink-0" aria-hidden />
             {texto}
           </NavLink>
         ))}

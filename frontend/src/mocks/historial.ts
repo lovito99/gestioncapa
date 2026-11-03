@@ -28,7 +28,7 @@ function historialDe(id: string): Historial {
     const sesiones: SesionHistorial[] = (indice > 1 ? [] : [0, 1]).map(n => ({ id: `hist-${curso.id}-${n}`, cursoId: curso.id,
       titulo: `Sesión ${n + 1} de ${curso.titulo}`, fecha: fecha(indice === 0 ? -15 + n : n === 0 ? -3 : 10).slice(0, 10), horaInicio: '08:00', horaFin: '09:00',
       estado: indice === 1 && n === 1 ? 'PENDIENTE' : (id === 'p-1' ? n === 0 : n === 1) ? 'PRESENTE' : 'AUSENTE', contabiliza: !(indice === 1 && n === 1), horaRegistro: null }))
-    return { id: curso.id, titulo: curso.titulo, estado: terminado ? 'TERMINADO' as const : 'EN_CURSO' as const, horasLectivas: curso.horasLectivas, modalidad: curso.modalidad, inscritoEn: fecha(-30), terminadoEn: terminado ? fecha(-10) : null,
+    return { id: curso.id, titulo: curso.titulo, estado: terminado ? 'TERMINADO' as const : 'EN_CURSO' as const, horasLectivas: curso.horasLectivas, requisitoAsistencia: curso.requisitoAsistencia, modalidad: curso.modalidad, inscritoEn: fecha(-30), terminadoEn: terminado ? fecha(-10) : null,
       sesiones, asistencia: resumen(sesiones), certificados: terminado ? [{ id: 'cert-demo-maria', cursoId: curso.id, codigo: 'DEMO-HU18-MARIA-SEGURIDAD', tipo: 'APROBACION' as const, emitidoEn: fecha(-9) }] : [] }
   })
   const independientes: SesionHistorial[] = clases.filter(c => inscripciones[c.id]?.includes(id)).map(c => {

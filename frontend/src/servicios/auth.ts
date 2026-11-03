@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
-import type { LoginRespuesta, Usuario } from '@/types/api'
+import type { LoginRespuesta, RegistroEntrada, Usuario } from '@/types/api'
 
 export interface Credenciales {
   email: string
@@ -11,6 +11,16 @@ export function useLogin() {
   return useMutation({
     mutationFn: async (credenciales: Credenciales) => {
       const { data } = await api.post<LoginRespuesta>('/auth/login', credenciales)
+      return data
+    },
+  })
+}
+
+/** Crea la cuenta del agremiado y devuelve su sesión iniciada. */
+export function useRegistro() {
+  return useMutation({
+    mutationFn: async (entrada: RegistroEntrada) => {
+      const { data } = await api.post<LoginRespuesta>('/auth/registro', entrada)
       return data
     },
   })

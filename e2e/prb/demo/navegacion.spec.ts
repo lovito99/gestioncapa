@@ -26,7 +26,9 @@ test('NAV-05: pasar de editar a programar una clase limpia el formulario', async
   await entrar(page, cuentas.admin)
   await page.goto('/admin/clases/c-1/editar')
   await expect(page.getByLabel('Nombre de la clase')).toHaveValue('Seguridad y salud en el trabajo')
-  await page.getByRole('navigation').getByRole('link', { name: 'Programar clase' }).click()
+  // «+ Nueva clase» está en la lista de clases (3.1), ya no en el menú
+  await page.getByRole('navigation', { name: 'Navegación principal' }).getByRole('link', { name: 'Clases', exact: true }).click()
+  await page.getByRole('link', { name: 'Nueva clase' }).click()
   await expect(page.getByLabel('Nombre de la clase')).toHaveValue('')
   await expect(page.getByLabel('Lugar')).toHaveValue('')
 })
@@ -49,14 +51,21 @@ test('NAV-06: cambiar el token en la misma pantalla procesa el nuevo enlace QR',
   await expect(page.getByRole('heading', { name: 'Código QR no válido' })).toBeVisible()
 })
 
-test('NAV-02: el participante puede abrir el escáner desde el menú y conserva sus permisos', async ({ page }) => {
+test('NAV-02: el participante usa el menú del agremiado y conserva sus permisos', async ({ page }) => {
   await entrar(page, cuentas.part)
   const menu = page.getByRole('navigation', { name: 'Navegación principal' })
-  await menu.getByRole('link', { name: 'Escanear QR' }).click()
-  await expect(page).toHaveURL('/participante/escanear')
-  await menu.getByRole('link', { name: 'Mis clases', exact: true }).click()
+  // Menú del Figma para el agremiado: Catálogo · Mis cursos · Historial
+  await menu.getByRole('link', { name: 'Catálogo', exact: true }).click()
+  await expect(page).toHaveURL('/catalogo')
+  await menu.getByRole('link', { name: 'Historial', exact: true }).click()
+  await expect(page).toHaveURL('/historial')
+  await menu.getByRole('link', { name: 'Mis cursos', exact: true }).click()
   await expect(page).toHaveURL('/participante/clases')
-  await expect(menu.getByRole('link', { name: 'Programar clase' })).toHaveCount(0)
+  // El escáner se abre desde el detalle de la clase (3.2)
+  await page.getByRole('link', { name: 'Primeros auxilios básicos', exact: true }).click()
+  await page.getByRole('link', { name: 'Marcar asistencia' }).click()
+  await expect(page).toHaveURL(/\/participante\/clases\/c-3\/escanear$/)
+  await expect(menu.getByRole('link', { name: 'Clases', exact: true })).toHaveCount(0)
   await page.goto('/admin/clases')
   await expect(page).toHaveURL('/participante/clases')
 })
