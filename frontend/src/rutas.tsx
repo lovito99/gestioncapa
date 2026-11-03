@@ -25,6 +25,7 @@ import { DetalleClaseParticipantePagina } from '@/paginas/participante/DetalleCl
 import { EscanearPagina } from '@/paginas/participante/EscanearPagina'
 import { MarcarDesdeEnlacePagina } from '@/paginas/participante/MarcarDesdeEnlacePagina'
 import { MisClasesParticipantePagina } from '@/paginas/participante/MisClasesParticipantePagina'
+import { MisCursosPagina } from '@/paginas/participante/MisCursosPagina'
 import { SinPermisoPagina } from '@/paginas/SinPermisoPagina'
 
 export const router = createBrowserRouter([
@@ -57,13 +58,9 @@ export const router = createBrowserRouter([
     element: <RutaProtegida rol="INSTRUCTOR" />,
     children: [
       { index: true, element: <Navigate to="clases" replace /> },
-      {
-        element: <PaginaConEncabezado />,
-        children: [
-          { path: 'clases', element: <MisClasesPagina /> },
-          { path: 'clases/:id/qr', element: <QrAsistenciaPagina /> },
-        ],
-      },
+      { element: <PaginaConEncabezado />, children: [{ path: 'clases', element: <MisClasesPagina /> }] },
+      // HU-49: las pantallas de QR (proyección y escaneo) no llevan pie de página
+      { element: <PaginaConEncabezado sinPie />, children: [{ path: 'clases/:id/qr', element: <QrAsistenciaPagina /> }] },
     ],
   },
   {
@@ -76,10 +73,16 @@ export const router = createBrowserRouter([
           { path: '/participante', element: <Navigate to="clases" replace /> },
           { path: '/participante/clases', element: <MisClasesParticipantePagina /> },
           { path: '/participante/clases/:id', element: <DetalleClaseParticipantePagina /> },
-          { path: '/participante/clases/:id/escanear', element: <EscanearPagina /> },
-          { path: '/participante/escanear', element: <EscanearPagina /> },
+          { path: '/participante/cursos', element: <MisCursosPagina /> },
           // Destino del QR cuando se escanea con la cámara del celular
           { path: '/asistencia/marcar', element: <MarcarDesdeEnlacePagina /> },
+        ],
+      },
+      {
+        element: <PaginaConEncabezado sinPie />,
+        children: [
+          { path: '/participante/clases/:id/escanear', element: <EscanearPagina /> },
+          { path: '/participante/escanear', element: <EscanearPagina /> },
         ],
       },
     ],
@@ -104,9 +107,9 @@ export const router = createBrowserRouter([
           { path: 'clases/:id', element: <DetalleClasePagina /> },
           { path: 'clases/:id/editar', element: <ClaseFormPagina /> },
           { path: 'clases/:id/asistencia', element: <AsistenciaPagina /> },
-          { path: 'clases/:id/qr', element: <QrAsistenciaPagina /> },
         ],
       },
+      { element: <PaginaConEncabezado sinPie />, children: [{ path: 'clases/:id/qr', element: <QrAsistenciaPagina /> }] },
     ],
   },
   { element: <RutaProtegida />, children: [

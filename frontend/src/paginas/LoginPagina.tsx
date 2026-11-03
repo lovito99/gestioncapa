@@ -143,7 +143,7 @@ export function LoginPagina() {
                     id="email"
                     type="email"
                     autoComplete="email"
-                    placeholder="nombre@organizacion.pe"
+                    placeholder="nombre@correo.com"
                     aria-invalid={errors.email ? true : undefined}
                     aria-describedby={errors.email ? 'email-error' : undefined}
                     className={claseEntrada}

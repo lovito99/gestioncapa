@@ -5,14 +5,14 @@ import { Encabezado } from './Encabezado'
 import { PiePagina } from './PiePagina'
 
 /** Estructura común: encabezado del CPPP con el menú del rol, contenido y pie. */
-export function PaginaConEncabezado() {
+export function PaginaConEncabezado({ sinPie = false }: { sinPie?: boolean }) {
   return (
     <div className="flex min-h-dvh flex-col bg-page">
       <Encabezado />
       <main className="flex-1">
         <Outlet />
       </main>
-      <PiePagina />
+      {!sinPie && <PiePagina />}
     </div>
   )
 }

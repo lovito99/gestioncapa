@@ -109,7 +109,8 @@ export const handlersCursos = [
     const yaInscrito = inscritos.has(auth.usuario!.id)
     if (!yaInscrito && inscritos.size >= curso.cupos) return error(409, 'El curso está sin cupos. Elige otra capacitación.', 'SIN_CUPOS')
     inscritos.add(auth.usuario!.id); inscripcionesCursosDemo.set(curso.id, inscritos)
-    return HttpResponse.json({ cursoId: curso.id, estado: yaInscrito && auth.usuario!.id === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : 'EN_CURSO', yaInscrito }, { status: yaInscrito ? 200 : 201 })
+    const estado = yaInscrito && auth.usuario!.id === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : curso.costo > 0 ? 'PENDIENTE_PAGO' : 'EN_CURSO'
+    return HttpResponse.json({ cursoId: curso.id, estado, yaInscrito }, { status: yaInscrito ? 200 : 201 })
   }),
   http.post(`${API}/cursos`, async ({ request }) => {
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
