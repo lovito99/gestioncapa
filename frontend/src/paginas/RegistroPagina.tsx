@@ -3,7 +3,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useState, type InputHTMLAttributes, type Ref } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate } from 'react-router-dom'
-import { z } from 'zod'
+import { esquemaRegistro as esquema, type FormularioRegistro as Formulario } from '@/lib/registro'
 import { useAuth } from '@/auth/useAuth'
 import { PaginaPublica } from '@/components/layout/Pagina'
 import { Alerta } from '@/components/ui/Alerta'
@@ -14,20 +14,6 @@ import { Entrada } from '@/components/ui/Entrada'
 import { esApiError } from '@/lib/api'
 import { CPPP } from '@/lib/cppp'
 import { useRegistro } from '@/servicios/auth'
-
-const soloDigitos = (cantidad: number, mensaje: string) =>
-  z.string().trim().regex(new RegExp(`^\\d{${cantidad}}$`), mensaje)
-
-const esquema = z.object({
-  dni: soloDigitos(8, 'El DNI debe tener 8 dígitos.'),
-  nombres: z.string().trim().min(1, 'Ingresa tus nombres.').max(80),
-  apellidos: z.string().trim().min(1, 'Ingresa tus apellidos.').max(80),
-  email: z.string().trim().min(1, 'Ingresa tu correo electrónico.').pipe(z.email('Ingresa un correo válido.')),
-  celular: soloDigitos(9, 'El celular debe tener 9 dígitos.').refine((v) => v.startsWith('9'), 'El celular debe empezar con 9.'),
-  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres.').max(72),
-  aceptaPrivacidad: z.literal(true, 'Debes aceptar el aviso de privacidad para crear tu cuenta.'),
-})
-type Formulario = z.infer<typeof esquema>
 
 /** Entrada con botón para mostrar u ocultar la contraseña; recibe id y aria-* desde Campo. */
 function EntradaContrasena({
@@ -96,7 +82,7 @@ export function RegistroPagina() {
           {yaRegistrado ? (
             <Alerta tipo="advertencia" titulo="Ya tienes una cuenta">
               El DNI o el correo que ingresaste ya está registrado.{' '}
-              <Link to="/login" className="block font-semibold underline underline-offset-2">
+              <Link to="/recuperar" className="block font-semibold underline underline-offset-2">
                 Recuperar mi contraseña
               </Link>
             </Alerta>
@@ -163,13 +149,9 @@ export function RegistroPagina() {
               />
               <span>
                 He leído y acepto el{' '}
-                {CPPP.avisoPrivacidad ? (
-                  <a href={CPPP.avisoPrivacidad} target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">
-                    aviso de privacidad
-                  </a>
-                ) : (
-                  <strong className="font-semibold">aviso de privacidad</strong>
-                )}{' '}
+                <a href={CPPP.avisoPrivacidad} target="_blank" rel="noreferrer" className="font-semibold text-brand underline underline-offset-2">
+                  aviso de privacidad
+                </a>{' '}
                 (Ley N.° 29733).
               </span>
             </label>

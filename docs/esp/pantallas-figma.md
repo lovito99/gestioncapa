@@ -21,6 +21,9 @@ Si una respuesta del backend difiere de los mocks, el cambio debe hacerse en los
 
 ## 1. Registro de agremiados (1.2 · Crear cuenta)
 
+Implementado en backend por [HU-50](registro.md), con bcrypt, unicidad y auditoría.
+La verificación del padrón sigue fuera del Sprint 2.
+
 | Método | Ruta | Quién | Cuerpo | Respuesta OK | Errores |
 |---|---|---|---|---|---|
 | POST | `/auth/registro` | público | `{ dni, nombres, apellidos, email, celular, password, aceptaPrivacidad: true }` | `201 { token, usuario }`, igual que el login | 422 `VALIDACION` con `fields` (`dni`, `celular`, `password`…), 409 `CUENTA_YA_REGISTRADA` |

@@ -48,3 +48,14 @@ Verificación documental de T-23: 55 enlaces locales comprobados, referencias a
 código/pruebas existentes y alcance de sprints revisados; `git diff --check` sin
 errores. No se ejecutaron pruebas funcionales nuevas ni build porque todos los
 cambios de esta entrega son Markdown. No se modificaron versiones ni Git.
+
+
+## HU-50
+
+- [x] Registro persistente, rol fijado por servidor, unicidad, bcrypt y auditoría atómica.
+- [x] Validación en español, conservación de datos y recuperación asistida.
+- [x] Formulario y flujo demo/real a 360 px con teclados numéricos.
+- [ ] Aplicar migraciones en el entorno de entrega y ejecutar build manual.
+
+La recuperación automática por correo, el padrón y el docente externo quedan fuera
+de esta entrega.

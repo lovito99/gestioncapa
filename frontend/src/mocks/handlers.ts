@@ -1,3 +1,4 @@
+import { esquemaRegistro } from '@/lib/registro'
 import { handlersHistorial } from './historial'
 import { handlersCertificados } from './certificados'
 import { cursosSimulados, handlersCursos } from './cursos'
@@ -13,7 +14,6 @@ import type {
   MarcarAsistenciaEntrada,
   MarcarAsistenciaRespuesta,
   QrAsistencia,
-  RegistroEntrada,
   Rol,
 } from '@/types/api'
 import { asistencias, clases, inscripciones, instructores, participantes, usuarios } from './datos'
@@ -181,15 +181,17 @@ export const handlers = [
 
   http.post(`${API}/auth/registro`, async ({ request }) => {
     await delay(400)
-    const entrada = (await request.json()) as RegistroEntrada
-    const email = entrada.email.trim().toLowerCase()
-    const fields: Record<string, string> = {}
-    if (!/^\d{8}$/.test(entrada.dni)) fields.dni = 'El DNI debe tener 8 dígitos.'
-    if (!/^9\d{8}$/.test(entrada.celular)) fields.celular = 'El celular debe tener 9 dígitos y empezar con 9.'
-    if (entrada.password.length < 8) fields.password = 'La contraseña debe tener al menos 8 caracteres.'
-    if (Object.keys(fields).length) {
-      return error(400, { code: 'VALIDACION', message: 'Revisa los campos marcados para crear tu cuenta.', fields })
+    const validacion = esquemaRegistro.safeParse(await request.json())
+    if (!validacion.success) {
+      const fields: Record<string, string> = {}
+      for (const problema of validacion.error.issues) {
+        const campo = problema.path[0]
+        if (typeof campo === 'string' && !fields[campo]) fields[campo] = problema.message
+      }
+      return error(422, { code: 'VALIDACION', message: 'Revisa los campos indicados e intenta de nuevo.', fields })
     }
+    const entrada = validacion.data
+    const email = entrada.email.trim().toLowerCase()
     if (dnisRegistrados.has(entrada.dni) || usuarios.some((u) => u.email === email)) {
       return error(409, {
         code: 'CUENTA_YA_REGISTRADA',

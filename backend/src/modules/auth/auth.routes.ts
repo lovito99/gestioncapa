@@ -1,5 +1,7 @@
+import { esquemaRegistro } from './registro.validacion.js';
+import { registrarDocente } from './registro.servicio.js';
 import { randomUUID } from 'node:crypto';
-import { bloqueoLogin, registrarFalloLogin, aceptarLogin, revocarToken, tokenDeCabecera } from './seguridadAcceso.js';
+import { limitarRegistros, bloqueoLogin, registrarFalloLogin, aceptarLogin, revocarToken, tokenDeCabecera } from './seguridadAcceso.js';
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { env } from "../../config/env.js";
@@ -21,6 +23,20 @@ function responderBloqueo(reply: FastifyReply, segundos: number) {
 }
 
 export async function authRoutes(app: FastifyInstance) {
+  app.post('/api/auth/registro', async (request, reply) => {
+    const datos = esquemaRegistro.parse(request.body);
+    const espera = await limitarRegistros(request.ip);
+    if (espera > 0) return reply.header('Retry-After', String(espera)).code(429).send({
+      code: 'LIMITE_REGISTROS', message: `Has realizado muchos intentos de registro. Espera ${espera} segundos e intenta de nuevo.`
+    });
+    const usuario = await registrarDocente(datos);
+    reply.header('Cache-Control', 'no-store');
+    if (!usuario) return reply.code(409).send({
+      code: 'CUENTA_YA_REGISTRADA',
+      message: 'El DNI o el correo que ingresaste ya está registrado. Recupera tu contraseña para ingresar.'
+    });
+    return reply.code(201).send(respuestaSesion(app, usuario));
+  });
   app.post("/api/auth/login", async (request, reply) => {
     const body = loginSchema.parse(request.body);
     const bloqueado = await bloqueoLogin(body.email);
@@ -45,13 +61,7 @@ export async function authRoutes(app: FastifyInstance) {
 
     const espera = await aceptarLogin(body.email);
     if (espera > 0) return responderBloqueo(reply, espera);
-    const token = app.jwt.sign(
-      { sub: String(user.id), email: user.email, jti: randomUUID() },
-      { expiresIn: env.JWT_EXPIRES_IN }
-    );
-
-    // Conserva `user` para consumidores existentes y ofrece el contrato de la UI.
-    return { token, user, usuario: toUsuario(user) };
+    return respuestaSesion(app, user);
   });
 
   app.post("/api/auth/logout", async (request, reply) => {
@@ -81,4 +91,12 @@ function toUsuario(user: PublicUser) {
     rol,
     cargo: cargos[rol] ?? user.role
   };
+}
+
+function respuestaSesion(app: FastifyInstance, usuario: PublicUser) {
+  const token = app.jwt.sign(
+    { sub: String(usuario.id), email: usuario.email, jti: randomUUID() },
+    { expiresIn: env.JWT_EXPIRES_IN }
+  );
+  return { token, user: usuario, usuario: toUsuario(usuario) };
 }
