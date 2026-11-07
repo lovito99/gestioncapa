@@ -1,3 +1,4 @@
+import { tokenRevocado, limitarPeticiones } from './modules/auth/seguridadAcceso.js';
 import { registrarAccesoSesiones } from './modules/cursos/sesiones.acceso.js';
 import { registrarHistorial } from './modules/historial/historial.rutas.js';
 import { registrarCursos } from "./modules/cursos/cursos.rutas.js";
@@ -39,7 +40,7 @@ export async function buildApp() {
   await registerHttpPlugins(app);
   registrarErrores(app);
   // Antes de registrar rutas: cada una recibe el guard de la matriz de permisos.
-  registrarAutorizacion(app, findUserById);
+  registrarAutorizacion(app, findUserById, { tokenRevocado, limitar: limitarPeticiones });
   registrarAccesoSesiones(app);
   // No migra: exige que la base esté al día (npm run migrate) antes de aceptar tráfico.
   await verificarMigraciones(pool);

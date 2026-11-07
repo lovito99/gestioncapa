@@ -1,5 +1,5 @@
 import { HistorialPagina, HistorialesAdminPagina } from '@/paginas/historial/HistorialPagina'
-import { CursosPagina } from '@/paginas/cursos/CursosPagina'
+import { CatalogoPagina, CursosPagina } from '@/paginas/cursos/CursosPagina'
 import { CursoFormPagina } from '@/paginas/cursos/CursoFormPagina'
 import { CerrarCursoPagina } from '@/paginas/cursos/cierre/CerrarCursoPagina'
 import { CertificadosAdminPagina } from '@/paginas/cursos/cierre/CertificadosAdminPagina'
@@ -8,7 +8,7 @@ import { DetalleCursoPagina } from '@/paginas/cursos/DetalleCursoPagina'
 import { ReunionesPagina, SalaReunionPagina } from "@/paginas/reuniones/ReunionesPagina"
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RutaProtegida } from '@/auth/RutaProtegida'
-import { PaginaConEncabezado } from '@/components/layout/Pagina'
+import { PaginaConEncabezado, PaginaPublica } from '@/components/layout/Pagina'
 import { AdminPagina } from '@/paginas/admin/AdminPagina'
 import { AsistenciaPagina } from '@/paginas/coordinador/AsistenciaPagina'
 import { ClaseFormPagina } from '@/paginas/coordinador/ClaseFormPagina'
@@ -29,7 +29,8 @@ import { MisCursosPagina } from '@/paginas/participante/MisCursosPagina'
 import { SinPermisoPagina } from '@/paginas/SinPermisoPagina'
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Navigate to="/login" replace /> },
+  { path: '/', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
+  { path: '/capacitaciones', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
   { path: '/login', element: <LoginPagina /> },
   { path: '/registro', element: <RegistroPagina /> },
   // Públicas: el QR del certificado lleva aquí sin pedir sesión

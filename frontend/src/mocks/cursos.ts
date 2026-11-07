@@ -79,6 +79,23 @@ const esquema = z.object({
 }).strict().refine(d => (!d.fechaInicio && !d.fechaFin) || (!!d.fechaInicio && !!d.fechaFin && d.fechaFin >= d.fechaInicio))
 // Al editar, cada módulo puede traer el id del que ya existe para conservar su material
 const esquemaEdicion = esquema.safeExtend({ modulos: z.array(z.object({ id: z.string().optional(), titulo }).strict()).min(1).max(100) })
+function resumenPublico(curso: DetalleCurso) {
+  const { id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, cupos,
+    cuposDisponibles, categoria, fechaInicio, fechaFin } = curso
+  return { id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, cupos,
+    cuposDisponibles, categoria, fechaInicio, fechaFin }
+}
+function catalogoPaginado(request: Request, publico = false, usuarioId = '') {
+  const consulta = z.object({ buscar: z.string().trim().max(160).default(''), categoria: z.string().min(1).max(80).optional(), modalidad: z.enum(['PRESENCIAL','VIRTUAL','HIBRIDA']).optional(), pagina: z.coerce.number().int().min(1).max(100000).default(1), tamanoPagina: z.coerce.number().int().min(1).max(50).default(6) }).strict().safeParse(Object.fromEntries(new URL(request.url).searchParams))
+  if (!consulta.success) return error(422, 'Revisa los filtros y la página solicitada.')
+  const { buscar, categoria, modalidad, pagina, tamanoPagina } = consulta.data
+  const normalizar = (texto: string) => texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+  const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO' && (!publico || !c.fechaFin || c.fechaFin >= hoy))
+  const filtrados = publicados.filter(c => normalizar(c.titulo).includes(normalizar(buscar)) && (!categoria || c.categoria === categoria) && (!modalidad || c.modalidad === modalidad)).sort((a,b) => Number(b.id)-Number(a.id))
+  return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => publico ? resumenPublico(disponibilidad(c, '')) : disponibilidad(c, usuarioId)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...categoriasCatalogo] })
+}
+
 export const handlersCursos = [
   http.get(`${API}/cursos/instructores`, ({ request }) => {
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
@@ -92,15 +109,10 @@ export const handlersCursos = [
     const auth = acceso(request); if (auth.fallo) return auth.fallo
     return HttpResponse.json(cursosSimulados.filter(c => c.estado === 'PUBLICADO').map(c => disponibilidad(c, auth.usuario!.id)))
   }),
+  http.get(`${API}/publico/cursos`, ({ request }) => catalogoPaginado(request, true)),
   http.get(`${API}/catalogo/cursos/pagina`, ({ request }) => {
     const auth = acceso(request); if (auth.fallo) return auth.fallo
-    const consulta = z.object({ buscar: z.string().trim().max(160).default(''), categoria: z.string().min(1).max(80).optional(), modalidad: z.enum(['PRESENCIAL','VIRTUAL','HIBRIDA']).optional(), pagina: z.coerce.number().int().min(1).max(100000).default(1), tamanoPagina: z.coerce.number().int().min(1).max(50).default(6) }).strict().safeParse(Object.fromEntries(new URL(request.url).searchParams))
-    if (!consulta.success) return error(422, 'Revisa los filtros y la página solicitada.')
-    const { buscar, categoria, modalidad, pagina, tamanoPagina } = consulta.data
-    const normalizar = (texto: string) => texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
-    const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO')
-    const filtrados = publicados.filter(c => normalizar(c.titulo).includes(normalizar(buscar)) && (!categoria || c.categoria === categoria) && (!modalidad || c.modalidad === modalidad)).sort((a,b) => Number(b.id)-Number(a.id))
-    return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => disponibilidad(c, auth.usuario!.id)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...categoriasCatalogo] })
+    return catalogoPaginado(request, false, auth.usuario!.id)
   }),
   http.post(`${API}/cursos/:id/inscribirme`, ({ request, params }) => {
     const auth = acceso(request, ['PARTICIPANTE']); if (auth.fallo) return auth.fallo

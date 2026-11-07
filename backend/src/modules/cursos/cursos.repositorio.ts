@@ -70,11 +70,12 @@ export async function obtenerArchivo(cursoId: string, moduloId: string, material
     where m.curso_id=$1 and m.id=$2 and a.id=$3 and a.tipo='PDF'`, [cursoId, moduloId, materialId])).rows[0]?.archivo;
 }
 
-export async function paginaCatalogo(organizacion: string, usuarioId: number, consulta: ConsultaCatalogo) {
+export async function paginaCatalogo(organizacion: string, usuarioId: number, consulta: ConsultaCatalogo, soloVigentes = false) {
   // Un solo snapshot para resultados y total; categorías fijas del Sprint 2.
   const datos = (await pool.query<{ items: Curso[]; total: number }>(`with publicados as (
       select ${columnas},exists(select 1 from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$7) as inscrito
       from cursos c join users u on u.id=c.instructor_id where c.organization_id=$1 and c.estado='PUBLICADO'
+      and (not $8::boolean or c.fecha_fin is null or c.fecha_fin >= (now() at time zone 'America/Lima')::date)
     ), filtrados as (
       select * from publicados where
       strpos(translate(lower(titulo),'áéíóúüñ','aeiouun'),translate(lower($2),'áéíóúüñ','aeiouun')) > 0
@@ -83,7 +84,7 @@ export async function paginaCatalogo(organizacion: string, usuarioId: number, co
     select coalesce((select jsonb_agg(to_jsonb(p) order by p.id::bigint desc) from pagina p),'[]'::jsonb) as items,
       (select count(*)::int from filtrados) as total`,
     [organizacion, consulta.buscar, consulta.modalidad ?? null, consulta.categoria ?? null, consulta.tamanoPagina,
-      (consulta.pagina - 1) * consulta.tamanoPagina, usuarioId])).rows[0]!;
+      (consulta.pagina - 1) * consulta.tamanoPagina, usuarioId, soloVigentes])).rows[0]!;
   return { ...datos, categorias: [...categoriasCatalogo], pagina: consulta.pagina, tamanoPagina: consulta.tamanoPagina, totalPaginas: Math.ceil(datos.total / consulta.tamanoPagina) };
 }
 

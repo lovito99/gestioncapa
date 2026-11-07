@@ -32,7 +32,7 @@ export const usuarios: (Usuario & { password: string })[] = [
     nombre: 'María Fernanda Quispe Ramos',
     email: 'maria.quispe@demo.pe',
     rol: 'PARTICIPANTE',
-    cargo: 'Participante',
+    cargo: 'Agremiado',
     password: 'demo123',
   },
   {
@@ -40,7 +40,7 @@ export const usuarios: (Usuario & { password: string })[] = [
     nombre: 'Luz Marina Apaza Choque',
     email: 'luz.apaza@demo.pe',
     rol: 'PARTICIPANTE',
-    cargo: 'Participante',
+    cargo: 'Agremiado',
     password: 'demo123',
   },
   {

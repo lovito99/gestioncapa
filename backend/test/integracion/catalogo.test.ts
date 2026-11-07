@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import type { FastifyInstance } from 'fastify';
+import { env } from '../../src/config/env.js';
 import { buildApp } from '../../src/app.js';
 import { pool } from '../../src/shared/database.js';
 import { redis } from '../../src/shared/redis.js';
@@ -123,4 +124,25 @@ test('HU-14: detalle publicado incluye solo sus sesiones, ordenadas y sin datos 
   assert.equal((await pedir('ajeno','GET',`/api/cursos/${curso.id}`)).statusCode,403);
   const sinSesiones = await crear();
   assert.deepEqual((await pedir('a','GET',`/api/cursos/${sinSesiones.id}`)).json().sesiones,[]);
+});
+
+test('RF-07: catálogo público vigente, paginado y sin datos internos', async () => {
+  const anterior = env.cpppOrganizacionId;
+  env.cpppOrganizacionId = org;
+  try {
+    const vencido = await crear({ titulo: 'Curso público vencido', fechaInicio: '2020-01-01', fechaFin: '2020-01-02' });
+    const respuesta = await pedir(null, 'GET', '/api/publico/cursos?tamanoPagina=50');
+    assert.equal(respuesta.statusCode, 200, respuesta.body);
+    assert.equal(respuesta.headers['cache-control'], 'no-store');
+    const datos = respuesta.json();
+    assert.ok(datos.total > 0);
+    assert.ok(!datos.items.some((curso: { id: string }) => [borrador, vencido.id].includes(curso.id)));
+    for (const curso of datos.items) {
+      assert.notEqual(curso.titulo, 'HU14 · Curso ajeno');
+      assert.deepEqual(Object.keys(curso).sort(), ['id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'cupos', 'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin'].sort());
+    }
+    const filtro = await pedir(null, 'GET', '/api/publico/cursos?buscar=CAPACITACION&modalidad=VIRTUAL&tamanoPagina=2');
+    assert.equal(filtro.json().total, 4); assert.equal(filtro.json().items.length, 2);
+    assert.equal((await pedir(null, 'GET', '/api/publico/cursos?tamanoPagina=51')).statusCode, 422);
+  } finally { env.cpppOrganizacionId = anterior; }
 });

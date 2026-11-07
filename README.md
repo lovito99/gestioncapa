@@ -1,9 +1,12 @@
 # GestionCapa
 
-Proyecto en modo desarrollo/test con backend TypeScript en Node 24, frontend Vite/React en TypeScript, autenticacion JWT, Postgres y Redis levantados con Docker Compose.
+Subdominio de gestión de capacitaciones del Colegio Profesional de Profesores del Perú – Región Cusco (CPPP), en desarrollo/test. Backend TypeScript en Node 24, frontend Vite/React en TypeScript, autenticacion JWT, Postgres y Redis levantados con Docker Compose.
 
 Versionado: [convención Git de cinco niveles](VERSIONING.md). El agente recomienda
 versiones y comandos; las operaciones Git las ejecuta el usuario manualmente.
+
+[Requisitos CPPP, brechas y etapas de implementación](docs/enfoqueCppp.md).
+La portada `/` ofrece el catálogo sin sesión; los datos demo no son registros oficiales.
 
 ## Entrar rápidamente y ejecutar E2E
 

@@ -38,7 +38,7 @@ export function Encabezado() {
         <div className="mx-auto flex max-w-300 items-center justify-between gap-4 py-2.5 sm:px-6 sm:py-3">
           {/* En celular el Figma acorta el nombre y pone el enlace a la web debajo */}
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <Link to={usuario ? inicioPorRol(usuario) : '/login'} className="shrink-0 rounded-lg" aria-label={`${CPPP.nombre} – ${CPPP.region}`}>
+            <Link to={usuario ? inicioPorRol(usuario) : '/'} className="shrink-0 rounded-lg" aria-label={`${CPPP.nombre} – ${CPPP.region}`}>
               <LogoInsignia alto={36} className="sm:hidden" />
               <LogoInsignia alto={44} className="max-sm:hidden" />
             </Link>
@@ -65,6 +65,7 @@ export function Encabezado() {
             >
               Ir a la web del CPPP ↗
             </a>
+            {!usuario && <Link to="/login" className="text-sm font-semibold text-brand underline">Iniciar sesión</Link>}
             {usuario && (
               <>
                 <span className="hidden text-sm whitespace-nowrap text-muted-2 md:inline">

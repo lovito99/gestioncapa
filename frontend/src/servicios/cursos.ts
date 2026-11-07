@@ -44,7 +44,8 @@ export function leerPdfBase64(archivo: File): Promise<string> {
 }
 export type MaterialEntrada = { titulo: string } & ({ tipo: 'PDF'; contenidoBase64: string } | { tipo: 'ENLACE' | 'VIDEO'; url: string })
 export type FiltrosCatalogo = { buscar?: string; modalidad?: string; categoria?: string; pagina?: number; tamanoPagina?: number }
-export type PaginaCatalogo = { items: Curso[]; total: number; pagina: number; tamanoPagina: number; totalPaginas: number; categorias: string[] }
+export type CursoPublico = Pick<Curso, 'id' | 'titulo' | 'descripcion' | 'instructorNombre' | 'horasLectivas' | 'modalidad' | 'costo' | 'cupos' | 'cuposDisponibles' | 'categoria' | 'fechaInicio' | 'fechaFin'>
+export type PaginaCatalogo<T = Curso> = { items: T[]; total: number; pagina: number; tamanoPagina: number; totalPaginas: number; categorias: string[] }
 /** Porcentaje de asistencia que pide el Figma cuando el curso no indica otro */
 export const REQUISITO_ASISTENCIA_POR_DEFECTO = 80
 
@@ -59,6 +60,7 @@ function conValoresNuevos<T extends Curso>(curso: T): T & { sesiones: SesionCurs
 }
 
 export const cursos = {
+  publico: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo<CursoPublico>>('/publico/cursos', { params: filtros })).data,
   catalogo: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo>('/catalogo/cursos/pagina', { params: filtros })).data,
   inscribirme: async (id: string) => (await api.post<{ cursoId: string; estado: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO'; yaInscrito: boolean }>(`/cursos/${id}/inscribirme`)).data,
   programarSesion: async (id: string, entrada: SesionEntrada) => (await api.post<SesionCurso>(`/cursos/${id}/sesiones`, entrada)).data,

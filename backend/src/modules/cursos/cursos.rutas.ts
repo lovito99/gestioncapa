@@ -1,3 +1,4 @@
+import { env } from '../../config/env.js';
 import { asistenciaCurso, programarSesion } from './sesiones.repositorio.js';
 import { validarClase } from '../clases/clases.validacion.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -23,6 +24,16 @@ async function cursoAutorizado(request: ConId, reply: FastifyReply) {
 }
 
 export async function registrarCursos(app: FastifyInstance) {
+  app.get('/api/publico/cursos', async (request, reply) => {
+    reply.header('Cache-Control', 'no-store');
+    const consulta = esquemaConsultaCatalogo.parse(request.query);
+    const pagina = await paginaCatalogo(env.cpppOrganizacionId, 0, consulta, true);
+    // Lista explícita: nunca publicar organización, inscritos ni materiales.
+    return { ...pagina, items: pagina.items.map(({ id, titulo, descripcion, instructorNombre,
+      horasLectivas, modalidad, costo, cupos, cuposDisponibles, categoria, fechaInicio, fechaFin }) =>
+      ({ id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, cupos,
+        cuposDisponibles, categoria, fechaInicio, fechaFin })) };
+  });
   app.get('/api/cursos/instructores', async request => {
     const organizacion = await organizacionUsuario(request.usuario!.id);
     return (await pool.query(`select id::text,name as nombre from users where organization_id=$1 and role='instructor' and active order by name`, [organizacion])).rows;

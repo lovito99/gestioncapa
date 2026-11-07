@@ -1,5 +1,8 @@
 # Ajustes según el proceso de desarrollo de GestionCapa
 
+> Registro histórico. Para el alcance CPPP vigente y las brechas, consultar
+> [la matriz de requisitos](../enfoqueCppp.md).
+
 Fecha: 7 de octubre de 2026. Referencia: «Proceso de desarrollo del proyecto», versión 2.1 del 03/10/2026, proporcionado por el usuario.
 
 ## Alcance aplicado

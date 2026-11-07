@@ -12,7 +12,7 @@ export async function registerHttpPlugins(app: FastifyInstance) {
     secret: env.JWT_SECRET
   });
   await app.register(cors, {
-    origin: env.NODE_ENV === "development" ? true : env.FRONTEND_URL,
+    origin: env.FRONTEND_URL,
     credentials: true
   });
 }

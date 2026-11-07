@@ -10,6 +10,11 @@ export type UsuarioAutenticado = {
   role: string;
 };
 
+export type ControlesAcceso = {
+  tokenRevocado?: (token: string) => Promise<boolean>;
+  limitar?: (usuarioId: number) => Promise<number>;
+};
+
 /** Debe devolver null si el usuario no existe o está inactivo. */
 export type BuscarUsuario = (id: number) => Promise<UsuarioAutenticado | null>;
 
@@ -30,7 +35,7 @@ const noAutenticado = (reply: FastifyReply) =>
  * El usuario se lee de la base en cada request para que desactivarlo surta efecto
  * aunque su JWT siga vigente. Sin roles, basta con estar autenticado.
  */
-export function crearGuard(buscarUsuario: BuscarUsuario) {
+export function crearGuard(buscarUsuario: BuscarUsuario, controles: ControlesAcceso = {}) {
   return (...roles: Rol[]): preHandlerAsyncHookHandler =>
     async function guard(request: FastifyRequest, reply: FastifyReply) {
       let id: number;
@@ -43,12 +48,18 @@ export function crearGuard(buscarUsuario: BuscarUsuario) {
         return noAutenticado(reply);
       }
 
+      const token = request.headers.authorization?.replace(/^Bearer\s+/i, '').trim() ?? '';
+      if (controles.tokenRevocado && await controles.tokenRevocado(token)) return noAutenticado(reply);
       const usuario = Number.isInteger(id) ? await buscarUsuario(id) : null;
 
       if (!usuario) {
         return noAutenticado(reply);
       }
 
+      const espera = controles.limitar ? await controles.limitar(usuario.id) : 0;
+      if (espera > 0) return reply.header('Retry-After', String(espera)).code(429).send({
+        code: 'LIMITE_PETICIONES', message: `Has realizado muchas solicitudes. Espera ${espera} segundos e intenta de nuevo.`
+      });
       if (roles.length > 0 && !roles.includes(usuario.role.toUpperCase() as Rol)) {
         return reply.code(403).send({
           code: "SIN_PERMISO",
@@ -65,8 +76,8 @@ export function crearGuard(buscarUsuario: BuscarUsuario) {
  * Una ruta que no figura en la matriz detiene el arranque: no hay rutas abiertas
  * por omisión. El guard corre antes del handler, así que un 401/403 no modifica datos.
  */
-export function registrarAutorizacion(app: FastifyInstance, buscarUsuario: BuscarUsuario) {
-  const requerirRol = crearGuard(buscarUsuario);
+export function registrarAutorizacion(app: FastifyInstance, buscarUsuario: BuscarUsuario, controles: ControlesAcceso = {}) {
+  const requerirRol = crearGuard(buscarUsuario, controles);
 
   app.addHook("onRoute", (opciones) => {
     const metodos = [opciones.method].flat();

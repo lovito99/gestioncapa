@@ -58,3 +58,17 @@ it('HU-14: el detalle demo tiene modalidad y sesiones con fecha, horario y lugar
   expect(detalle.sesiones.map((s: { fecha: string }) => s.fecha)).toEqual([...detalle.sesiones.map((s: { fecha: string }) => s.fecha)].sort())
   expect(detalle.sesiones.every((s: object) => !('participantes' in s) && !('inscritos' in s))).toBe(true)
 })
+
+
+it('RF-07: el catálogo público no pide token ni publica materiales o identificadores internos', async () => {
+  const respuesta = await fetch('http://localhost/api/publico/cursos?tamanoPagina=50')
+  expect(respuesta.status).toBe(200)
+  const pagina = await respuesta.json()
+  expect(pagina.items.length).toBeGreaterThan(0)
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+  for (const curso of pagina.items) {
+    expect(curso.fechaFin === null || curso.fechaFin >= hoy).toBe(true)
+    expect(Object.keys(curso).sort()).toEqual(['id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'cupos', 'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin'].sort())
+  }
+  expect((await fetch('http://localhost/api/publico/cursos?tamanoPagina=51')).status).toBe(422)
+})

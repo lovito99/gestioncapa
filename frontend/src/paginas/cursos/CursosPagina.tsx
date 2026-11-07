@@ -8,7 +8,7 @@ import { Campo } from '@/components/ui/Campo'
 import { Entrada, Selector } from '@/components/ui/Entrada'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { mensajeDeError } from '@/lib/api'
-import { cursos, type Curso } from '@/servicios/cursos'
+import { cursos, type Curso, type CursoPublico } from '@/servicios/cursos'
 import { costoCurso, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
 import { DatoCurso, EtiquetasCurso } from './presentacion'
 
@@ -49,7 +49,7 @@ function MisCursosPagina() {
       <ul className="grid gap-4 sm:grid-cols-2">{consulta.data.map(curso => <TarjetaCurso key={curso.id} curso={curso} editable={usuario?.rol === 'ADMIN'} />)}</ul>}
   </div>
 }
-function CatalogoPagina() {
+export function CatalogoPagina({ publico = false }: { publico?: boolean }) {
   const { usuario } = useAuth()
   const [parametros, cambiarParametros] = useSearchParams()
   const buscar = parametros.get('buscar') ?? ''
@@ -60,8 +60,8 @@ function CatalogoPagina() {
   const tamanoPagina = 6
   const [texto, cambiarTexto] = useState(buscar)
   useEffect(() => cambiarTexto(buscar), [buscar])
-  const consulta = useQuery({ queryKey: ['cursos', 'catalogo', usuario?.id, buscar, modalidad, categoria, pagina],
-    queryFn: () => cursos.catalogo({ buscar, ...(modalidad ? { modalidad } : {}), ...(categoria ? { categoria } : {}), pagina, tamanoPagina }) })
+  const consulta = useQuery({ queryKey: ['cursos', publico ? 'publico' : 'catalogo', usuario?.id, buscar, modalidad, categoria, pagina],
+    queryFn: () => (publico ? cursos.publico : cursos.catalogo)({ buscar, ...(modalidad ? { modalidad } : {}), ...(categoria ? { categoria } : {}), pagina, tamanoPagina }) })
   const actualizar = (campo: string, valor: string) => {
     const siguientes = new URLSearchParams(parametros)
     if (valor) siguientes.set(campo, valor); else siguientes.delete(campo)
@@ -73,6 +73,7 @@ function CatalogoPagina() {
   return <div className="mx-auto flex max-w-240 flex-col gap-4 px-4 pt-6 pb-8 wrap-anywhere sm:pt-10">
     <h1 className="text-[22px] font-bold text-ink">Catálogo de cursos</h1>
     <p className="text-sm text-muted">Cursos publicados del CPPP Región Cusco.</p>
+    {publico && <p className="text-sm"><Link className="text-brand underline" to="/login">Inicia sesión</Link> para consultar el detalle e inscribirte.</p>}
     <form onSubmit={buscarCurso} role="search" className="flex flex-col gap-4">
       <Campo etiqueta="Buscar curso">
         <EntradaBusqueda value={texto} onChange={e => cambiarTexto(e.target.value)} />
@@ -89,7 +90,7 @@ function CatalogoPagina() {
           : 'No hay cursos que coincidan. Cambia la búsqueda o limpia los filtros.'}</p>
         {hayFiltros && <button type="button" className="text-sm font-semibold text-brand hover:underline" onClick={() => { cambiarTexto(''); cambiarParametros({}) }}>Limpiar filtros</button>}
       </div>
-      {consulta.data.items.length > 0 && <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4">{consulta.data.items.map(curso => <li key={curso.id} className="min-w-0"><TarjetaCatalogo curso={curso} /></li>)}</ul>}
+      {consulta.data.items.length > 0 && <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4">{consulta.data.items.map(curso => <li key={curso.id} className="min-w-0"><TarjetaCatalogo curso={curso} publico={publico} /></li>)}</ul>}
       {pagina > consulta.data.totalPaginas && consulta.data.total > 0 && <Boton variante="secundario" onClick={() => irPagina(1)}>Volver a la primera página</Boton>}
       {consulta.data.totalPaginas > 0 && <nav aria-label="Paginación de cursos" className="flex items-center justify-between gap-3 sm:justify-center sm:gap-6">
         <Boton variante="secundario" disabled={pagina <= 1} onClick={() => irPagina(pagina - 1)}>‹ Anterior</Boton>
@@ -111,10 +112,10 @@ function EntradaBusqueda(props: InputHTMLAttributes<HTMLInputElement>) {
 }
 
 /** 2.1 · Tarjeta del catálogo: toda la tarjeta abre el detalle del curso. */
-function TarjetaCatalogo({ curso }: { curso: Curso }) {
+function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?: boolean }; publico: boolean }) {
   // El enlace se anuncia solo con el título, no con todo el texto de la tarjeta
   const idTitulo = `curso-${curso.id}-titulo`
-  return <Link to={`/cursos/${curso.id}`} aria-labelledby={idTitulo} className="flex h-full flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)] hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+  return <Link to={publico ? '/login' : `/cursos/${curso.id}`} aria-labelledby={idTitulo} className="flex h-full flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)] hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
     <div className="flex items-center gap-2">
       <h2 id={idTitulo} className="min-w-0 flex-1 text-base font-semibold text-ink">{curso.titulo}</h2>
       <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />

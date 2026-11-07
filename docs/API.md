@@ -4,7 +4,7 @@
 
 ## 1. Reglas generales
 
-- **Autenticación:** el frontend envía `Authorization: Bearer <token>` en todas las peticiones, salvo en el login.
+- **Autenticación:** el frontend envía `Authorization: Bearer <token>` en todas las peticiones, salvo en el login y los recursos públicos. `GET /api/publico/cursos` no requiere token.
 - **Identificadores:** van como **texto** (`"id": "12"`), no como número.
 - **Fechas y horas:** `fecha` en formato `YYYY-MM-DD` y horas en `HH:mm`, en hora de Lima. Los momentos exactos van en ISO 8601, por ejemplo `2026-10-12T10:02:00-05:00`.
 - **Formato único de error.** Todas las respuestas 4xx deben tener esta forma:
@@ -119,3 +119,27 @@ El frontend ya tiene estas pantallas con datos simulados. Su contrato completo e
 - `GET /certificados/:codigo`: verificación pública (SCRUM-138).
 - Campos nuevos: `requisitoAsistencia`, `sesiones` y el estado `CERRADO` en los cursos; `requisitoAsistencia` y `pagoPendiente` en cada curso del historial, y `estado` en cada uno de sus certificados.
 - `POST /cursos/:id/inscribirme` responde `estado: 'PENDIENTE_PAGO'` si el curso tiene costo.
+
+
+## Base CPPP: catálogo público y sesiones
+
+`GET /api/publico/cursos` admite los filtros del catálogo paginado: `buscar`,
+`modalidad` (`PRESENCIAL`, `VIRTUAL`, `HIBRIDA`), `categoria`, `pagina` (1–100000)
+y `tamanoPagina` (1–50, por defecto 6). No requiere sesión. Devuelve
+`{ items, total, pagina, tamanoPagina, totalPaginas, categorias }`. Cada item
+incluye únicamente id, título, descripción, nombre del instructor, horas,
+modalidad, costo, cupos, cupos disponibles, categoría y fechas. Solo publica
+cursos publicados de `cpppOrganizacionId` con fecha final vigente o por confirmar.
+No incluye módulos, materiales, inscritos ni identificadores internos de personas.
+
+`POST /api/auth/logout` invalida el token utilizado hasta su expiración. Los
+siguientes accesos protegidos con ese token devuelven 401. Otros tokens del mismo
+usuario continúan válidos. Cinco fallos de login en 15 minutos bloquean otros
+15 minutos: `423 ACCESO_BLOQUEADO` y cabecera `Retry-After`. El quinto fallo ya
+responde 423. Un login correcto posterior al bloqueo limpia los fallos.
+El límite autenticado por usuario es configurable mediante `limitePeticiones`
+(por defecto 300/minuto): `429 LIMITE_PETICIONES` con `Retry-After`.
+
+`PARTICIPANTE` conserva su valor en el contrato y se presenta como **Agremiado**.
+El rol `COORDINADOR` se mantiene por compatibilidad del Sprint 1.
+Consultar [la matriz CPPP](enfoqueCppp.md) para distinguir API real y simulaciones.

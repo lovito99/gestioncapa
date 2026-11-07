@@ -201,7 +201,7 @@ export const handlers = [
       nombre: `${entrada.nombres.trim()} ${entrada.apellidos.trim()}`,
       email,
       rol: 'PARTICIPANTE' as const,
-      cargo: 'Participante',
+      cargo: 'Agremiado',
       password: entrada.password,
     }
     usuarios.push(nuevo)

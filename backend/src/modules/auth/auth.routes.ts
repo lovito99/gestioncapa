@@ -1,4 +1,6 @@
-import type { FastifyInstance } from "fastify";
+import { randomUUID } from 'node:crypto';
+import { bloqueoLogin, registrarFalloLogin, aceptarLogin, revocarToken, tokenDeCabecera } from './seguridadAcceso.js';
+import type { FastifyInstance, FastifyReply } from "fastify";
 import { z } from "zod";
 import { env } from "../../config/env.js";
 import { validateUser, type PublicUser } from "./auth.service.js";
@@ -11,12 +13,23 @@ const loginSchema = z.object({
   password: z.string({ error: "Ingresa tu contraseña" }).min(1, "Ingresa tu contraseña")
 });
 
+function responderBloqueo(reply: FastifyReply, segundos: number) {
+  return reply.header('Retry-After', String(segundos)).code(423).send({
+    code: 'ACCESO_BLOQUEADO',
+    message: 'Acceso bloqueado por intentos fallidos. Espera 15 minutos e intenta de nuevo.'
+  });
+}
+
 export async function authRoutes(app: FastifyInstance) {
   app.post("/api/auth/login", async (request, reply) => {
     const body = loginSchema.parse(request.body);
+    const bloqueado = await bloqueoLogin(body.email);
+    if (bloqueado > 0) return responderBloqueo(reply, bloqueado);
     const user = await validateUser(body.email, body.password);
 
     if (!user) {
+      const espera = await registrarFalloLogin(body.email);
+      if (espera > 0) return responderBloqueo(reply, espera);
       return reply.code(401).send({
         code: "CREDENCIALES_INVALIDAS",
         message: "Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo."
@@ -30,8 +43,10 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
+    const espera = await aceptarLogin(body.email);
+    if (espera > 0) return responderBloqueo(reply, espera);
     const token = app.jwt.sign(
-      { sub: String(user.id), email: user.email },
+      { sub: String(user.id), email: user.email, jti: randomUUID() },
       { expiresIn: env.JWT_EXPIRES_IN }
     );
 
@@ -39,8 +54,9 @@ export async function authRoutes(app: FastifyInstance) {
     return { token, user, usuario: toUsuario(user) };
   });
 
-  app.post("/api/auth/logout", async (_request, reply) => {
-    // JWT stateless: el cliente descarta el token; no se revoca un token emitido.
+  app.post("/api/auth/logout", async (request, reply) => {
+    const payload = await request.jwtVerify<{ exp?: number }>();
+    await revocarToken(tokenDeCabecera(request.headers.authorization), payload.exp);
     return reply.code(204).send();
   });
 
@@ -55,7 +71,7 @@ function toUsuario(user: PublicUser) {
     ADMIN: "Administrador",
     COORDINADOR: "Coordinador",
     INSTRUCTOR: "Instructor",
-    PARTICIPANTE: "Participante"
+    PARTICIPANTE: "Agremiado"
   };
   const rol = user.role.toUpperCase();
   return {
