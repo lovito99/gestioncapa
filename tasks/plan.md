@@ -4,6 +4,11 @@ Fuente: T-23 / SCRUM-121 y Requisitos GestionCapa CPPP v4.0, 27/10/2026,
 proporcionados por el usuario. Alcance elegido: todos los requisitos por etapas.
 El detalle y la evidencia se mantienen en [la matriz](../docs/enfoqueCppp.md).
 
+El calendario del producto se conserva: Sprint 2 (27/10–09/11/2026), certificados
+con QR; Sprint 3, pagos y sesiones virtuales seguras antes del evento de fines
+de noviembre. Las etapas técnicas siguientes no reemplazan esa prioridad ni
+fijan fechas no proporcionadas. Véase [T-23](../docs/esp/reestructuracionCppp.md).
+
 | Etapa | Resultado verificable | Dependencias |
 |---|---|---|
 | 1. Base institucional y acceso | Identidad CPPP, catálogo público, sesión revocable, bloqueo y límites | PostgreSQL y Redis existentes |

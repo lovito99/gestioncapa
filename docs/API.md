@@ -17,7 +17,10 @@
 
 ## 2. Roles
 
-Hay cuatro roles: `ADMIN`, `COORDINADOR`, `INSTRUCTOR` y `PARTICIPANTE`. El seed crea usuarios de los cuatro (en producción, solo `admin`).
+Los roles del producto CPPP son administrador (`ADMIN`), instructor (`INSTRUCTOR`)
+y agremiado (`PARTICIPANTE`). Se conserva `COORDINADOR` por compatibilidad del
+Sprint 1. El seed de desarrollo/pruebas crea los cuatro códigos; en producción,
+solo el administrador. No se migran los códigos como parte de T-23.
 
 - Sin sesión o con token inválido → **401** `NO_AUTENTICADO`.
 - Con sesión pero rol incorrecto → **403** `SIN_PERMISO`. El backend debe validar el rol en **cada** ruta; ocultar botones en la interfaz no basta.

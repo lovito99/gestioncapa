@@ -2,6 +2,8 @@
 
 Fuente: T-23 (SCRUM-121) y Requisitos GestionCapa CPPP, versión 4.0 del
 27/10/2026, transcritos por el usuario. Revisión del repositorio: 07/11/2026.
+El cambio de producto, la planificación y sus evidencias se detallan en
+[T-23](esp/reestructuracionCppp.md).
 El alcance solicitado es implementar todos los requisitos por etapas, según
 [tasks/plan.md](../tasks/plan.md); este documento no declara terminado el sistema.
 

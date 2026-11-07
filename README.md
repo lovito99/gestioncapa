@@ -5,6 +5,7 @@ Subdominio de gestión de capacitaciones del Colegio Profesional de Profesores d
 Versionado: [convención Git de cinco niveles](VERSIONING.md). El agente recomienda
 versiones y comandos; las operaciones Git las ejecuta el usuario manualmente.
 
+[T-23: cambio de enfoque, sprints y compatibilidad](docs/esp/reestructuracionCppp.md).
 [Requisitos CPPP, brechas y etapas de implementación](docs/enfoqueCppp.md).
 La portada `/` ofrece el catálogo sin sesión; los datos demo no son registros oficiales.
 
@@ -141,8 +142,8 @@ Usuarios que crea `npm run bd:seed` (fuera de producción):
 | Coordinador | `ana.torres@organizacion.pe` | `demo123` |
 | Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
 | Instructora | `lucia.paredes@organizacion.pe` | `demo123` |
-| Participante | `maria.quispe@demo.pe` | `demo123` |
-| Participante | `luz.apaza@demo.pe` | `demo123` |
+| Agremiado | `maria.quispe@demo.pe` | `demo123` |
+| Agremiado | `luz.apaza@demo.pe` | `demo123` |
 
 Con `NODE_ENV=production` el seed solo crea el administrador. El seed es idempotente:
 no duplica usuarios ni cambia la clave de los que ya existen.
@@ -272,7 +273,7 @@ la aprobación de otro integrante. Detalles en [docs/calidad.md](docs/calidad.md
 4. El frontend guarda la sesion y lleva al usuario a su panel segun el rol:
    - Coordinador: gestion de clases, inscritos y asistencia.
    - Instructor: sus clases y el QR de asistencia.
-   - Participante: sus clases y el escaner de QR para registrar asistencia (pensado para celular).
+   - Agremiado: sus clases y el escaner de QR para registrar asistencia (pensado para celular).
    - Administrador: estado del sistema (`/api/health`).
 
 ### Datos simulados (MSW)
@@ -283,8 +284,8 @@ Sin backend, `npm run dev:demo` usa datos simulados con MSW (`VITE_USE_MOCKS=tru
 |---|---|---|
 | Coordinadora | `ana.torres@organizacion.pe` | `demo123` |
 | Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
-| Participante (inscrita en 2 clases) | `maria.quispe@demo.pe` | `demo123` |
-| Participante (inscrita en 1 clase) | `luz.apaza@demo.pe` | `demo123` |
+| Agremiado (inscrita en 2 clases) | `maria.quispe@demo.pe` | `demo123` |
+| Agremiado (inscrita en 1 clase) | `luz.apaza@demo.pe` | `demo123` |
 | Administrador | `admin@gestioncapa.local` | `demo123` |
 
 Prueba del flujo de asistencia (Sprint 1) en un mismo computador:
@@ -535,7 +536,7 @@ Flujo visual:
 - Login
 - Coordinador: clases, nueva/editar clase, detalle e inscritos, asistencia
 - Instructor: mis clases, QR de asistencia
-- Participante: mis clases, escanear QR, confirmacion de asistencia
+- Agremiado: mis clases, escanear QR, confirmacion de asistencia
 - Administrador: estado del sistema
 
 ### Base de datos y cache
