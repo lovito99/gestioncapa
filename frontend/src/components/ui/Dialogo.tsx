@@ -45,7 +45,7 @@ export function Dialogo({ abierto, onCerrar, titulo, icono, children, acciones }
       >
         <div className="flex items-center gap-3.5">
           {icono}
-          <h2 id={idTitulo} className="text-xl leading-6.25 font-semibold text-ink">
+          <h2 id={idTitulo} className="font-serif text-xl leading-6.25 font-bold text-ink">
             {titulo}
           </h2>
         </div>

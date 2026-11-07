@@ -7,7 +7,7 @@ import { completarAcceso, entrar } from '../../ayud/sesion'
 const opciones = {
   coord: { rol: 'link', nombre: 'Nueva clase' },
   instr: { rol: 'link', nombre: 'Mostrar QR' },
-  part: { rol: 'link', nombre: 'Registrar asistencia' },
+  part: { rol: 'link', nombre: 'Historial' },
   admin: { rol: 'heading', nombre: 'Estado del sistema' },
 } as const
 

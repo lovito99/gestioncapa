@@ -9,7 +9,7 @@ import { env } from "../../src/config/env.js";
 
 let aplicacion: FastifyInstance;
 let claseIdentificador: string;
-let reunionIdentificador: string;
+const reunionesCreadas: string[] = [];
 const organizacionAjena = Date.now();
 const usuarios = new Map<string, { identificador: string; token: string }>();
 const prefijo = `reuniones${Date.now()}`;
@@ -35,7 +35,7 @@ before(async () => {
   await pool.query('insert into enrollments(class_id,user_id) values ($1,$2)', [claseIdentificador, usuarios.get('inscrito')!.identificador]);
 });
 after(async () => {
-  if (reunionIdentificador) {
+  for (const reunionIdentificador of reunionesCreadas) {
     await pool.query('delete from "notificacionesReunion" where "reunionIdentificador"=$1', [reunionIdentificador]);
     await pool.query('delete from "participantesReunion" where "reunionIdentificador"=$1', [reunionIdentificador]);
     await pool.query('delete from reuniones where identificador=$1', [reunionIdentificador]);
@@ -55,7 +55,8 @@ test('Flujo autorizado: crear, iniciar, emitir, retirar y finalizar', async () =
   assert.equal((await llamar('inscrito','POST','/api/reuniones',datos)).statusCode,403);
   const creada = await llamar('gestor','POST','/api/reuniones',datos);
   assert.equal(creada.statusCode,201,creada.body);
-  reunionIdentificador = creada.json().identificador;
+  const reunionIdentificador = creada.json().identificador;
+  reunionesCreadas.push(reunionIdentificador);
   const ruta = `/api/reuniones/${reunionIdentificador}`;
   assert.equal((await pool.query('select * from "notificacionesReunion" where "reunionIdentificador"=$1',[reunionIdentificador])).rowCount,2);
   assert.equal((await llamar('ajeno','GET',ruta)).statusCode,403);
@@ -91,4 +92,62 @@ test('Flujo autorizado: crear, iniciar, emitir, retirar y finalizar', async () =
   assert.equal((await llamar('docente','POST',`${ruta}/finalizar`)).statusCode,200);
   assert.equal((await llamar('docente','POST',`${ruta}/credencial`)).statusCode,409);
   assert.equal((await llamar('docente','POST',`${ruta}/iniciar`)).statusCode,409);
+});
+
+test('La reunión iniciada admite entradas y reconexiones después del fin programado hasta cerrarla', async () => {
+  const datos = {
+    claseIdentificador,
+    titulo: 'Reunión que continúa después de su horario',
+    inicioProgramado: new Date(Date.now() - 7200000).toISOString(),
+    finProgramado: new Date(Date.now() - 3600000).toISOString()
+  };
+  const creada = await llamar('gestor', 'POST', '/api/reuniones', datos);
+  assert.equal(creada.statusCode, 201, creada.body);
+  const identificador = creada.json().identificador;
+  reunionesCreadas.push(identificador);
+  const ruta = `/api/reuniones/${identificador}`;
+
+  assert.equal((await llamar('inscrito', 'POST', `${ruta}/credencial`)).statusCode, 409);
+  assert.equal((await llamar('docente', 'POST', `${ruta}/iniciar`)).statusCode, 200);
+
+  for (const nombre of ['docente', 'inscrito', 'inscrito']) {
+    const respuesta = await llamar(nombre, 'POST', `${ruta}/credencial`);
+    assert.equal(respuesta.statusCode, 200, respuesta.body);
+    assert.equal(respuesta.headers['cache-control'], 'no-store');
+    const claims = JSON.parse(Buffer.from(respuesta.json().token.split('.')[1], 'base64url').toString());
+    assert.equal(claims.exp - claims.iat, 300);
+    assert.ok(claims.exp > Math.floor(Date.now() / 1000));
+    assert.equal(claims.room, creada.json().nombreSala);
+  }
+
+  const reunion = (await llamar('docente', 'GET', ruta)).json();
+  assert.equal(reunion.inicioProgramado, datos.inicioProgramado);
+  assert.equal(reunion.finProgramado, datos.finProgramado);
+  assert.equal(reunion.estado, 'iniciada');
+
+  await pool.query("update classes set estado='CANCELADA' where id=$1", [claseIdentificador]);
+  try {
+    assert.equal((await llamar('inscrito', 'POST', `${ruta}/credencial`)).statusCode, 409);
+  } finally {
+    await pool.query("update classes set estado='PROGRAMADA' where id=$1", [claseIdentificador]);
+  }
+
+  assert.equal((await llamar('gestor', 'POST', `${ruta}/finalizar`)).statusCode, 200);
+  assert.equal((await llamar('inscrito', 'POST', `${ruta}/credencial`)).statusCode, 409);
+});
+
+test('Una reunión cancelada mantiene cerrado el acceso a credenciales', async () => {
+  const creada = await llamar('gestor', 'POST', '/api/reuniones', {
+    claseIdentificador,
+    titulo: 'Reunión cancelada',
+    inicioProgramado: new Date(Date.now() - 60000).toISOString(),
+    finProgramado: new Date(Date.now() + 3600000).toISOString()
+  });
+  assert.equal(creada.statusCode, 201, creada.body);
+  const identificador = creada.json().identificador;
+  reunionesCreadas.push(identificador);
+  const ruta = `/api/reuniones/${identificador}`;
+  assert.equal((await llamar('gestor', 'POST', `${ruta}/cancelar`)).statusCode, 200);
+  assert.equal((await llamar('docente', 'POST', `${ruta}/credencial`)).statusCode, 409);
+  assert.equal((await llamar('inscrito', 'POST', `${ruta}/credencial`)).statusCode, 409);
 });

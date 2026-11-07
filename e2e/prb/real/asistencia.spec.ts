@@ -54,17 +54,16 @@ test('VIN-01: flujo completo de asistencia por QR con el backend real', async ({
   const tokenQr = qr.token
   // El registro sigue usando el token firmado y el reloj real del backend.
   await page.goto(rutas.marcar(tokenQr))
-  await expect(page.getByRole('heading', { name: '¡Asistencia registrada!' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Asistencia registrada', exact: true })).toBeVisible()
   await paginaInstructor.close()
   await expect(page.getByText(nombre, { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Volver a mis clases' }).click()
-  const clase = page.getByRole('article').filter({ hasText: nombre })
-  await expect(clase).toContainText('Asistencia registrada a las')
-  await expect(clase.getByRole('link', { name: 'Registrar asistencia' })).toHaveCount(0)
+  // 3.1: cada clase es una tarjeta enlazada; muestra la hora en que se registró
+  await expect(page.getByRole('link', { name: nombre, exact: true })).toContainText('Asistencia registrada a las')
 
   // Repetir el enlace no crea otra asistencia (la base real conserva el registro).
   await page.goto(rutas.marcar(tokenQr))
-  await expect(page.getByRole('heading', { name: /Tu asistencia ya estaba registrada|El código QR expiró/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Asistencia ya registrada|QR expirado/ })).toBeVisible()
 
   // Coordinadora: comprueba quién asistió.
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()

@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { asistencias, clases, inscripciones, usuarios } from './datos'
-import { cursosSimulados } from './cursos'
+import { certificados as certificadosEmitidos } from './certificados'
+import { cursosSimulados, inscripcionesCursosDemo } from './cursos'
 import { pdfTextoDemo } from './pdfTexto'
 import type { Historial, ResumenAsistencia, SesionHistorial } from '@/servicios/historial'
 const API = import.meta.env.VITE_API_URL ?? '/api'
@@ -22,13 +23,17 @@ const resumen = (sesiones: SesionHistorial[]): ResumenAsistencia => {
 function historialDe(id: string): Historial {
   const persona = usuarios.find(u => u.id === id)!
   const fecha = (dias: number) => new Date(Date.now() + dias * 86400000).toISOString()
-  const cursos = cursosSimulados.filter(c => c.titulo.startsWith('Demo ·') && c.estado === 'PUBLICADO').slice(0, id === 'p-1' ? 2 : 1).map((curso, indice) => {
-    const terminado = id === 'p-1' && indice === 0
-    const sesiones: SesionHistorial[] = [0, 1].map(n => ({ id: `hist-${curso.id}-${n}`, cursoId: curso.id,
+  const cursos = cursosSimulados.filter(c => inscripcionesCursosDemo.get(c.id)?.has(id)).map(curso => {
+    const indice = curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 0 : curso.titulo === 'Demo · Didáctica y evaluación' ? 1 : 2
+    // Al cerrar un curso (2.4) sus certificados aparecen aquí con su estado real
+    const emitidos = certificadosEmitidos.filter(c => c.cursoId === curso.id && c.agremiadoId === id && c.estado !== 'REEMPLAZADO')
+      .map(c => ({ id: `cert-${c.codigo}`, cursoId: curso.id, codigo: c.codigo, tipo: c.tipo, emitidoEn: c.emitidoEn, estado: c.estado }))
+    const terminado = curso.estado === 'CERRADO' || (id === 'p-1' && indice === 0)
+    const sesiones: SesionHistorial[] = (indice > 1 ? [] : [0, 1]).map(n => ({ id: `hist-${curso.id}-${n}`, cursoId: curso.id,
       titulo: `Sesión ${n + 1} de ${curso.titulo}`, fecha: fecha(indice === 0 ? -15 + n : n === 0 ? -3 : 10).slice(0, 10), horaInicio: '08:00', horaFin: '09:00',
       estado: indice === 1 && n === 1 ? 'PENDIENTE' : (id === 'p-1' ? n === 0 : n === 1) ? 'PRESENTE' : 'AUSENTE', contabiliza: !(indice === 1 && n === 1), horaRegistro: null }))
-    return { id: curso.id, titulo: curso.titulo, estado: terminado ? 'TERMINADO' as const : 'EN_CURSO' as const, horasLectivas: curso.horasLectivas, modalidad: curso.modalidad, inscritoEn: fecha(-30), terminadoEn: terminado ? fecha(-10) : null,
-      sesiones, asistencia: resumen(sesiones), certificados: terminado ? [{ id: 'cert-demo-maria', cursoId: curso.id, codigo: 'DEMO-HU18-MARIA-SEGURIDAD', tipo: 'APROBACION' as const, emitidoEn: fecha(-9) }] : [] }
+    return { id: curso.id, titulo: curso.titulo, estado: terminado ? 'TERMINADO' as const : 'EN_CURSO' as const, horasLectivas: curso.horasLectivas, requisitoAsistencia: curso.requisitoAsistencia, pagoPendiente: curso.costo > 0 && !terminado, modalidad: curso.modalidad, inscritoEn: fecha(-30), terminadoEn: terminado ? fecha(-10) : null,
+      sesiones, asistencia: resumen(sesiones), certificados: id === 'p-1' && indice === 0 ? [{ id: 'cert-demo-maria', cursoId: curso.id, codigo: 'DEMO-HU18-MARIA-SEGURIDAD', tipo: 'APROBACION' as const, emitidoEn: fecha(-9), estado: certificadosEmitidos.find(c => c.codigo === 'DEMO-HU18-MARIA-SEGURIDAD')?.estado ?? 'VALIDO' }] : emitidos }
   })
   const independientes: SesionHistorial[] = clases.filter(c => inscripciones[c.id]?.includes(id)).map(c => {
     const hora = asistencias[c.id]?.[id] ?? null

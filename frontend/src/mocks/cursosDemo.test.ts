@@ -10,11 +10,11 @@ async function consultar(ruta: string, usuario = 'p-1') {
 }
 
 describe('Cursos de demostración', () => {
-  it('el colegiado ve dos cursos publicados y no el borrador', async () => {
+  it('el colegiado ve tres cursos publicados y no el borrador', async () => {
     const respuesta = await consultar('/catalogo/cursos')
     const catalogo = await respuesta.json()
     expect(respuesta.status).toBe(200)
-    expect(catalogo).toHaveLength(2)
+    expect(catalogo).toHaveLength(3)
     expect(catalogo.every((c: { estado: string }) => c.estado === 'PUBLICADO')).toBe(true)
     expect(catalogo.some((c: { costo: number }) => c.costo === 0)).toBe(true)
     const borrador = (await (await consultar('/cursos', 'u-admin-1')).json()).find((c: { estado: string }) => c.estado === 'BORRADOR')
@@ -23,7 +23,7 @@ describe('Cursos de demostración', () => {
   it('cada instructor ve sus cursos con módulos y materiales', async () => {
     const carlos = await (await consultar('/cursos', 'i-1')).json()
     const lucia = await (await consultar('/cursos', 'i-2')).json()
-    expect(carlos).toHaveLength(2); expect(lucia).toHaveLength(1)
+    expect(carlos).toHaveLength(2); expect(lucia).toHaveLength(2)
     const curso = await (await consultar(`/cursos/${carlos[0].id}`, 'i-1')).json()
     expect(curso.modulos.map((m: { orden: number }) => m.orden)).toEqual([1, 2])
     expect(curso.modulos.flatMap((m: { materiales: { tipo: string }[] }) => m.materiales.map(a => a.tipo))).toEqual(['PDF', 'ENLACE', 'VIDEO'])
@@ -40,4 +40,21 @@ describe('Cursos de demostración', () => {
     expect(texto).toMatch(/^%PDF-1\.4/)
     expect(texto).toContain('startxref')
   })
+})
+
+it('HU-14: las categorías fijas permanecen disponibles incluso sin resultados', async () => {
+  const pagina = await (await consultar('/catalogo/cursos/pagina?buscar=curso-inexistente-hu14')).json()
+  expect(pagina.items).toEqual([])
+  expect(pagina.categorias).toEqual(['Educación', 'General', 'Seguridad y salud', 'Tecnología'])
+})
+
+it('HU-14: el detalle demo tiene modalidad y sesiones con fecha, horario y lugar', async () => {
+  const catalogo = await (await consultar('/catalogo/cursos')).json()
+  const curso = catalogo.find((c: { modalidad: string }) => c.modalidad === 'PRESENCIAL')
+  const detalle = await (await consultar(`/cursos/${curso.id}`)).json()
+  expect(detalle.modalidad).toBe('PRESENCIAL')
+  expect(detalle.sesiones).toHaveLength(4)
+  expect(detalle.sesiones[0]).toMatchObject({ horaInicio: '08:00', horaFin: '14:00', lugar: 'Auditorio principal, piso 2', estado: 'PROGRAMADA' })
+  expect(detalle.sesiones.map((s: { fecha: string }) => s.fecha)).toEqual([...detalle.sesiones.map((s: { fecha: string }) => s.fecha)].sort())
+  expect(detalle.sesiones.every((s: object) => !('participantes' in s) && !('inscritos' in s))).toBe(true)
 })

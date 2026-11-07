@@ -1,11 +1,10 @@
-import { CameraOff } from 'lucide-react'
+import { Clock, X } from 'lucide-react'
 import QrScanner from 'qr-scanner'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Boton } from '@/components/ui/Boton'
-import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
-import { useMarcarAsistencia } from '@/servicios/participante'
-import { AsistenciaRechazada, AsistenciaRegistrada, Enviando } from './ResultadoAsistencia'
+import { fechaCorta, rangoHorario } from '@/lib/formato'
+import { useClasesParticipante, useMarcarAsistencia } from '@/servicios/participante'
+import { AsistenciaRechazada, AsistenciaRegistrada, Enviando, ErrorCamara } from './ResultadoAsistencia'
 
 /** El QR contiene la URL `/asistencia/marcar?token=…`; aceptamos también el token suelto. */
 function extraerToken(texto: string) {
@@ -23,7 +22,7 @@ function mensajeCamara(error: unknown) {
   }
   const nombre = error instanceof DOMException ? error.name : String(error)
   if (nombre === 'NotAllowedError' || nombre === 'SecurityError') {
-    return 'No diste permiso para usar la cámara. Toca el ícono de candado o de cámara en la barra del navegador, permite el acceso y vuelve a intentar.'
+    return 'Para escanear el QR, permite el uso de la cámara en tu navegador y vuelve a intentarlo.'
   }
   if (nombre === 'NotReadableError') {
     return 'Otra aplicación está usando la cámara. Ciérrala y vuelve a intentar.'
@@ -44,6 +43,7 @@ export function EscanearPagina() {
   const [estado, setEstado] = useState<Estado>({ tipo: 'iniciando' })
   const [intento, setIntento] = useState(0)
   const marcar = useMarcarAsistencia()
+  const { data: clases } = useClasesParticipante()
   // `mutate` es estable entre renders; el objeto `marcar` no
   const { mutate } = marcar
   const esperandoLectura = marcar.isIdle
@@ -64,7 +64,7 @@ export function EscanearPagina() {
     leido.current = false
     const instancia = new QrScanner(video.current, alLeer, {
       preferredCamera: 'environment',
-      highlightScanRegion: true,
+      highlightScanRegion: false,
       highlightCodeOutline: true,
       returnDetailedScanResult: true,
     })
@@ -97,51 +97,55 @@ export function EscanearPagina() {
     setIntento((n) => n + 1)
   }
 
+  const clase = clases?.find((c) => c.id === claseId)
+  if (marcar.isPending) return <Enviando />
+  if (marcar.isSuccess) return <AsistenciaRegistrada resultado={marcar.data} />
+  if (marcar.isError) return <AsistenciaRechazada error={marcar.error} onReintentar={reintentar} nombreClase={clase?.nombre} />
+  if (estado.tipo === 'error-camara') return <ErrorCamara mensaje={estado.mensaje} onReintentar={reintentar} />
+
   return (
-    <div className="px-4 py-6">
-      <div className="mx-auto flex w-full max-w-120 min-w-0 flex-col wrap-anywhere gap-4">
-        <EnlaceVolver to="/participante/clases">Mis clases</EnlaceVolver>
-
-        {marcar.isPending && <Enviando />}
-        {marcar.isSuccess && <AsistenciaRegistrada resultado={marcar.data} />}
-        {marcar.isError && <AsistenciaRechazada error={marcar.error} onReintentar={reintentar} />}
-
-        {esperandoLectura && (
-          <>
-            <header>
-              <h1 className="text-xl leading-7 font-semibold text-ink">Escanea el QR de la clase</h1>
-              <p className="mt-1 text-sm text-muted">
-                Apunta la cámara al código que muestra tu instructor. Se registrará solo.
+    <div className="flex min-h-[calc(100dvh-6.5rem)] flex-col bg-black">
+      {/* 3.3: la vista de la cámara ocupa la pantalla; el recuadro marca la zona de lectura */}
+      <div className="relative flex-1 overflow-hidden">
+        <video ref={video} className="absolute inset-0 size-full object-cover" muted playsInline aria-label="Vista de la cámara" />
+        <div className="absolute inset-x-0 top-0 flex h-14 items-center justify-center bg-gradient-to-b from-black/60 to-transparent px-4">
+          <Link
+            to={claseId ? `/participante/clases/${claseId}` : '/participante/clases'}
+            aria-label="Cerrar el escáner"
+            className="absolute left-3 flex size-10 items-center justify-center rounded-full text-white hover:bg-white/10"
+          >
+            <X className="size-6" aria-hidden />
+          </Link>
+          <h1 className="font-sans text-base font-semibold text-white">Escanear QR</h1>
+        </div>
+        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-6 px-6">
+          <div className="relative aspect-square w-[min(66vw,16rem)]" aria-hidden>
+            {['top-0 left-0 border-t-4 border-l-4 rounded-tl-lg', 'top-0 right-0 border-t-4 border-r-4 rounded-tr-lg', 'bottom-0 left-0 border-b-4 border-l-4 rounded-bl-lg', 'bottom-0 right-0 border-b-4 border-r-4 rounded-br-lg'].map((esquina) => (
+              <span key={esquina} className={`absolute size-10 border-white ${esquina}`} />
+            ))}
+          </div>
+          <p role="status" className="max-w-64 text-center text-base leading-6 text-white [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
+            {estado.tipo === 'iniciando'
+              ? 'Abriendo la cámara… Si el navegador te pide permiso, tócalo en «Permitir».'
+              : 'Apunta la cámara al código QR que muestra el instructor'}
+          </p>
+        </div>
+      </div>
+      <div className="bg-white px-4 py-4 wrap-anywhere">
+        <div className="mx-auto max-w-160">
+          {clase ? (
+            <>
+              <p className="text-xs text-muted">Registrando asistencia en</p>
+              <p className="text-base font-semibold text-ink">{clase.nombre}</p>
+              <p className="mt-1 flex items-center gap-2 text-sm text-muted">
+                <Clock className="size-4 shrink-0" aria-hidden />
+                {fechaCorta(clase.fecha)} · {rangoHorario(clase.horaInicio, clase.horaFin)} · {clase.lugar}
               </p>
-            </header>
-
-            {estado.tipo === 'error-camara' ? (
-              <section
-                role="alert"
-                className="flex flex-col items-center gap-3 rounded-xl border border-line bg-white px-5 py-8 text-center"
-              >
-                <CameraOff className="size-12 text-danger" aria-hidden />
-                <h2 className="text-lg font-semibold text-ink">No pudimos usar la cámara</h2>
-                <p className="text-sm leading-5 text-muted">{estado.mensaje}</p>
-                <Boton onClick={reintentar} className="mt-2 h-12 w-full text-base">
-                  Intentar de nuevo
-                </Boton>
-                <Link to="/participante/clases" className="text-sm font-semibold text-brand hover:underline">
-                  Volver a mis clases
-                </Link>
-              </section>
-            ) : (
-              <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-ink">
-                <video ref={video} className="size-full object-cover" muted playsInline aria-label="Vista de la cámara" />
-                {estado.tipo === 'iniciando' && (
-                  <p role="status" className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white">
-                    Abriendo la cámara… Si el navegador te pide permiso, tócalo en «Permitir».
-                  </p>
-                )}
-              </div>
-            )}
-          </>
-        )}
+            </>
+          ) : (
+            <p className="text-sm text-muted">Escanea el QR de tu clase: la asistencia se registra sola.</p>
+          )}
+        </div>
       </div>
     </div>
   )

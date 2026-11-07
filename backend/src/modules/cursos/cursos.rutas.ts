@@ -1,7 +1,9 @@
+import { asistenciaCurso, programarSesion } from './sesiones.repositorio.js';
+import { validarClase } from '../clases/clases.validacion.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { pool } from '../../shared/database.js';
-import { crearCurso, guardarMaterial, listarCursos, obtenerArchivo, obtenerCurso, organizacionUsuario, publicarCurso } from './cursos.repositorio.js';
-import { esquemaCurso, esquemaMaterial, idCurso } from './cursos.validacion.js';
+import { crearCurso, guardarMaterial, inscribirseEnCurso, paginaCatalogo, listarCursos, obtenerArchivo, obtenerCurso, organizacionUsuario, publicarCurso } from './cursos.repositorio.js';
+import { esquemaCurso, esquemaMaterial, esquemaConsultaCatalogo, idCurso } from './cursos.validacion.js';
 
 type ConId = FastifyRequest<{ Params: { id: string; moduloId?: string; materialId?: string } }>;
 const error = (reply: FastifyReply, status: number, code: string, message: string) => reply.code(status).send({ code, message });
@@ -10,7 +12,7 @@ async function cursoAutorizado(request: ConId, reply: FastifyReply) {
   if (!idCurso.safeParse(request.params.id).success) {
     await error(reply, 404, 'CURSO_NO_EXISTE', 'El curso no existe.'); return null;
   }
-  const curso = await obtenerCurso(request.params.id);
+  const curso = await obtenerCurso(request.params.id, request.usuario!.id);
   if (!curso) { await error(reply, 404, 'CURSO_NO_EXISTE', 'El curso no existe.'); return null; }
   const usuario = request.usuario!;
   const organizacion = await organizacionUsuario(usuario.id);
@@ -31,6 +33,20 @@ export async function registrarCursos(app: FastifyInstance) {
     return listarCursos(organizacion!, usuario.role === 'instructor' ? usuario.id : undefined);
   });
   app.get('/api/catalogo/cursos', async request => listarCursos((await organizacionUsuario(request.usuario!.id))!, undefined, true));
+  app.get('/api/catalogo/cursos/pagina', async (request, reply) => {
+    reply.header('Cache-Control', 'private, no-store');
+    const consulta = esquemaConsultaCatalogo.parse(request.query);
+    return paginaCatalogo((await organizacionUsuario(request.usuario!.id))!, request.usuario!.id, consulta);
+  });
+  app.post('/api/cursos/:id/inscribirme', async (request: ConId, reply) => {
+    if (!idCurso.safeParse(request.params.id).success) return error(reply, 404, 'CURSO_NO_EXISTE', 'El curso no existe.');
+    const resultado = await inscribirseEnCurso(request.params.id, request.usuario!.id);
+    if (resultado === 'NO_EXISTE') return error(reply, 404, 'CURSO_NO_EXISTE', 'El curso no existe.');
+    if (resultado === 'SIN_PERMISO') return error(reply, 403, 'SIN_PERMISO', 'No tienes permiso para inscribirte en este curso.');
+    if (resultado === 'NO_PUBLICADO') return error(reply, 409, 'CURSO_NO_PUBLICADO', 'El curso no está publicado.');
+    if (resultado === 'SIN_CUPOS') return error(reply, 409, 'SIN_CUPOS', 'El curso está sin cupos. Elige otra capacitación.');
+    return reply.code(resultado === 'INSCRITO' ? 201 : 200).send({ cursoId: request.params.id, estado: resultado === 'YA_TERMINADO' ? 'TERMINADO' : 'EN_CURSO', yaInscrito: resultado !== 'INSCRITO' });
+  });
   app.post('/api/cursos', async (request, reply) => {
     const datos = esquemaCurso.parse(request.body);
     const organizacion = await organizacionUsuario(request.usuario!.id);
@@ -39,6 +55,24 @@ export async function registrarCursos(app: FastifyInstance) {
     return reply.code(201).send(await obtenerCurso(id));
   });
   app.get('/api/cursos/:id', async (request: ConId, reply) => await cursoAutorizado(request, reply) ?? reply);
+  app.get('/api/cursos/:id/mi-asistencia', async (request: ConId, reply) => {
+    const curso = await cursoAutorizado(request, reply);
+    if (!curso) return reply;
+    return reply.header('Cache-Control', 'private, no-store').send(await asistenciaCurso(curso.id, request.usuario!.id));
+  });
+  app.post('/api/cursos/:id/sesiones', async (request: ConId, reply) => {
+    const curso = await cursoAutorizado(request, reply);
+    if (!curso) return reply;
+    if (curso.modalidad === 'VIRTUAL') return error(reply, 409, 'MODALIDAD_NO_PRESENCIAL', 'Las sesiones presenciales requieren un curso presencial o híbrido.');
+    const cuerpo = typeof request.body === 'object' && request.body !== null && !Array.isArray(request.body) ? request.body : {};
+    const validacion = validarClase({ ...cuerpo, instructorId: curso.instructorId });
+    if (!validacion.ok) return reply.code(422).send({ code: 'VALIDACION', message: 'Completa los datos de la sesión.', fields: validacion.fields });
+    const resultado = await programarSesion(curso.id, curso.organizacionId, validacion.datos);
+    if (resultado.noDisponible) return error(reply, 409, 'CURSO_NO_DISPONIBLE', 'El curso o su instructor ya no están disponibles para programar sesiones.');
+    if (resultado.conflicto) return reply.code(409).send({ code: 'CONFLICTO_HORARIO',
+      message: `El instructor ya tiene la clase «${resultado.conflicto.nombre}» en ese horario. Elige otro horario.`, details: { claseId: resultado.conflicto.id } });
+    return reply.code(201).send(resultado.sesion);
+  });
   app.post('/api/cursos/:id/publicar', async (request: ConId, reply) => {
     const curso = await cursoAutorizado(request, reply);
     if (!curso) return reply;
