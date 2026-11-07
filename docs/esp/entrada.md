@@ -24,7 +24,7 @@ su funcionamiento contra la base de datos.
 | RUT-01 | Sin sesión / abrir cualquiera de las rutas protegidas | Redirección a `/login` |
 | RUT-02 | Participante / abrir clases de coordinador | Inicio del participante, sin acciones del coordinador |
 | RUT-03 | Enlace QR sin sesión / iniciar como participante | Conserva ruta y token, muestra resultado del QR |
-| RUT-04 | Ruta inexistente / volver al inicio | Página 404 y acceso al login |
+| RUT-04 | Ruta inexistente / volver al inicio | Página 404 y regreso al catálogo público sin sesión |
 | REA-01 | Servicios reales activos / consultar salud | API, Postgres y Redis disponibles |
 | REA-02 | Cuenta real válida / autenticar | Token y `usuario` en español, id texto y rol ADMIN |
 | REA-03 | Administrador real / entrar, recargar y salir | Estado del sistema y protección tras cerrar sesión |
