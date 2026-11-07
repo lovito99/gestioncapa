@@ -1,7 +1,8 @@
 import { crearCursosDemo } from './cursosDemo'
 import { http, HttpResponse } from 'msw'
-import { usuarios } from './datos'
-import type { DetalleCurso, MaterialCurso } from '@/servicios/cursos'
+import { usuarios, clases, asistencias, participantes, inscripciones } from './datos'
+import { emitirCertificado, certificadoDe } from './certificados'
+import type { DetalleCurso, MaterialCurso, SesionCurso, FilaCierre } from '@/servicios/cursos'
 import { z } from 'zod'
 
 const API = import.meta.env.VITE_API_URL ?? '/api'
@@ -24,7 +25,7 @@ const sesionesDemo = new Map<string, { sesion: SesionCurso; presentes: string[] 
 
 /** Sesiones del curso = clases con ese `cursoId` (más las demo), en orden de fecha. */
 function sesionesDe(cursoId: string): SesionCurso[] {
-  const vinculadas = clases.filter(c => c.curso?.id === cursoId)
+  const vinculadas = clases.filter(c => (c.curso?.id ?? c.cursoId) === cursoId)
     .map(c => ({ id: c.id, nombre: c.nombre, fecha: c.fecha, horaInicio: c.horaInicio, horaFin: c.horaFin, lugar: c.lugar, estado: c.estado }))
   return [...(sesionesDemo.get(cursoId) ?? []).map(s => s.sesion), ...vinculadas]
     .sort((a, b) => (a.fecha + a.horaInicio).localeCompare(b.fecha + b.horaInicio))
@@ -33,7 +34,7 @@ function sesionesDe(cursoId: string): SesionCurso[] {
 /** Asistencia de un agremiado sobre las sesiones no canceladas del curso. */
 function filaCierre(curso: DetalleCurso, agremiadoId: string): FilaCierre {
   const demo = sesionesDemo.get(curso.id) ?? []
-  const vinculadas = clases.filter(c => c.curso?.id === curso.id && c.estado === 'PROGRAMADA')
+  const vinculadas = clases.filter(c => (c.curso?.id ?? c.cursoId) === curso.id && c.estado === 'PROGRAMADA')
   const sesiones = demo.length + vinculadas.length
   const presentes = demo.filter(s => s.presentes.includes(agremiadoId)).length + vinculadas.filter(c => asistencias[c.id]?.[agremiadoId]).length
   const porcentaje = sesiones ? Math.round((presentes / sesiones) * 100) : 0
@@ -63,7 +64,7 @@ function detalle(request: Request, id: string) {
   if (curso.estado === 'BORRADOR' && auth.usuario!.rol !== 'ADMIN' && curso.instructorId !== auth.usuario!.id) return { fallo: error(403, 'No tienes permiso para acceder a este curso.') }
   return { curso, usuario: auth.usuario! }
 }
-export const sesionesDeCurso = (id: string) => clases.filter(c => c.cursoId === id).sort((a, b) => a.fecha.localeCompare(b.fecha) || a.horaInicio.localeCompare(b.horaInicio))
+export const sesionesDeCurso = sesionesDe
 const titulo = z.string().trim().min(1).max(160)
 const fechaOpcional = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => { const d = new Date(`${v}T00:00:00Z`); return v.slice(0,4) !== '0000' && Number.isFinite(d.getTime()) && d.toISOString().slice(0,10) === v }).nullable().default(null)
 const esquema = z.object({
@@ -118,7 +119,7 @@ export const handlersCursos = [
     if (!datos.success) return error(422, 'Completa los campos obligatorios: horas mayores que cero, certificado y al menos un módulo.')
     const instructor = usuarios.find(u => u.id === datos.data.instructorId && u.rol === 'INSTRUCTOR')
     if (!instructor) return error(422, 'Selecciona un instructor válido.')
-    const curso: DetalleCurso = { ...datos.data, id: nuevoId(), instructorNombre: instructor.nombre, estado: 'BORRADOR',
+    const curso: DetalleCurso = { ...datos.data, id: nuevoId(), instructorNombre: instructor.nombre, estado: 'BORRADOR', sesiones: [], requisitoAsistencia: 80, cuposDisponibles: datos.data.cupos,
       modulos: datos.data.modulos.map((m, i) => ({ ...m, id: nuevoId(), orden: i + 1, materiales: [] })) }
     cursosSimulados.push(curso)
     return HttpResponse.json(curso, { status: 201 })
@@ -203,7 +204,38 @@ export const handlersCursos = [
     return HttpResponse.json({ curso: disponibilidad(curso), filas })
   }),
   http.get(`${API}/cursos/:id`, ({ request, params }) => {
-    const auth = detalle(request, String(params.id)); return auth.fallo ?? HttpResponse.json(auth.curso)
+    const auth = detalle(request, String(params.id)); return auth.fallo ?? HttpResponse.json(disponibilidad(auth.curso!, auth.usuario!.id))
+  }),
+  http.post(`${API}/cursos/:id/sesiones`, async ({ request, params }) => {
+    const rol = acceso(request, ['ADMIN']); if (rol.fallo) return rol.fallo
+    const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
+    const curso = auth.curso!
+    if (curso.estado === 'CERRADO') return error(409, 'El curso ya está cerrado.', 'CURSO_CERRADO')
+    if (curso.modalidad === 'VIRTUAL') return error(409, 'Las sesiones presenciales requieren un curso presencial o híbrido.', 'MODALIDAD_NO_PRESENCIAL')
+    const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
+      const d = new Date(`${v}T00:00:00Z`)
+      return !v.startsWith('0000-') && Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === v
+    })
+    const hora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    const datos = z.object({ nombre: titulo, fecha, horaInicio: hora, horaFin: hora, lugar: titulo })
+      .refine(v => v.horaFin > v.horaInicio).safeParse(await request.json())
+    if (!datos.success) return error(422, 'Completa los datos de la sesión con una fecha y un horario válidos.')
+    if (clases.some(c => c.estado === 'PROGRAMADA' && c.instructor.id === curso.instructorId && c.fecha === datos.data.fecha && c.horaInicio < datos.data.horaFin && datos.data.horaInicio < c.horaFin)) {
+      return error(409, 'El instructor ya tiene una clase en ese horario. Elige otro horario.', 'CONFLICTO_HORARIO')
+    }
+    const nueva = { ...datos.data, id: `sesion-${nuevoId()}`, cursoId: curso.id, curso: { id: curso.id, titulo: curso.titulo }, estado: 'PROGRAMADA' as const, instructor: { id: curso.instructorId, nombre: curso.instructorNombre } }
+    clases.push(nueva); inscripciones[nueva.id] = []
+    return HttpResponse.json(nueva, { status: 201 })
+  }),
+  http.get(`${API}/cursos/:id/mi-asistencia`, ({ request, params }) => {
+    const rol = acceso(request, ['PARTICIPANTE']); if (rol.fallo) return rol.fallo
+    const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
+    const sesiones = sesionesDe(String(params.id)).filter(c => c.estado === 'PROGRAMADA')
+    const presentesDemo = (sesionesDemo.get(String(params.id)) ?? []).filter(s => s.sesion.estado === 'PROGRAMADA' && s.presentes.includes(auth.usuario!.id)).length
+    const presentes = presentesDemo + sesiones.filter(c => asistencias[c.id]?.[auth.usuario!.id]).length
+    const requisitoAsistencia = auth.curso!.requisitoAsistencia
+    return HttpResponse.json({ totalSesiones: sesiones.length, presentes, porcentaje: sesiones.length ? presentes * 100 / sesiones.length : 0,
+      requisitoAsistencia, cumpleAsistencia: sesiones.length > 0 && presentes * 100 >= sesiones.length * requisitoAsistencia })
   }),
   http.post(`${API}/cursos/:id/publicar`, ({ request, params }) => {
     const rol = acceso(request, ['ADMIN']); if (rol.fallo) return rol.fallo

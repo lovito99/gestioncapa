@@ -1,3 +1,5 @@
+import { registrarAccesoSesiones } from './modules/cursos/sesiones.acceso.js';
+import { registrarHistorial } from './modules/historial/historial.rutas.js';
 import { registrarCursos } from "./modules/cursos/cursos.rutas.js";
 import { registrarRutasReuniones } from "./modules/reuniones/reuniones.rutas.js";
 import Fastify from "fastify";

@@ -134,3 +134,12 @@ estados, notas, módulos o materiales existentes. No repone material eliminado
 de un curso ya sembrado. En producción no crea cursos, módulos ni materiales demo.
 Las credenciales demo solo se usan fuera de producción. El modo demo en memoria
 se restaura al recargar; el backend real conserva los cambios.
+
+## Migraciones de sesiones e integración
+
+La asociación `classes.curso_id` se crea en `0008-historialColegiado.sql`.
+`0010-sesionesCurso.sql` añade la restricción por organización y el índice de
+fecha y hora. Sustituye al archivo de sesiones que duplicaba el número 0008;
+no se deben modificar las migraciones de historial o catálogo ya aplicadas.
+Aplicar las pendientes con `npm run migrate` antes de iniciar el servidor.
+El build queda a cargo del usuario mediante `npm run build`.

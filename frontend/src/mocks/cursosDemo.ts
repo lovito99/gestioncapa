@@ -24,7 +24,11 @@ export function crearCursosDemo() {
       titulos: ['Planificación didáctica', 'Evaluación del aprendizaje'], enlace: 'https://www.unesco.org/es/education' },
     { categoria: 'Tecnología', inicio: 15, fin: 20, titulo: 'Demo · Herramientas digitales para docentes', descripcion: 'Borrador de ejemplo: revisa los módulos y publícalo para verlo en el catálogo.', instructorId: 'i-1', instructorNombre: 'Carlos Mendoza Ríos', horasLectivas: 20, modalidad: 'VIRTUAL', costo: 120, cupos: 25, tipoCertificado: 'APROBACION', notaMinima: 16, estado: 'BORRADOR',
       titulos: ['Recursos y herramientas digitales', 'Diseño de una actividad virtual'], enlace: 'https://www.unesco.org/es/digital-education' },
-  ].map(({ titulos, enlace, ...curso }) => ({ ...curso, id: nuevoId(), modulos: titulos.map((titulo, indice) => {
+    { categoria: 'Educación', inicio: 15, fin: 16, titulo: 'Demo · Taller con cupos agotados', descripcion: 'Taller de demostración sin plazas disponibles.', instructorId: 'i-2', instructorNombre: 'Lucía Paredes Quispe', horasLectivas: 8, modalidad: 'PRESENCIAL', costo: 0, cupos: 1, tipoCertificado: 'PARTICIPACION', notaMinima: 14, estado: 'PUBLICADO',
+      titulos: ['Introducción', 'Práctica'], enlace: 'https://www.unesco.org/es/education' },
+  ].map(({ titulos, enlace, inicio, fin, ...curso }) => ({ ...curso, id: nuevoId(), sesiones: [], requisitoAsistencia: 80, cuposDisponibles: curso.cupos,
+    fechaInicio: new Date(Date.now() + inicio * 86400000).toISOString().slice(0, 10),
+    fechaFin: new Date(Date.now() + fin * 86400000).toISOString().slice(0, 10), modulos: titulos.map((titulo, indice) => {
     const id = nuevoId()
     if (indice === 0) {
       const pdfId = nuevoId()

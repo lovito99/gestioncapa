@@ -1,7 +1,7 @@
 import { SesionesCurso } from './SesionesCurso'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { Alerta } from '@/components/ui/Alerta'
 import { Boton } from '@/components/ui/Boton'
@@ -11,10 +11,7 @@ import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { EtiquetaEstadoCurso } from '@/components/ui/Etiqueta'
 import { mensajeDeError } from '@/lib/api'
-import { fechaCorta, rangoHorario } from '@/lib/formato'
-import { CERTIFICADOS_CURSO, cursos, leerPdfBase64 as leerPdf, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
-import { costoCurso, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
-import { DatoCurso, EtiquetasCurso } from './presentacion'
+import { cursos, leerPdfBase64 as leerPdf, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
 
 export function DetalleCursoPagina() {
   const { id = '' } = useParams()
@@ -31,9 +28,9 @@ export function DetalleCursoPagina() {
   const gestion = usuario?.rol === 'ADMIN' || usuario?.rol === 'INSTRUCTOR'
   const puedeAgregar = usuario?.rol === 'INSTRUCTOR' && usuario.id === curso.instructorId
   return <div className="mx-auto max-w-240 space-y-5 px-4 py-6 wrap-anywhere">
-    <EnlaceVolver to={gestion ? '/cursos' : '/catalogo'}>{gestion ? 'Mis cursos' : 'Catálogo'}</EnlaceVolver>
+    <EnlaceVolver to={gestion ? '/cursos' : '/catalogo'}>{gestion ? 'Volver a mis cursos' : 'Volver al catálogo'}</EnlaceVolver>
     <header className="space-y-2 rounded-xl border border-line bg-white p-5">
-      <p className="font-semibold text-brand">{curso.estado === 'BORRADOR' ? 'Borrador' : 'Publicado'}</p>
+      <EtiquetaEstadoCurso estado={curso.estado} />
       <h1 className="text-2xl font-semibold">{curso.titulo}</h1>
       <p className="whitespace-pre-wrap">{curso.descripcion}</p>
       <dl className="grid gap-3 py-3 text-sm sm:grid-cols-2">
@@ -48,6 +45,12 @@ export function DetalleCursoPagina() {
       {usuario?.rol === 'ADMIN' && curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
       {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
     </header>
+    {usuario?.rol === 'PARTICIPANTE' && curso.estado === 'PUBLICADO' && <div className="space-y-3">
+      <Boton disabled={curso.inscrito || curso.cuposDisponibles === 0} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? 'Ya estás inscrito(a)' : curso.cuposDisponibles === 0 ? 'Sin cupos' : 'Inscribirme'}</Boton>
+      {inscripcion.isSuccess && <p role="status">Inscripción registrada.</p>}
+      {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos completar la inscripción.')}</Alerta>}
+    </div>}
+    {curso.modalidad !== 'VIRTUAL' && <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO'} participante={usuario?.rol === 'PARTICIPANTE'} />}
     <h2 className="text-xl font-semibold">Módulos y material</h2>
     <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
   </div>
