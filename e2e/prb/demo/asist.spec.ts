@@ -22,16 +22,14 @@ test('ASI-02: registra asistencia y rechaza repetirla sin duplicados', async ({ 
   const token = await obtenerQr(page, 'c-3')
   await cambiarAParticipante(page)
   await page.goto(rutas.marcar(token))
-  await expect(page.getByRole('heading', { name: '¡Asistencia registrada!' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Asistencia registrada', exact: true })).toBeVisible()
   await expect(page.getByText('Primeros auxilios básicos', { exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Volver a mis clases' }).click()
-  const clase = page.getByRole('article').filter({ hasText: 'Primeros auxilios básicos' })
-  await expect(clase).toContainText('Asistencia registrada a las')
-  await expect(clase.getByRole('link', { name: 'Registrar asistencia' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Primeros auxilios básicos', exact: true })).toContainText('Asistencia registrada a las')
   // Vuelve por el historial de la SPA: recargar reiniciaría los datos demo.
   await page.goBack()
-  await expect(page.getByRole('heading', { name: 'Tu asistencia ya estaba registrada' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Escanear de nuevo' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Asistencia ya registrada' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Volver a escanear' })).toHaveCount(0)
 })
 
 test('ASI-03: un QR vencido invita a escanear uno nuevo', async ({ page }) => {
@@ -40,8 +38,8 @@ test('ASI-03: un QR vencido invita a escanear uno nuevo', async ({ page }) => {
   await cambiarAParticipante(page)
   await page.clock.setFixedTime(new Date(horaPrueba.getTime() + 31_000))
   await page.goto(rutas.marcar(token))
-  await expect(page.getByRole('heading', { name: 'El código QR expiró' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Escanear de nuevo' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'QR expirado' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Volver a escanear' })).toBeVisible()
 })
 
 test('ASI-04: rechaza un token alterado', async ({ page }) => {
@@ -57,8 +55,8 @@ test('ASI-05: no registra a una participante que no está inscrita', async ({ pa
   const token = await obtenerQr(page, 'c-1')
   await cambiarAParticipante(page, cuentas.luz)
   await page.goto(rutas.marcar(token))
-  await expect(page.getByRole('heading', { name: 'No estás inscrito(a) en esta clase' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Escanear de nuevo' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'No estás inscrito en esta clase' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Volver a escanear' })).toHaveCount(0)
 })
 
 test('ASI-06: un enlace sin token muestra cómo obtener el QR', async ({ page }) => {

@@ -93,7 +93,8 @@ La entrada del administrador está cubierta por las [pruebas reales de Playwrigh
 
 ## Cursos y materiales (HU-13)
 
-Contrato, permisos, cuerpos de creación y descarga de PDF en [cursos](esp/cursos.md).
+Contrato, permisos, cuerpos de creación, descarga de PDF, programación de sesiones
+presenciales y cálculo del 80 % de asistencia en [cursos](esp/cursos.md).
 Los tipos del cliente están en `frontend/src/servicios/cursos.ts`.
 
 ## Historial del colegiado (HU-18)
@@ -104,3 +105,17 @@ Datos mínimos, cálculo de asistencia y descargas protegidas en [historial](esp
 
 Filtros, metadatos, cupos disponibles e inscripción protegida en [catálogo](esp/catalogo.md).
 La ruta anterior de lista se conserva; la interfaz consulta `/catalogo/cursos/pagina`.
+
+## Pantallas del Figma pendientes en el backend
+
+El frontend ya tiene estas pantallas con datos simulados. Su contrato completo está en
+[pantallas del Figma](esp/pantallas-figma.md). Rutas que faltan en el backend:
+
+- `POST /auth/registro`: crear cuenta de agremiado.
+- `PUT /cursos/:id` y `DELETE /cursos/:id/modulos/:moduloId/materiales/:materialId`: editar curso.
+- `cursoId` obligatorio en `POST`/`PUT /clases`, y `curso` en `Clase`: las clases como sesiones del curso.
+- `GET /cursos/:id/cierre`, `POST /cursos/:id/cerrar` y `GET /cursos/:id/certificados` (SCRUM-171).
+- `POST /certificados/:codigo/anular` y `POST /certificados/:codigo/corregir` (SCRUM-171).
+- `GET /certificados/:codigo`: verificación pública (SCRUM-138).
+- Campos nuevos: `requisitoAsistencia`, `sesiones` y el estado `CERRADO` en los cursos; `requisitoAsistencia` y `pagoPendiente` en cada curso del historial, y `estado` en cada uno de sus certificados.
+- `POST /cursos/:id/inscribirme` responde `estado: 'PENDIENTE_PAGO'` si el curso tiene costo.

@@ -3,8 +3,9 @@ import type { InputHTMLAttributes, Ref, SelectHTMLAttributes } from 'react'
 import { cn } from '@/lib/cn'
 import type { EstadoCampo } from './Campo'
 
+// 48 px en celular y 40 px en escritorio (size/control-mobile y size/control-desktop del Figma)
 const base =
-  'h-10 w-full rounded-lg bg-white px-3 text-sm text-ink placeholder:text-muted-3 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-brand-light'
+  'h-12 w-full rounded-lg bg-white px-3 text-base text-ink sm:h-10 sm:text-sm placeholder:text-muted-3 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-brand-light'
 
 const porEstado: Record<EstadoCampo, string> = {
   normal: 'ring-1 ring-muted-3 ring-inset',

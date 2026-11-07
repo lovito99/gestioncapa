@@ -40,7 +40,7 @@ export function ClasesPagina() {
       <header className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl leading-8 font-semibold tracking-[-0.6px] text-ink">Clases</h1>
-          <p className="mt-0.5 text-sm leading-5 text-muted">Clases presenciales de la organización</p>
+          <p className="mt-0.5 text-sm leading-5 text-muted">Clases presenciales del CPPP Región Cusco</p>
         </div>
         <Link
           to={`${rutaClases}/nueva`}
@@ -169,7 +169,7 @@ export function ClasesPagina() {
               </p>
             </div>
             <p className="text-sm leading-[22.75px] text-muted">
-              La clase quedará como «Cancelada». Ya no se podrán inscribir participantes ni mostrar el código QR de
+              La clase quedará como «Cancelada». Ya no se podrán inscribir agremiados ni mostrar el código QR de
               asistencia.
             </p>
           </>

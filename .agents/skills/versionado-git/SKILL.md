@@ -5,6 +5,15 @@ description: Recomendar versiones Git de GestionCapa con cinco niveles y prepara
 
 # Versionado de GestionCapa
 
+## Convención de nombres al preparar cambios
+
+Comprueba que las funciones, variables y archivos nuevos no usen guiones bajos
+(`_`). Usa `camelCase` en funciones y variables, `PascalCase` en componentes y
+tipos, y nombres de archivo sin guiones bajos acordes con su carpeta. Conserva
+los nombres de columnas SQL, variables de entorno y contratos externos que
+requieran compatibilidad; usa alias sin guiones bajos en el código de aplicación.
+No renombres archivos históricos ni migraciones aplicadas fuera del alcance.
+
 Lee [VERSIONING.md](../../../VERSIONING.md) en la raíz del repositorio
 (tres niveles arriba de esta carpeta). Aplica MAYOR.FUNCIÓN.MEJORA.ERROR.INTERNO
 a etiquetas Git; conserva SemVer de tres números en package.json.

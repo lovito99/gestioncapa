@@ -167,6 +167,60 @@ describe("Característica: Seed completo para todos los perfiles", () => {
     assert.equal((await conexion.query('select count(*)::int as total from materiales_curso')).rows[0].total, 12);
   });
 
+  test("el seed de reuniones disponibles prepara tres salas iniciadas y conserva los datos al repetirlo", async () => {
+    await sembrarDatos(conexion, configuracion, { iniciarReuniones: true });
+    const reuniones = await conexion.query("select estado from reuniones");
+    assert.equal(reuniones.rowCount, 3);
+    assert.ok(reuniones.rows.every(reunion => reunion.estado === 'iniciada'));
+    const anterior = await instantanea();
+
+    await sembrarDatos(conexion, configuracion, { iniciarReuniones: true });
+
+    assert.deepEqual(await instantanea(), anterior);
+  });
+
+  test("iniciar las reuniones demo conserva las cerradas, las clases canceladas y los accesos revocados", async () => {
+    await sembrarDatos(conexion, configuracion);
+    const identificadores = (await conexion.query('select identificador from reuniones order by identificador')).rows.map(r => r.identificador);
+    await conexion.query("update reuniones set estado='cancelada' where identificador=$1", [identificadores[0]]);
+    await conexion.query("update reuniones set estado='finalizada' where identificador=$1", [identificadores[1]]);
+    await conexion.query(`update classes set estado='CANCELADA' where id=(select "claseIdentificador" from reuniones where identificador=$1)`, [identificadores[2]]);
+    await conexion.query(`update "participantesReunion" set estado='retirado' where rol='participante'`);
+    await conexion.query(`update "notificacionesReunion" set estado='enviada', intentos=1`);
+    const anterior = await instantanea();
+
+    await sembrarDatos(conexion, configuracion, { iniciarReuniones: true });
+
+    assert.deepEqual(await instantanea(), anterior);
+  });
+
+  test("el seed de reuniones disponibles inicia solo las salas demo programadas de clases activas", async () => {
+    await sembrarDatos(conexion, configuracion);
+    const reunionManual = randomUUID();
+    await conexion.query(`insert into reuniones
+      (identificador, "claseIdentificador", "nombreSala", titulo, "inicioProgramado", "finProgramado", "creadorIdentificador")
+      select $1, "claseIdentificador", $2, 'Reunión manual', "inicioProgramado", "finProgramado", "creadorIdentificador"
+      from reuniones order by identificador limit 1`, [reunionManual, `manual${reunionManual}`]);
+    const anterior = await instantanea();
+
+    await sembrarDatos(conexion, configuracion, { iniciarReuniones: true });
+
+    const esperado = structuredClone(anterior);
+    for (const reunion of esperado.reuniones) {
+      if (reunion.identificador !== reunionManual) reunion.estado = 'iniciada';
+    }
+    assert.deepEqual(await instantanea(), esperado);
+  });
+
+  test("el seed de reuniones disponibles rechaza producción sin modificar datos", async () => {
+    const anterior = await instantanea();
+    await assert.rejects(
+      sembrarDatos(conexion, { ...configuracion, NODE_ENV: 'production' }, { iniciarReuniones: true }),
+      /solo se preparan en desarrollo o test/
+    );
+    assert.deepEqual(await instantanea(), anterior);
+  });
+
   test("producción solo crea el administrador", async () => {
     await sembrarDatos(conexion, { ...configuracion, NODE_ENV: "production" });
 

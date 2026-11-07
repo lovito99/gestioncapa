@@ -29,11 +29,7 @@ export async function obtenerCurso(id: string, usuarioId?: number) {
   const materiales = (await pool.query<{ id: string; moduloId: string; titulo: string; tipo: string; url: string | null }>(`
     select a.id::text,a.modulo_id::text as "moduloId",a.titulo,a.tipo,a.url from materiales_curso a
     join modulos_curso m on m.id=a.modulo_id where m.curso_id=$1 order by a.id`, [id])).rows;
-  const sesiones = (await pool.query<{ id: string; nombre: string; fecha: string; horaInicio: string; horaFin: string; lugar: string; estado: 'PROGRAMADA' | 'CANCELADA' }>(`
-    select id::text,nombre,to_char(fecha,'YYYY-MM-DD') as fecha,
-      to_char(hora_inicio,'HH24:MI') as "horaInicio",to_char(hora_fin,'HH24:MI') as "horaFin",lugar,estado
-    from classes where curso_id=$1 and organization_id=$2 order by fecha,hora_inicio,id`, [id, curso.organizacionId])).rows;
-  return { ...curso, sesiones, modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
+  return { ...curso, modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
 }
 export async function transaccion<T>(operacion: (cliente: PoolClient) => Promise<T>) {
   const cliente = await pool.connect();

@@ -96,7 +96,9 @@ describe("Característica: Base de datos versionada del Sprint 1", () => {
   after(async () => {
     for (const { nombre, pool } of temporales) {
       await pool.end();
-      await administracion.query(`drop database if exists ${nombre} with (force)`);
+      // DROP espera el cierre del backend; FORCE puede emitir un error asíncrono
+      // cuando pg aún está terminando las conexiones que pool.end() liberó.
+      await administracion.query(`drop database if exists ${nombre}`);
     }
     await administracion.end();
   });

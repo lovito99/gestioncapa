@@ -8,19 +8,22 @@ interface Props {
   etiqueta: string
   obligatorio?: boolean
   error?: string
+  /** Indicación bajo el control; el error la reemplaza mientras exista */
+  ayuda?: string
   children: ReactNode
   className?: string
 }
 
 /** Etiqueta + control + mensaje de error, con los atributos de accesibilidad conectados. */
-export function Campo({ etiqueta, obligatorio, error, children, className }: Props) {
+export function Campo({ etiqueta, obligatorio, error, ayuda, children, className }: Props) {
   const id = useId()
   const idError = `${id}-error`
+  const idAyuda = `${id}-ayuda`
   const control = isValidElement(children)
     ? cloneElement(children as ReactElement<Record<string, unknown>>, {
         id,
         'aria-invalid': error ? true : undefined,
-        'aria-describedby': error ? idError : undefined,
+        'aria-describedby': error ? idError : ayuda ? idAyuda : undefined,
       })
     : children
 
@@ -39,6 +42,11 @@ export function Campo({ etiqueta, obligatorio, error, children, className }: Pro
         <p id={idError} className="mt-1.5 flex items-center gap-1.5 text-xs text-danger">
           <CircleAlert className="size-3.5 shrink-0" aria-hidden />
           {error}
+        </p>
+      )}
+      {!error && ayuda && (
+        <p id={idAyuda} className="mt-1.5 text-xs text-muted">
+          {ayuda}
         </p>
       )}
     </div>

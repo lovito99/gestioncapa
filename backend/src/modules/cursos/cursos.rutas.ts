@@ -1,3 +1,5 @@
+import { asistenciaCurso, programarSesion } from './sesiones.repositorio.js';
+import { validarClase } from '../clases/clases.validacion.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { pool } from '../../shared/database.js';
 import { crearCurso, guardarMaterial, inscribirseEnCurso, paginaCatalogo, listarCursos, obtenerArchivo, obtenerCurso, organizacionUsuario, publicarCurso } from './cursos.repositorio.js';
@@ -53,6 +55,24 @@ export async function registrarCursos(app: FastifyInstance) {
     return reply.code(201).send(await obtenerCurso(id));
   });
   app.get('/api/cursos/:id', async (request: ConId, reply) => await cursoAutorizado(request, reply) ?? reply);
+  app.get('/api/cursos/:id/mi-asistencia', async (request: ConId, reply) => {
+    const curso = await cursoAutorizado(request, reply);
+    if (!curso) return reply;
+    return reply.header('Cache-Control', 'private, no-store').send(await asistenciaCurso(curso.id, request.usuario!.id));
+  });
+  app.post('/api/cursos/:id/sesiones', async (request: ConId, reply) => {
+    const curso = await cursoAutorizado(request, reply);
+    if (!curso) return reply;
+    if (curso.modalidad === 'VIRTUAL') return error(reply, 409, 'MODALIDAD_NO_PRESENCIAL', 'Las sesiones presenciales requieren un curso presencial o híbrido.');
+    const cuerpo = typeof request.body === 'object' && request.body !== null && !Array.isArray(request.body) ? request.body : {};
+    const validacion = validarClase({ ...cuerpo, instructorId: curso.instructorId });
+    if (!validacion.ok) return reply.code(422).send({ code: 'VALIDACION', message: 'Completa los datos de la sesión.', fields: validacion.fields });
+    const resultado = await programarSesion(curso.id, curso.organizacionId, validacion.datos);
+    if (resultado.noDisponible) return error(reply, 409, 'CURSO_NO_DISPONIBLE', 'El curso o su instructor ya no están disponibles para programar sesiones.');
+    if (resultado.conflicto) return reply.code(409).send({ code: 'CONFLICTO_HORARIO',
+      message: `El instructor ya tiene la clase «${resultado.conflicto.nombre}» en ese horario. Elige otro horario.`, details: { claseId: resultado.conflicto.id } });
+    return reply.code(201).send(resultado.sesion);
+  });
   app.post('/api/cursos/:id/publicar', async (request: ConId, reply) => {
     const curso = await cursoAutorizado(request, reply);
     if (!curso) return reply;
