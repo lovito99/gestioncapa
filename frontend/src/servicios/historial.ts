@@ -10,7 +10,7 @@ export type CertificadoHistorial = {
 }
 export type Historial = {
   colegiado: ColegiadoHistorial; generadoEn: string; asistenciaGeneral: ResumenAsistencia; sesionesIndependientes: SesionHistorial[];
-  cursos: { id: string; titulo: string; estado: 'EN_CURSO' | 'TERMINADO'; horasLectivas: number; modalidad: string; inscritoEn: string; terminadoEn: string | null;
+  cursos: { id: string; titulo: string; estado: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO'; horasLectivas: number; modalidad: string; inscritoEn: string; terminadoEn: string | null;
     /** Porcentaje mínimo de asistencia para la constancia (SCRUM-171); explica por qué no se emitió */
     requisitoAsistencia: number;
     /** Curso con costo cuyo pago aún no se confirma (HU-16): la inscripción queda «pendiente de pago» */

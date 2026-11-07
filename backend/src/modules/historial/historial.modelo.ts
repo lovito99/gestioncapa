@@ -5,8 +5,8 @@ export type SesionHistorial = {
 export type ResumenAsistencia = { presentes: number; realizadas: number; porcentaje: number | null };
 export type CertificadoHistorial = { id: string; cursoId: string; codigo: string; tipo: 'PARTICIPACION' | 'APROBACION'; emitidoEn: string };
 export type CursoHistorial = {
-  id: string; titulo: string; estado: 'EN_CURSO' | 'TERMINADO'; horasLectivas: number; modalidad: string;
-  inscritoEn: string; terminadoEn: string | null; sesiones: SesionHistorial[];
+  id: string; titulo: string; estado: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO'; horasLectivas: number; modalidad: string;
+  pagoPendiente: boolean; inscritoEn: string; terminadoEn: string | null; sesiones: SesionHistorial[];
   asistencia: ResumenAsistencia; certificados: CertificadoHistorial[];
 };
 export type Historial = {

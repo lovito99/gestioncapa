@@ -153,3 +153,12 @@ Consultar [la matriz CPPP](enfoqueCppp.md) para distinguir API real y simulacion
 `POST /api/auth/registro` crea un agremiado y devuelve `201` con el mismo contrato
 de sesión que el login. DNI/correo duplicados devuelven `409 CUENTA_YA_REGISTRADA`;
 los errores por campo usan `422 VALIDACION`. Consulta [el contrato completo](esp/registro.md).
+
+
+## HU-16: inscripción en línea
+
+`POST /api/cursos/:id/inscribirme` conserva `201` para una nueva inscripción y
+`200` para la repetida. El estado persistido es `EN_CURSO` para nuevas gratuitas
+y `PENDIENTE_PAGO` para nuevas con costo; `TERMINADO` se conserva en las históricas.
+El detalle incluye `estadoInscripcion` y el historial `pagoPendiente`.
+Véase [HU-16](esp/inscripcionCurso.md) para cupos, concurrencia y compatibilidad.

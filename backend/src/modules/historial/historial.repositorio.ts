@@ -26,7 +26,7 @@ export async function obtenerHistorial(actor: UsuarioAutenticado, usuarioId: str
     await cliente.query('begin isolation level repeatable read read only');
     const colegiado = await autorizar(cliente, actor, usuarioId);
     const cursos = (await cliente.query<Omit<CursoHistorial, 'sesiones' | 'asistencia' | 'certificados'>>(`
-      select c.id::text,c.titulo,i.estado,c.horas_lectivas as "horasLectivas",c.modalidad,
+      select c.id::text,c.titulo,i.estado,(i.estado='PENDIENTE_PAGO') as "pagoPendiente",c.horas_lectivas as "horasLectivas",c.modalidad,
         to_char(i.inscrito_en at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') as "inscritoEn",to_char(i.terminado_en at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') as "terminadoEn"
       from inscripciones_curso i join cursos c on c.id=i.curso_id join users u on u.id=i.usuario_id and u.organization_id=c.organization_id
       where i.usuario_id=$1 order by i.inscrito_en desc,c.id desc`, [usuarioId])).rows;

@@ -8,6 +8,7 @@ export type Curso = {
   id: string; organizacionId: string; instructorId: string; instructorNombre: string;
   titulo: string; descripcion: string; horasLectivas: number; modalidad: string; costo: number;
   categoria: string; fechaInicio: string | null; fechaFin: string | null; cuposDisponibles: number; inscrito?: boolean;
+  estadoInscripcion?: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO' | null;
   cupos: number; tipoCertificado: string; notaMinima: number; estado: 'BORRADOR' | 'PUBLICADO';
 };
 const columnas = `c.id::text, c.organization_id::text as "organizacionId", c.instructor_id::text as "instructorId",
@@ -24,7 +25,7 @@ export async function listarCursos(organizacion: string, instructorId?: number, 
     and (not $3::boolean or c.estado='PUBLICADO') order by c.id desc`, [organizacion, instructorId ?? null, catalogo])).rows;
 }
 export async function obtenerCurso(id: string, usuarioId?: number) {
-  const curso = (await pool.query<Curso>(`select ${columnas},exists(select 1 from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as inscrito from cursos c join users u on u.id=c.instructor_id where c.id=$1`, [id, usuarioId ?? null])).rows[0];
+  const curso = (await pool.query<Curso>(`select ${columnas},exists(select 1 from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as inscrito,(select ins.estado from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as "estadoInscripcion" from cursos c join users u on u.id=c.instructor_id where c.id=$1`, [id, usuarioId ?? null])).rows[0];
   if (!curso) return null;
   const modulos = (await pool.query<{ id: string; titulo: string; orden: number }>('select id::text,titulo,orden from modulos_curso where curso_id=$1 order by orden', [id])).rows;
   const materiales = (await pool.query<{ id: string; moduloId: string; titulo: string; tipo: string; url: string | null }>(`
@@ -91,19 +92,20 @@ export async function paginaCatalogo(organizacion: string, usuarioId: number, co
 export async function inscribirseEnCurso(cursoId: string, usuarioId: number) {
   return transaccion(async cliente => {
     // El bloqueo del curso serializa todas las solicitudes a la última plaza.
-    const curso = (await cliente.query<{ organization_id: string; estado: string; cupos: number }>('select organization_id,estado,cupos from cursos where id=$1 for update', [cursoId])).rows[0];
+    const curso = (await cliente.query<{ organization_id: string; estado: string; cupos: number; costo: number }>('select organization_id,estado,cupos,costo::float8 as costo from cursos where id=$1 for update', [cursoId])).rows[0];
     if (!curso) return 'NO_EXISTE' as const;
     const persona = (await cliente.query<{ organization_id: string }>(`select organization_id from users where id=$1 and active and role='participante' for share`, [usuarioId])).rows[0];
     if (!persona || curso.organization_id !== persona.organization_id) return 'SIN_PERMISO' as const;
     if (curso.estado !== 'PUBLICADO') return 'NO_PUBLICADO' as const;
     const inscripcion = (await cliente.query<{ estado: string }>('select estado from inscripciones_curso where curso_id=$1 and usuario_id=$2', [cursoId, usuarioId])).rows[0];
-    if (inscripcion) return inscripcion.estado === 'TERMINADO' ? 'YA_TERMINADO' as const : 'YA_INSCRITO' as const;
+    if (inscripcion) return inscripcion.estado === 'TERMINADO' ? 'YA_TERMINADO' as const : inscripcion.estado === 'PENDIENTE_PAGO' ? 'YA_PENDIENTE' as const : 'YA_INSCRITO' as const;
     const inscritos = (await cliente.query<{ total: number }>('select count(*)::int as total from inscripciones_curso where curso_id=$1', [cursoId])).rows[0]!.total;
     if (inscritos >= curso.cupos) return 'SIN_CUPOS' as const;
-    await cliente.query('insert into inscripciones_curso(curso_id,usuario_id) values($1,$2)', [cursoId, usuarioId]);
-    await cliente.query(`insert into enrollments(organization_id,class_id,user_id)
+    const pendiente = curso.costo > 0;
+    await cliente.query('insert into inscripciones_curso(curso_id,usuario_id,estado) values($1,$2,$3)', [cursoId, usuarioId, pendiente ? 'PENDIENTE_PAGO' : 'EN_CURSO']);
+    if (!pendiente) await cliente.query(`insert into enrollments(organization_id,class_id,user_id)
       select organization_id,id,$2 from classes where curso_id=$1 and organization_id=$3 and estado='PROGRAMADA'
       on conflict(class_id,user_id) do nothing`, [cursoId, usuarioId, curso.organization_id]);
-    return 'INSCRITO' as const;
+    return pendiente ? 'INSCRITO_PENDIENTE' as const : 'INSCRITO' as const;
   });
 }

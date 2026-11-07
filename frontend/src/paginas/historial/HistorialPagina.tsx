@@ -53,6 +53,7 @@ export function HistorialPagina() {
   const anios = [...new Set([anio, ...certificadosPorAnio.map(c => c.anio)])].sort().reverse()
   const horas = [...new Map(certificadosPorAnio.filter(c => c.anio === anio).map(c => [c.cursoId, c.horas])).values()].reduce((suma, h) => suma + h, 0)
   const enCurso = historial.cursos.filter(c => c.estado === 'EN_CURSO')
+  const pendientes = historial.cursos.filter(c => c.estado === 'PENDIENTE_PAGO')
   const terminados = historial.cursos.filter(c => c.estado === 'TERMINADO')
 
   const selectorAnio = (oculto: string) => <Campo etiqueta="Año" className={oculto}>
@@ -91,6 +92,10 @@ export function HistorialPagina() {
       ? <p className="text-sm text-muted">No tienes cursos en curso.</p>
       : enCurso.map(curso => <TarjetaCurso key={curso.id} curso={curso} descargando={descargando} onDescargar={certificadoId => void descargar(certificadoId)} />)}
 
+    {pendientes.length > 0 && <>
+      <h2 className="text-lg font-bold text-ink">Inscripciones pendientes de pago</h2>
+      {pendientes.map(curso => <TarjetaCurso key={curso.id} curso={curso} descargando={descargando} onDescargar={certificadoId => void descargar(certificadoId)} />)}
+    </>}
     <h2 className="text-lg font-bold text-ink">Cursos terminados</h2>
     {terminados.length === 0
       ? <p className="text-sm text-muted">Todavía no has terminado ningún curso.</p>
@@ -110,7 +115,7 @@ function TarjetaCurso({ curso, descargando, onDescargar }: { curso: CursoHistori
   return <article className={tarjeta}>
     <div className="flex items-start gap-2">
       <h3 className="min-w-0 flex-1 text-base font-semibold text-ink">{curso.titulo}</h3>
-      <Etiqueta tono={terminado ? 'exito' : 'marca'}>{terminado ? 'Terminado' : 'En curso'}</Etiqueta>
+      <Etiqueta tono={curso.estado === 'PENDIENTE_PAGO' ? 'advertencia' : terminado ? 'exito' : 'marca'}>{curso.estado === 'PENDIENTE_PAGO' ? 'Pendiente de pago' : terminado ? 'Terminado' : 'En curso'}</Etiqueta>
     </div>
     {fechas.length > 0 && <p className="flex items-center gap-2 text-sm text-muted">
       <Calendar className="size-4 shrink-0 text-brand" aria-hidden />{rangoFechasCorto(fechas[0]!, fechas.at(-1)!)}

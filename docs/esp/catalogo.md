@@ -156,3 +156,8 @@ Los archivos `*.spec.ts` declaran escenarios y no deben importar otros archivos
 El diagnóstico temporal `catalogoDiagnostico.spec.ts` no forma parte de la suite:
 su eliminación debe incluirse en la entrega Git. Borrarlo solo del directorio
 local no elimina la copia del commit que ejecuta CI.
+
+
+La inscripción ahora aplica [HU-16](inscripcionCurso.md): confirma cursos gratuitos
+y reserva cursos con costo como pendientes de pago. Los recorridos verifican
+también que la gratuita aparezca en «Mis cursos».

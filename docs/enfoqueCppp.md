@@ -39,7 +39,7 @@ brecha, incluso cuando ya existe una parte de una etapa posterior.
 | RF-08 | Parcial | `backend/src/modules/cursos`: creación, publicación, módulos, materiales, horas, cupos y certificados; edición de la UI aún necesita persistencia completa | 3 |
 | RF-09 | Parcial | Categorías fijas de Sprint 2 en `cursos.categorias.ts`; falta gestión HU-15 y etiquetas | 3 |
 | RF-10 | Implementado | Catálogo paginado, búsqueda sin tildes, modalidad y categoría; pruebas `catalogo.test.ts` | 1/3 |
-| RF-11 | Parcial | Transacción y bloqueo de última plaza en `inscribirseEnCurso`; faltan padrón y estado condicionado al pago | 2/5 |
+| RF-11 | Parcial | Transacción y bloqueo de última plaza; HU-16 añade reserva pendiente para cursos con costo. Faltan padrón y confirmación real del pago | 2/5 |
 | RF-12 | Implementado | Sesiones por curso, horarios y rechazo de solapamientos; pruebas `sesionesCurso` y `solapamiento` | 3 |
 | RF-13 | Parcial | Programación de clases existente; faltan avisos persistentes y correo al cancelar/reprogramar | 3 |
 | RF-14 | Implementado | `backend/src/modules/qr`, QR firmado rotatorio de 30 segundos | 3 |
@@ -53,7 +53,7 @@ brecha, incluso cuando ya existe una parte de una etapa posterior.
 | RF-22 | Pendiente | Falta pasarela aprobada, comisión, confirmación firmada e idempotencia; no se almacenarán tarjetas | 5 |
 | RF-23 | Pendiente | Falta carga privada de voucher BCP, revisión, motivo y auditoría | 5 |
 | RF-24 | Pendiente | Falta registro real de efectivo con permisos y auditoría | 5 |
-| RF-25 | Pendiente | Backend actual confirma inscripción sin pago: debe cambiar con transacción, notificación y comprobante | 5 |
+| RF-25 | Pendiente | HU-16 mantiene cursos con costo pendientes. Faltan confirmación real por pago, notificación y comprobante | 5 |
 | RF-26 | Demo | Cierre/reglas simulados no acreditan emisión real con asistencia, nota y pago | 6 |
 | RF-27 | Demo | Excepción necesita persistencia, motivo obligatorio y auditoría de administrador | 6 |
 | RF-28 | Parcial | Historial descarga archivos almacenados con permisos; falta emisor oficial PDF/QR y firma autorizada del Decano | 6 |
@@ -162,3 +162,10 @@ El registro público con DNI dejó de ser únicamente demo: ahora persiste cuent
 contraseñas bcrypt y auditoría con fecha, e inicia sesión. Véase [HU-50](esp/registro.md).
 La recuperación automática por correo (RF-02), el padrón (HU-33) y cuentas externas
 (HU-43) conservan sus estados pendientes.
+
+
+## HU-16
+
+La inscripción en línea distingue confirmación gratuita y reserva pendiente de
+pago, sin modificar estados históricos. Véase [HU-16](esp/inscripcionCurso.md).
+El padrón (HU-33) y el procesamiento/confirmación de pagos (HU-32) siguen pendientes.

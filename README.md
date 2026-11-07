@@ -27,6 +27,7 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
 - [Calidad antes de integrar](docs/calidad.md).
 - [HU-13: cursos, módulos, catálogo y materiales](docs/esp/cursos.md).
 - [HU-14: búsqueda, filtros y cupos del catálogo](docs/esp/catalogo.md).
+- [HU-16: inscripción gratuita y reserva pendiente de pago](docs/esp/inscripcionCurso.md).
 - [HU-18: historial, asistencia y descarga de certificados](docs/esp/historial.md).
 - [HU-50: registro con DNI, sesión y auditoría](docs/esp/registro.md).
 - [HU-10: asistencia móvil y medición pendiente SCRUM-96](docs/esp/experiencia-movil.md).
