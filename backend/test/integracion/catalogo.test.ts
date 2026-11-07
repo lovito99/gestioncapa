@@ -69,7 +69,7 @@ test('HU-14: búsqueda literal y validación de filtros', async () => {
   for (const consulta of ['pagina=0','pagina=-1','pagina=1.5','tamanoPagina=51','modalidad=OTRA','categoria=','buscar='+ 'a'.repeat(161)]) assert.equal((await catalogo(consulta)).statusCode,422,consulta);
 });
 test('HU-14: sin cupos impide inscripción en servidor, repetición idempotente e historial actualizado', async () => {
-  const curso = await crear({ titulo: 'Última plaza',cupos: 1 });
+  const curso = await crear({ titulo: 'Última plaza',cupos: 1, costo: 0 });
   const clase = (await pool.query<{ id: string }>(`insert into classes(organization_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,curso_id) values($1,'Sesión inscrita',$2,'2030-01-01','08:00','09:00','Virtual',$3) returning id::text`, [org,personas.get('docente')!.id,curso.id])).rows[0]!;
   const ruta = `/api/cursos/${curso.id}/inscribirme`;
   assert.equal((await pedir('a','POST',ruta)).statusCode,201);
@@ -145,4 +145,31 @@ test('RF-07: catálogo público vigente, paginado y sin datos internos', async (
     assert.equal(filtro.json().total, 4); assert.equal(filtro.json().items.length, 2);
     assert.equal((await pedir(null, 'GET', '/api/publico/cursos?tamanoPagina=51')).statusCode, 422);
   } finally { env.cpppOrganizacionId = anterior; }
+});
+
+
+test('HU-16: curso con costo reserva vacante pendiente, sin confirmar ni duplicar', async () => {
+  const curso = await crear({ titulo: 'HU16 · Reserva con costo', costo: 45, cupos: 1 });
+  const sesion = (await pool.query<{ id: string }>(`insert into classes(organization_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,curso_id)
+    values($1,'Sesión pendiente',$2,'2031-04-01','08:00','09:00','Sala',$3) returning id::text`, [org, personas.get('docente')!.id, curso.id])).rows[0]!;
+  const ruta = `/api/cursos/${curso.id}/inscribirme`;
+  const primera = await pedir('a', 'POST', ruta, { estado: 'EN_CURSO' });
+  assert.equal(primera.statusCode, 201, primera.body);
+  assert.equal(primera.json().estado, 'PENDIENTE_PAGO');
+  const repetida = await pedir('a', 'POST', ruta);
+  assert.equal(repetida.statusCode, 200); assert.equal(repetida.json().estado, 'PENDIENTE_PAGO');
+  assert.equal(repetida.json().yaInscrito, true);
+  assert.equal((await pedir('b', 'POST', ruta)).statusCode, 409);
+  const detalle = (await pedir('a', 'GET', `/api/cursos/${curso.id}`)).json();
+  assert.equal(detalle.estadoInscripcion, 'PENDIENTE_PAGO'); assert.equal(detalle.cuposDisponibles, 0);
+  const historial = (await pedir('a', 'GET', `/api/colegiados/${personas.get('a')!.id}/historial`)).json();
+  const inscrito = historial.cursos.find((fila: { id: string }) => fila.id === curso.id);
+  assert.equal(inscrito.estado, 'PENDIENTE_PAGO'); assert.equal(inscrito.pagoPendiente, true);
+  const pdf = await pedir('a', 'GET', `/api/colegiados/${personas.get('a')!.id}/historial/pdf`);
+  assert.equal(pdf.statusCode, 200);
+  assert.ok(pdf.rawPayload.toString('ascii').includes(Buffer.from('Pendiente de pago', 'latin1').toString('hex')));
+  await pool.query('update cursos set costo=0 where id=$1', [curso.id]);
+  assert.equal((await pedir('a', 'POST', ruta)).json().estado, 'PENDIENTE_PAGO', 'Reintentar no modifica una reserva por el precio actual');
+  assert.equal((await pool.query('select count(*)::int as total from enrollments where class_id=$1', [sesion.id])).rows[0].total, 0);
+  assert.equal((await pool.query('select count(*)::int as total from inscripciones_curso where curso_id=$1', [curso.id])).rows[0].total, 1);
 });

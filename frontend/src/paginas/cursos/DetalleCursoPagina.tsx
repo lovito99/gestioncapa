@@ -26,6 +26,7 @@ export function DetalleCursoPagina() {
   if (consulta.isPending) return <Cargando texto="Cargando curso…" />
   if (consulta.isError) return <ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar el curso.')} onReintentar={consulta.refetch} />
   const curso = consulta.data
+  const pendiente = curso.estadoInscripcion === 'PENDIENTE_PAGO'
   const gestion = usuario?.rol === 'ADMIN' || usuario?.rol === 'INSTRUCTOR'
   const puedeAgregar = usuario?.rol === 'INSTRUCTOR' && usuario.id === curso.instructorId
   return <div className="mx-auto max-w-240 space-y-5 px-4 py-6 wrap-anywhere">
@@ -47,8 +48,8 @@ export function DetalleCursoPagina() {
       </dl>
       {usuario?.rol === 'ADMIN' && curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
       {usuario?.rol === 'PARTICIPANTE' && curso.estado === 'PUBLICADO' && <div className="space-y-2">
-        <Boton disabled={curso.inscrito || curso.cuposDisponibles === 0} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? 'Ya estás inscrito(a)' : curso.cuposDisponibles === 0 ? 'Sin cupos' : 'Inscribirme'}</Boton>
-        {inscripcion.isSuccess && <p role="status">Inscripción registrada.</p>}
+        <Boton disabled={curso.inscrito || curso.cuposDisponibles === 0} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? pendiente ? 'Pendiente de pago' : 'Ya estás inscrito(a)' : curso.cuposDisponibles === 0 ? 'Sin cupos' : 'Inscribirme'}</Boton>
+        {pendiente ? <p role="status">Tu vacante está reservada. La inscripción está pendiente de pago y aún no está confirmada.</p> : inscripcion.isSuccess && <p role="status">Inscripción registrada y confirmada.</p>}
         {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.')}</Alerta>}
       </div>}
       {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}

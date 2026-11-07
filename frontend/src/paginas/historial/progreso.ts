@@ -10,6 +10,7 @@ const sesiones = (n: number) => (n === 1 ? '1 sesión' : `${n} sesiones`)
  * asistencia con el requisito del curso. Devuelve null si ya tiene un certificado válido.
  */
 export function queTeFalta(curso: CursoHistorial): Aviso | null {
+  if (curso.estado === 'PENDIENTE_PAGO') return { tono: 'advertencia', texto: 'Tu vacante está reservada. La inscripción se confirmará cuando se confirme el pago.' }
   if (curso.certificados.some((c) => c.estado === 'VALIDO')) return null
   const requisito = curso.requisitoAsistencia
   const pago = curso.pagoPendiente ? ' Además, el pago del curso está pendiente: la constancia se emite cuando se confirme.' : ''

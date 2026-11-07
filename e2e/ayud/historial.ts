@@ -7,7 +7,7 @@ export async function flujoHistorial(page: Page, admin: Parameters<typeof entrar
   await entrar(page, cuentas.part)
   const primeraRespuesta = page.waitForResponse(r => /\/api\/colegiados\/[^/]+\/historial$/.test(new URL(r.url()).pathname) && r.status() === 200)
   await page.getByRole('link', { name: 'Historial', exact: true }).click()
-  const maria = await (await primeraRespuesta).json() as { colegiado: { id: string } }
+  const maria = await (await primeraRespuesta).json() as { colegiado: { id: string; nombre: string } }
   await expect(page.getByRole('heading', { name: 'Mi historial', exact: true })).toBeVisible()
   // 4.1: horas acumuladas, cursos en curso y terminados con su certificado
   await expect(page.getByRole('heading', { name: 'Demo · Seguridad y primeros auxilios' })).toBeVisible()
@@ -40,5 +40,5 @@ export async function flujoHistorial(page: Page, admin: Parameters<typeof entrar
   await page.getByRole('link', { name: 'Usuarios', exact: true }).click()
   await page.getByRole('link', { name: /Ver historial de María/ }).click()
   await expect(page.getByRole('heading', { name: 'Historial del colegiado', exact: true })).toBeVisible()
-  await expect(page.getByText('DNI: ****1234', { exact: true })).toBeVisible()
+  await expect(page.getByRole('main').getByText(`${maria.colegiado.nombre} · DNI ****1234`, { exact: true })).toBeVisible()
 }

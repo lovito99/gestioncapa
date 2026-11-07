@@ -56,7 +56,9 @@ export async function registrarCursos(app: FastifyInstance) {
     if (resultado === 'SIN_PERMISO') return error(reply, 403, 'SIN_PERMISO', 'No tienes permiso para inscribirte en este curso.');
     if (resultado === 'NO_PUBLICADO') return error(reply, 409, 'CURSO_NO_PUBLICADO', 'El curso no está publicado.');
     if (resultado === 'SIN_CUPOS') return error(reply, 409, 'SIN_CUPOS', 'El curso está sin cupos. Elige otra capacitación.');
-    return reply.code(resultado === 'INSCRITO' ? 201 : 200).send({ cursoId: request.params.id, estado: resultado === 'YA_TERMINADO' ? 'TERMINADO' : 'EN_CURSO', yaInscrito: resultado !== 'INSCRITO' });
+    const nueva = resultado === 'INSCRITO' || resultado === 'INSCRITO_PENDIENTE';
+    const estados = { INSCRITO: 'EN_CURSO', YA_INSCRITO: 'EN_CURSO', YA_TERMINADO: 'TERMINADO', INSCRITO_PENDIENTE: 'PENDIENTE_PAGO', YA_PENDIENTE: 'PENDIENTE_PAGO' };
+    return reply.header('Cache-Control', 'private, no-store').code(nueva ? 201 : 200).send({ cursoId: request.params.id, estado: estados[resultado], yaInscrito: !nueva });
   });
   app.post('/api/cursos', async (request, reply) => {
     const datos = esquemaCurso.parse(request.body);

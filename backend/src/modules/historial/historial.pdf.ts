@@ -11,7 +11,7 @@ export function pdfHistorial(historial: Historial) {
     `Asistencia general: ${historial.asistenciaGeneral.presentes} de ${historial.asistenciaGeneral.realizadas} sesiones realizadas (${porcentaje(historial.asistenciaGeneral.porcentaje)})`,
     'Se excluyen sesiones futuras y canceladas del porcentaje.', '', 'CURSOS',
     ...(historial.cursos.length ? historial.cursos.flatMap(c => [
-      `${c.titulo} | ${c.estado === 'EN_CURSO' ? 'En curso' : 'Terminado'} | ${c.horasLectivas} horas lectivas`,
+      `${c.titulo} | ${c.estado === 'PENDIENTE_PAGO' ? 'Pendiente de pago' : c.estado === 'EN_CURSO' ? 'En curso' : 'Terminado'} | ${c.horasLectivas} horas lectivas`,
       `Inscripción: ${fecha(c.inscritoEn)}${c.terminadoEn ? ` | Finalización: ${fecha(c.terminadoEn)}` : ''}`,
       `Asistencia: ${c.asistencia.presentes} de ${c.asistencia.realizadas} sesiones realizadas (${porcentaje(c.asistencia.porcentaje)})`,
       ...(c.sesiones.length ? c.sesiones.map(sesion) : ['Sin sesiones registradas.']),

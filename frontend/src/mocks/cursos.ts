@@ -43,10 +43,15 @@ function filaCierre(curso: DetalleCurso, agremiadoId: string): FilaCierre {
   return { agremiado: { id: agremiadoId, nombre }, presentes, sesiones, porcentaje, cumple: sesiones > 0 && porcentaje >= curso.requisitoAsistencia }
 }
 
-function disponibilidad(curso: DetalleCurso, usuarioId?: string) {
+function disponibilidad(curso: DetalleCurso, usuarioId?: string): DetalleCurso {
   const inscritos = inscripcionesCursosDemo.get(curso.id) ?? new Set<string>()
-  return { ...curso, sesiones: sesionesDe(curso.id), cuposDisponibles: Math.max(0, curso.cupos - inscritos.size), inscrito: !!usuarioId && inscritos.has(usuarioId) }
+  const inscrito = !!usuarioId && inscritos.has(usuarioId)
+  const estadoInscripcion = inscrito
+    ? estadosInscripcionDemo.get(`${curso.id}:${usuarioId}`) ?? (usuarioId === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : 'EN_CURSO')
+    : null
+  return { ...curso, estadoInscripcion, sesiones: sesionesDe(curso.id), cuposDisponibles: Math.max(0, curso.cupos - inscritos.size), inscrito }
 }
+
 const archivos = demo.archivos
 let secuencia = demo.siguienteId
 const nuevoId = () => String(secuencia++)
@@ -96,6 +101,8 @@ function catalogoPaginado(request: Request, publico = false, usuarioId = '') {
   return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => publico ? resumenPublico(disponibilidad(c, '')) : disponibilidad(c, usuarioId)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...categoriasCatalogo] })
 }
 
+export const estadosInscripcionDemo = new Map<string, 'EN_CURSO' | 'PENDIENTE_PAGO'>()
+
 export const handlersCursos = [
   http.get(`${API}/cursos/instructores`, ({ request }) => {
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
@@ -123,7 +130,8 @@ export const handlersCursos = [
     const yaInscrito = inscritos.has(auth.usuario!.id)
     if (!yaInscrito && inscritos.size >= curso.cupos) return error(409, 'El curso está sin cupos. Elige otra capacitación.', 'SIN_CUPOS')
     inscritos.add(auth.usuario!.id); inscripcionesCursosDemo.set(curso.id, inscritos)
-    const estado = yaInscrito && auth.usuario!.id === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : curso.costo > 0 ? 'PENDIENTE_PAGO' : 'EN_CURSO'
+    if (!yaInscrito) estadosInscripcionDemo.set(`${curso.id}:${auth.usuario!.id}`, curso.costo > 0 ? 'PENDIENTE_PAGO' : 'EN_CURSO')
+    const estado = yaInscrito && auth.usuario!.id === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : estadosInscripcionDemo.get(`${curso.id}:${auth.usuario!.id}`) ?? 'EN_CURSO'
     return HttpResponse.json({ cursoId: curso.id, estado, yaInscrito }, { status: yaInscrito ? 200 : 201 })
   }),
   http.post(`${API}/cursos`, async ({ request }) => {

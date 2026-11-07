@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { asistencias, clases, inscripciones, usuarios } from './datos'
 import { certificados as certificadosEmitidos } from './certificados'
-import { cursosSimulados, inscripcionesCursosDemo } from './cursos'
+import { cursosSimulados, inscripcionesCursosDemo, estadosInscripcionDemo } from './cursos'
 import { pdfTextoDemo } from './pdfTexto'
 import type { Historial, ResumenAsistencia, SesionHistorial } from '@/servicios/historial'
 const API = import.meta.env.VITE_API_URL ?? '/api'
@@ -32,7 +32,8 @@ function historialDe(id: string): Historial {
     const sesiones: SesionHistorial[] = (indice > 1 ? [] : [0, 1]).map(n => ({ id: `hist-${curso.id}-${n}`, cursoId: curso.id,
       titulo: `Sesión ${n + 1} de ${curso.titulo}`, fecha: fecha(indice === 0 ? -15 + n : n === 0 ? -3 : 10).slice(0, 10), horaInicio: '08:00', horaFin: '09:00',
       estado: indice === 1 && n === 1 ? 'PENDIENTE' : (id === 'p-1' ? n === 0 : n === 1) ? 'PRESENTE' : 'AUSENTE', contabiliza: !(indice === 1 && n === 1), horaRegistro: null }))
-    return { id: curso.id, titulo: curso.titulo, estado: terminado ? 'TERMINADO' as const : 'EN_CURSO' as const, horasLectivas: curso.horasLectivas, requisitoAsistencia: curso.requisitoAsistencia, pagoPendiente: curso.costo > 0 && !terminado, modalidad: curso.modalidad, inscritoEn: fecha(-30), terminadoEn: terminado ? fecha(-10) : null,
+    const guardado = estadosInscripcionDemo.get(`${curso.id}:${id}`)
+    return { id: curso.id, titulo: curso.titulo, estado: terminado ? 'TERMINADO' as const : guardado ?? 'EN_CURSO' as const, horasLectivas: curso.horasLectivas, requisitoAsistencia: curso.requisitoAsistencia, pagoPendiente: guardado ? guardado === 'PENDIENTE_PAGO' : curso.costo > 0 && !terminado, modalidad: curso.modalidad, inscritoEn: fecha(-30), terminadoEn: terminado ? fecha(-10) : null,
       sesiones, asistencia: resumen(sesiones), certificados: id === 'p-1' && indice === 0 ? [{ id: 'cert-demo-maria', cursoId: curso.id, codigo: 'DEMO-HU18-MARIA-SEGURIDAD', tipo: 'APROBACION' as const, emitidoEn: fecha(-9), estado: certificadosEmitidos.find(c => c.codigo === 'DEMO-HU18-MARIA-SEGURIDAD')?.estado ?? 'VALIDO' }] : emitidos }
   })
   const independientes: SesionHistorial[] = clases.filter(c => inscripciones[c.id]?.includes(id)).map(c => {
@@ -57,7 +58,7 @@ export const handlersHistorial = [
     const auth = acceso(request, String(params.usuarioId)); if (auth.error) return auth.error
     const h = historialDe(auth.persona!.id)
     const lineas = [`Colegiado: ${h.colegiado.nombre}`, `DNI: ${h.colegiado.dniEnmascarado ?? 'No registrado'}`, 'Resumen de demostración',
-      ...h.cursos.flatMap(c => [c.titulo, c.estado, `Asistencia: ${c.asistencia.porcentaje ?? '-'}%`, ...c.sesiones.map(s => `${s.fecha} | ${s.titulo} | ${s.estado}`), ...c.certificados.map(cert => `Certificado: ${cert.codigo}`)]),
+      ...h.cursos.flatMap(c => [c.titulo, { EN_CURSO: 'En curso', TERMINADO: 'Terminado', PENDIENTE_PAGO: 'Pendiente de pago' }[c.estado], `Asistencia: ${c.asistencia.porcentaje ?? '-'}%`, ...c.sesiones.map(s => `${s.fecha} | ${s.titulo} | ${s.estado}`), ...c.certificados.map(cert => `Certificado: ${cert.codigo}`)]),
       'Otras sesiones', ...h.sesionesIndependientes.map(s => `${s.fecha} | ${s.titulo} | ${s.estado}`)]
     return pdf(pdfTextoDemo('Historial de capacitación', lineas), 'historial-capacitacion.pdf')
   }),

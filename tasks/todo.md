@@ -59,3 +59,13 @@ cambios de esta entrega son Markdown. No se modificaron versiones ni Git.
 
 La recuperación automática por correo, el padrón y el docente externo quedan fuera
 de esta entrega.
+
+
+## HU-16
+
+- [x] Confirmación gratuita y reserva pagada persistente, sin duplicados ni exceso de cupos.
+- [x] Estado consistente en detalle, Mis cursos, historial y PDF.
+- [x] Conservar inscripción manual y estados históricos.
+- [ ] Migración 0012 y build en el entorno de entrega: ejecución manual.
+
+HU-33 y HU-32 quedan fuera de esta entrega.

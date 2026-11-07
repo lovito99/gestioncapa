@@ -77,8 +77,10 @@ function TarjetaCurso({ curso }: { curso: CursoInscrito }) {
             {curso.titulo}
           </Link>
         </h2>
-        {curso.pagoPendiente && <Etiqueta tono="advertencia">Pendiente de pago</Etiqueta>}
-        <Etiqueta tono={terminado ? 'exito' : 'marca'}>{terminado ? 'Terminado' : 'En curso'}</Etiqueta>
+        {curso.estado === 'PENDIENTE_PAGO' ? <Etiqueta tono="advertencia">Pendiente de pago</Etiqueta> : <>
+          {curso.pagoPendiente && <Etiqueta tono="advertencia">Pendiente de pago</Etiqueta>}
+          <Etiqueta tono={terminado ? 'exito' : 'marca'}>{terminado ? 'Terminado' : 'En curso'}</Etiqueta>
+        </>}
       </div>
       {fechas.length > 0 && (
         <p className="flex items-center gap-2 text-sm text-muted">
