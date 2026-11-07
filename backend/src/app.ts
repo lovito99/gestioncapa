@@ -1,3 +1,4 @@
+import { registrarAccesoSesiones } from './modules/cursos/sesiones.acceso.js';
 import { registrarCursos } from "./modules/cursos/cursos.rutas.js";
 import { registrarRutasReuniones } from "./modules/reuniones/reuniones.rutas.js";
 import Fastify from "fastify";
@@ -38,6 +39,7 @@ export async function buildApp() {
   registrarErrores(app);
   // Antes de registrar rutas: cada una recibe el guard de la matriz de permisos.
   registrarAutorizacion(app, findUserById);
+  registrarAccesoSesiones(app);
   // No migra: exige que la base esté al día (npm run migrate) antes de aceptar tráfico.
   await verificarMigraciones(pool);
   await ensureAdminUser();

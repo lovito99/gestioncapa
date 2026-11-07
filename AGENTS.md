@@ -1,5 +1,15 @@
 # Instrucciones del proyecto
 
+## Nombres de código y archivos
+
+No uses guiones bajos (`_`) en nombres nuevos de funciones, variables ni archivos.
+Usa `camelCase` para funciones y variables, `PascalCase` para componentes y tipos,
+y nombres de archivo sin guiones bajos, siguiendo el estilo de su carpeta.
+Conserva los nombres existentes de columnas SQL, variables de entorno y contratos
+externos cuando cambiarlos rompería compatibilidad; usa alias sin guiones bajos
+al convertirlos a variables de la aplicación. No renombres archivos históricos
+ni migraciones ya aplicadas como parte de una tarea ajena.
+
 ## Versionado y Git manual
 
 Para recomendar versiones, preparar mensajes de commit o describir una entrega,

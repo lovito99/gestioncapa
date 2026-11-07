@@ -1,3 +1,4 @@
+import { SesionesCurso } from './SesionesCurso'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
@@ -49,6 +50,7 @@ export function DetalleCursoPagina() {
       {usuario?.rol === 'ADMIN' && curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
       {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
     </header>
+    {curso.modalidad !== 'VIRTUAL' && <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN'} participante={usuario?.rol === 'PARTICIPANTE'} />}
     <h2 className="text-xl font-semibold">Módulos y material</h2>
     <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
   </div>

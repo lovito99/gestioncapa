@@ -56,8 +56,9 @@ const aClase = (fila: FilaClase): Clase => ({
   estado: fila.estado
 });
 
-export async function listarClases() {
-  const resultado = await pool.query<FilaClase>(`${SELECT_CLASE} order by c.fecha, c.hora_inicio, c.id`);
+export async function listarClases(usuarioId?: number) {
+  const resultado = await pool.query<FilaClase>(`${SELECT_CLASE} where c.curso_id is null or $1::bigint is null
+    or c.organization_id=(select organization_id from users where id=$1) order by c.fecha, c.hora_inicio, c.id`, [usuarioId ?? null]);
   return resultado.rows.map(aClase);
 }
 
@@ -200,8 +201,9 @@ export async function buscarParticipante(email: string) {
 export async function inscribir(claseId: number, participanteId: string) {
   return conClaseBloqueada(claseId, async (cliente) => {
     const resultado = await cliente.query(
-      `insert into enrollments (class_id, user_id)
-       select $1, $2 from classes where id = $1 and estado = 'PROGRAMADA'
+      `insert into enrollments (organization_id, class_id, user_id)
+       select organization_id, $1, $2 from classes where id = $1 and estado = 'PROGRAMADA'
+         and (curso_id is null or exists(select 1 from users where id=$2 and organization_id=classes.organization_id and active and role='participante'))
        on conflict do nothing`,
       [claseId, participanteId]
     );

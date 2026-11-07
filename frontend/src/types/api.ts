@@ -27,6 +27,8 @@ export interface InstructorResumen {
 }
 
 export interface Clase {
+  /** Presente cuando la clase es una sesión de curso. */
+  cursoId?: string
   id: string
   nombre: string
   instructor: InstructorResumen

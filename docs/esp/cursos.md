@@ -133,3 +133,51 @@ estados, notas, módulos o materiales existentes. No repone material eliminado
 de un curso ya sembrado. En producción no crea cursos, módulos ni materiales demo.
 Las credenciales demo solo se usan fuera de producción. El modo demo en memoria
 se restaura al recargar; el backend real conserva los cambios.
+
+## Sesiones presenciales (criterio agregado del 02/11)
+
+El administrador programa sesiones desde el detalle de un curso presencial o
+híbrido, tanto en borrador como publicado. Cada sesión conserva el curso, su
+organización y el instructor asignado, con nombre, fecha, hora de inicio y fin y
+lugar. Se reutilizan las clases existentes para inscripciones, QR y asistencia;
+las clases anteriores permanecen sin curso. Los horarios usan la zona de Lima.
+No se permiten cruces de horario del instructor, tampoco con clases de otro curso.
+Las rutas generales de clases también verifican la organización de las sesiones;
+no permiten inscribir participantes de otra organización ni cambiar el instructor
+asignado al curso al editar una sesión.
+
+- `POST /api/cursos/:id/sesiones`: solo administrador de la misma organización;
+  cuerpo `{ nombre, fecha, horaInicio, horaFin, lugar }`; responde 201 con la
+  sesión y `cursoId`. Datos inválidos: 422; cruce o curso virtual: 409.
+- `GET /api/cursos/:id` incluye `sesiones`, ordenadas por fecha y hora, sin datos
+  personales de los inscritos. Las canceladas conservan su estado visible.
+- `GET /api/cursos/:id/mi-asistencia`: solo participante, respetando la visibilidad
+  del curso; devuelve `totalSesiones`, `presentes`, `porcentaje`,
+  `requisitoAsistencia: 80` y `cumpleAsistencia`.
+
+Para HU-20, cada sesión no cancelada del curso aporta una unidad al denominador.
+Solo las marcas de ese participante en esas sesiones aportan al numerador. Las
+clases sin curso, las de otros cursos y las canceladas quedan excluidas. Sin
+sesiones el porcentaje es 0 y no se cumple el requisito. El umbral se compara
+sin redondeo: cuatro de cinco cumple el 80 %, tres de cuatro no. Este resultado
+comprueba únicamente asistencia; no concede un certificado ni sustituye la nota
+mínima de los certificados de aprobación.
+
+Aplicar también `0008-sesionesCurso.sql` antes de iniciar el backend. La migración
+es aditiva y no modifica migraciones anteriores. Si una base registra migraciones
+ausentes en esta rama, usa una base aislada con este historial para probar; no
+edites su registro ni las migraciones ya aplicadas para forzar la compatibilidad.
+
+Verificación de sesiones:
+
+- `backend/test/integracion/sesionesCurso.test.ts`: asociación, orden, permisos,
+  fechas, horarios, conflictos concurrentes, asistencia por QR y umbral del 80 %.
+- `frontend/src/mocks/sesionesCurso.test.ts`: contrato equivalente en modo demo,
+  permisos, validación, cancelación y asistencia individual.
+- El recorrido de `e2e/ayud/cursos.ts`, usado con demo y backend real a 360 px,
+  incluye horario inválido, programación de sesión, consulta como instructor y
+  colegiado, ausencia de controles de administración y comprobación de errores
+  de ejecución del navegador.
+
+Se comprobaron tipos, pruebas unitarias, integración y navegador sin ejecutar
+builds. El build queda pendiente de ejecución manual.

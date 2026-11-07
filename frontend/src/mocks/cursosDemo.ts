@@ -24,7 +24,7 @@ export function crearCursosDemo() {
       titulos: ['Planificación didáctica', 'Evaluación del aprendizaje'], enlace: 'https://www.unesco.org/es/education' },
     { titulo: 'Demo · Herramientas digitales para docentes', descripcion: 'Borrador de ejemplo: revisa los módulos y publícalo para verlo en el catálogo.', instructorId: 'i-1', instructorNombre: 'Carlos Mendoza Ríos', horasLectivas: 20, modalidad: 'VIRTUAL', costo: 120, cupos: 25, tipoCertificado: 'APROBACION', notaMinima: 16, estado: 'BORRADOR',
       titulos: ['Recursos y herramientas digitales', 'Diseño de una actividad virtual'], enlace: 'https://www.unesco.org/es/digital-education' },
-  ].map(({ titulos, enlace, ...curso }) => ({ ...curso, id: nuevoId(), modulos: titulos.map((titulo, indice) => {
+  ].map(({ titulos, enlace, ...curso }) => ({ ...curso, id: nuevoId(), sesiones: [], modulos: titulos.map((titulo, indice) => {
     const id = nuevoId()
     if (indice === 0) {
       const pdfId = nuevoId()
