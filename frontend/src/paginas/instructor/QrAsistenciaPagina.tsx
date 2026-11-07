@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '@/auth/useAuth'
-import { BotonCerrarSesion } from '@/components/layout/Encabezado'
-import { LogoInsignia } from '@/components/layout/Logo'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { mensajeDeError } from '@/lib/api'
 import { fechaCorta, rangoHorario } from '@/lib/formato'
@@ -38,27 +36,18 @@ export function QrAsistenciaPagina() {
     : ''
 
   return (
-    <div className="min-h-dvh bg-page">
-      <header className="border-b border-line-2/40 bg-white">
-        <div className="mx-auto grid h-16 max-w-7xl grid-cols-3 items-center px-4 sm:px-6">
-          <Link
-            to={rutaVolver}
-            className="flex items-center gap-1 justify-self-start text-[13px] font-medium text-muted-3 hover:text-ink"
-          >
+    <div>
+      {/* 4.2: bajo el encabezado del CPPP, una barra para volver a la lista */}
+      <div className="border-b border-line bg-white px-4 sm:px-10">
+        <div className="mx-auto flex h-12 max-w-300 items-center sm:px-6">
+          <Link to={rutaVolver} className="flex items-center gap-1 text-[13px] font-medium text-muted hover:text-ink">
             <ArrowLeft className="size-3.25" aria-hidden />
             {usuario?.rol === 'ADMIN' ? 'Volver a clases' : 'Mis clases'}
           </Link>
-          <div className="flex items-center gap-2 justify-self-center">
-            <LogoInsignia alto={36} />
-            <span className="hidden font-serif text-base font-bold tracking-[-0.4px] text-brand sm:inline">
-              GestionCapa
-            </span>
-          </div>
-          <BotonCerrarSesion className="justify-self-end text-[13px] font-medium text-muted-3" />
         </div>
-      </header>
+      </div>
 
-      <main className="mx-auto flex max-w-4xl flex-col items-center px-4 py-10 sm:px-6 sm:py-16">
+      <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-10 sm:px-6 sm:py-16">
         {clase.isPending ? (
           <Cargando />
         ) : clase.isError ? (
@@ -148,7 +137,7 @@ export function QrAsistenciaPagina() {
             )}
           </>
         )}
-      </main>
+      </div>
     </div>
   )
 }

@@ -20,7 +20,7 @@ import { useClase, useInscribirParticipante, useInscritos } from '@/servicios/cl
 import { CODIGOS_ERROR } from '@/types/api'
 
 const esquema = z.object({
-  email: z.string().trim().min(1, 'Ingresa el correo del participante').pipe(z.email('Ingresa un correo válido')),
+  email: z.string().trim().min(1, 'Ingresa el correo del agremiado').pipe(z.email('Ingresa un correo válido')),
 })
 type Formulario = z.infer<typeof esquema>
 
@@ -126,16 +126,16 @@ export function DetalleClasePagina() {
 
       {!cancelada && (
         <section className="flex flex-col gap-3.5 rounded-xl border border-line bg-white px-6 pt-7 pb-6">
-          <h2 className="text-base leading-6 font-semibold tracking-[-0.08px] text-ink">Inscribir participante</h2>
+          <h2 className="text-base leading-6 font-semibold tracking-[-0.08px] text-ink">Inscribir agremiado</h2>
           <form onSubmit={enviar} noValidate className="flex flex-wrap items-start gap-3">
             <div className="w-full sm:w-100">
-              <label htmlFor="email-participante" className="sr-only">
-                Correo del participante
+              <label htmlFor="email-agremiado" className="sr-only">
+                Correo del agremiado
               </label>
               <Entrada
-                id="email-participante"
+                id="email-agremiado"
                 type="email"
-                placeholder="nombre@organizacion.pe"
+                placeholder="nombre@correo.com"
                 autoComplete="off"
                 estado={errors.email || noExiste ? 'error' : 'normal'}
                 className="px-4 ring-placeholder placeholder:text-slate-400"
@@ -160,7 +160,7 @@ export function DetalleClasePagina() {
             <Alerta tipo="error">{error.message}</Alerta>
           ) : (
             <p id="ayuda-inscribir" className="text-xs leading-4 text-muted">
-              El participante debe tener una cuenta registrada en GestionCapa.
+              El agremiado debe tener una cuenta registrada en GestionCapa.
             </p>
           )}
         </section>
@@ -177,7 +177,7 @@ export function DetalleClasePagina() {
             <ErrorCarga mensaje="No pudimos cargar los inscritos." onReintentar={inscritos.refetch} />
           ) : inscritos.data.length === 0 ? (
             <p className="border-t border-line-soft py-10 text-center text-sm text-muted">
-              Aún no hay participantes inscritos.
+              Aún no hay agremiados inscritos.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -207,7 +207,7 @@ export function DetalleClasePagina() {
 
 function Contenedor({ children }: { children: ReactNode }) {
   return (
-    <div className="bg-surface-2 px-4 pt-8 pb-12 sm:px-10">
+    <div className="px-4 pt-8 pb-12 sm:px-10">
       <div className="mx-auto flex max-w-300 flex-col gap-4 sm:px-8">{children}</div>
     </div>
   )

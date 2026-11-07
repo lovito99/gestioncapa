@@ -43,6 +43,12 @@
   --color-success-soft: #eaf7ef;
 }
 
+/* Los certificados (5.1) se imprimen en una hoja A4 horizontal */
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
 @layer base {
   html {
     color-scheme: light;

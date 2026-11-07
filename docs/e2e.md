@@ -124,9 +124,16 @@ por el handler existente. No tienen esperas fijas con `waitForTimeout`. La fixtu
 las respuestas de la API no se sustituyen desde Playwright.
 
 La suite demo comprueba UI y comportamiento simulado de clases y asistencia. La
-suite real comprueba la integración de autenticación, salud y sesión. Todavía no
-hay E2E real de clases ni de asistencia: faltan esos endpoints en el backend.
-Tampoco se valida la lectura física de una cámara con estos recorridos.
+suite real comprueba autenticación, salud, sesión, clases, asistencia, cursos e
+historial contra el backend y PostgreSQL. No se valida la lectura física de una
+cámara con estos recorridos.
+
+En `VIN-01`, el colegiado y el instructor mantienen sesiones separadas por
+pestaña. El colegiado inicia sesión antes de obtener el QR. Si el código tiene
+menos de diez segundos de vigencia, la prueba espera la renovación real de la
+pantalla antes de usarlo. No se cambia el vencimiento ni el reloj del backend.
+El nombre y la fecha de la clase varían por repetición y reintento, para que una
+clase persistida tras un fallo no cause un conflicto 409 en el siguiente intento.
 
 En GitHub Actions, `.github/workflows/e2e.yml` instala dependencias y Chromium,
 levanta servicios desechables y ejecuta las comprobaciones. Los informes y las

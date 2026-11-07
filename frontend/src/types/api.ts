@@ -19,6 +19,17 @@ export interface LoginRespuesta {
   usuario: Usuario
 }
 
+/** Alta de un agremiado desde la pantalla "Crear cuenta" */
+export interface RegistroEntrada {
+  dni: string
+  nombres: string
+  apellidos: string
+  email: string
+  celular: string
+  password: string
+  aceptaPrivacidad: true
+}
+
 export type EstadoClase = 'PROGRAMADA' | 'CANCELADA'
 
 export interface InstructorResumen {
@@ -26,10 +37,18 @@ export interface InstructorResumen {
   nombre: string
 }
 
+/** Curso al que pertenece una clase (cada clase es una sesión del curso) */
+export interface CursoResumen {
+  id: string
+  titulo: string
+}
+
 export interface Clase {
   /** Presente cuando la clase es una sesión de curso. */
   cursoId?: string
   id: string
+  /** `null` solo en clases antiguas creadas antes de vincularlas a un curso */
+  curso: CursoResumen | null
   nombre: string
   instructor: InstructorResumen
   /** Fecha en formato ISO `YYYY-MM-DD`, hora de Lima */
@@ -44,6 +63,8 @@ export interface Clase {
 }
 
 export interface ClaseEntrada {
+  /** Obligatorio: la clase se cuenta como sesión de este curso para la asistencia y el certificado */
+  cursoId: string
   nombre: string
   instructorId: string
   fecha: string

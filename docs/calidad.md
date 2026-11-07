@@ -30,6 +30,19 @@ por lo que no debe usarse cuando se desea dejar ese paso manual.
 
 `e2e.yml` sigue ejecutando las suites de Playwright.
 
+Los tres jobs instalan dependencias con
+`npm install --include=dev --include=optional --package-lock=false`, ya que el
+proyecto no versiona `package-lock.json`. En `actions/setup-node` se establece
+`package-manager-cache: false` y no se configura `cache: npm`: la caché necesita
+un lockfile para calcular su clave. `npm ci` también necesita un lockfile y no
+debe usarse con esta convención. Sin un lockfile versionado, las versiones
+resueltas pueden variar dentro de los rangos de `package.json`.
+
+La anotación `Dependencies lock file is not found` indica un fallo en la
+preparación de Node, antes de ejecutar tipos, build o pruebas. Tras subir los
+workflows corregidos a la rama del PR, debe ejecutarse el nuevo commit. Repetir
+el job de un commit anterior vuelve a utilizar el workflow anterior.
+
 ## Revisión obligatoria (configuración única del repositorio)
 
 El código no puede obligar a que otra persona revise: lo hace la protección de

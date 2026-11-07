@@ -6,7 +6,9 @@ type Variante = 'primario' | 'secundario' | 'peligro' | 'icono'
 const estilos: Record<Variante, string> = {
   primario:
     'bg-brand text-white shadow-[0_1px_1px_rgba(0,0,0,0.05)] hover:bg-brand-ink disabled:bg-brand/60',
-  secundario: 'bg-white text-ink-2 ring-1 ring-line-2 ring-inset hover:bg-surface-2',
+  // Deshabilitado: fondo gris y sin borde, como «Secundario / Deshabilitado» del sistema de diseño
+  secundario:
+    'bg-white text-ink-2 ring-1 ring-line-2 ring-inset hover:bg-surface-2 disabled:bg-surface-3 disabled:text-muted disabled:ring-transparent',
   peligro: 'bg-danger-strong text-white hover:bg-danger',
   icono: 'size-8 rounded-sm p-0 text-muted-2 hover:bg-surface-3',
 }

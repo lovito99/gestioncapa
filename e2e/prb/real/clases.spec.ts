@@ -4,7 +4,7 @@ import { claseNueva, cuentas } from '../../ayud/datos'
 import { rutas } from '../../ayud/rutas'
 import { entrar } from '../../ayud/sesion'
 
-// gestioncapa_e2e empieza sin clases en cada ejecución (npm run e2e:prep -w backend).
+// gestioncapa_e2e reinicia sus clases y carga datos demo en cada ejecución.
 test('PRG-10: la coordinadora crea, edita y cancela una clase con el backend real', async ({ page }) => {
   await entrar(page, cuentas.coord)
   await page.getByRole('link', { name: 'Nueva clase' }).click()

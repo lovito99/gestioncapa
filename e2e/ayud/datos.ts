@@ -17,6 +17,8 @@ export const cuentaReal = {
 }
 
 export const claseNueva = {
+  // 3.2: cada clase pertenece a un curso (es una de sus sesiones)
+  curso: 'Demo · Seguridad y primeros auxilios',
   nombre: 'Prevención de riesgos E2E',
   instructor: 'Carlos Mendoza Ríos',
   fecha: '2030-01-15',

@@ -1,31 +1,29 @@
 import { SesionesCurso } from './SesionesCurso'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
+import { Alerta } from '@/components/ui/Alerta'
 import { Boton } from '@/components/ui/Boton'
 import { Campo } from '@/components/ui/Campo'
 import { Entrada, Selector } from '@/components/ui/Entrada'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
+import { EtiquetaEstadoCurso } from '@/components/ui/Etiqueta'
 import { mensajeDeError } from '@/lib/api'
-import { cursos, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
-
-function leerPdf(archivo: File): Promise<string> {
-  if (archivo.size > 5242880) return Promise.reject(new Error('El PDF no puede superar 5 MB.'))
-  return new Promise((resolve, reject) => {
-    const lector = new FileReader()
-    lector.onload = () => resolve(String(lector.result).split(',')[1] ?? '')
-    lector.onerror = () => reject(new Error('No pudimos leer el PDF. Selecciónalo de nuevo.'))
-    lector.readAsDataURL(archivo)
-  })
-}
+import { fechaCorta, rangoHorario } from '@/lib/formato'
+import { CERTIFICADOS_CURSO, cursos, leerPdfBase64 as leerPdf, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
+import { costoCurso, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
+import { DatoCurso, EtiquetasCurso } from './presentacion'
 
 export function DetalleCursoPagina() {
   const { id = '' } = useParams()
   const { usuario } = useAuth()
   const cache = useQueryClient()
   const consulta = useQuery({ queryKey: ['curso', id], queryFn: () => cursos.obtener(id) })
+  const inscripcion = useMutation({ mutationFn: () => cursos.inscribirme(id), onSuccess: async () => {
+    await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] }), cache.invalidateQueries({ queryKey: ['historial'] }), cache.invalidateQueries({ queryKey: ['participante', 'clases'] })])
+  }, onError: async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] })]) } })
   const publicar = useMutation({ mutationFn: () => cursos.publicar(id), onSuccess: async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] })]) } })
   if (consulta.isPending) return <Cargando texto="Cargando curso…" />
   if (consulta.isError) return <ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar el curso.')} onReintentar={consulta.refetch} />
@@ -50,7 +48,6 @@ export function DetalleCursoPagina() {
       {usuario?.rol === 'ADMIN' && curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
       {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
     </header>
-    {curso.modalidad !== 'VIRTUAL' && <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN'} participante={usuario?.rol === 'PARTICIPANTE'} />}
     <h2 className="text-xl font-semibold">Módulos y material</h2>
     <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
   </div>
@@ -102,7 +99,7 @@ function Modulo({ cursoId, modulo, puedeAgregar }: { cursoId: string; modulo: Mo
         <legend className="mb-3 font-semibold">Agregar material a {modulo.titulo}</legend>
         <Campo etiqueta="Título del material" obligatorio><Entrada name="titulo" required maxLength={160} /></Campo>
         <Campo etiqueta="Tipo de material"><Selector value={tipo} onChange={e => cambiarTipo(e.target.value as typeof tipo)}><option value="PDF">Archivo PDF (hasta 5 MB)</option><option value="ENLACE">Enlace</option><option value="VIDEO">Video por URL</option></Selector></Campo>
-        {tipo === 'PDF' ? <Campo etiqueta="Archivo PDF" obligatorio className="sm:col-span-2"><Entrada className="h-auto min-h-11 py-2" name="archivo" type="file" accept="application/pdf,.pdf" required /></Campo> : <Campo etiqueta="URL HTTPS" obligatorio className="sm:col-span-2"><Entrada name="url" type="url" pattern="https://.*" maxLength={2048} required placeholder="https://…" /></Campo>}
+        {tipo === 'PDF' ? <Campo etiqueta="Archivo PDF" obligatorio className="sm:col-span-2"><Entrada className="h-auto min-h-11 py-2 sm:h-auto" name="archivo" type="file" accept="application/pdf,.pdf" required /></Campo> : <Campo etiqueta="URL HTTPS" obligatorio className="sm:col-span-2"><Entrada name="url" type="url" pattern="https://.*" maxLength={2048} required placeholder="https://…" /></Campo>}
         <Boton className="justify-self-start" type="submit" cargando={ocupado}>Guardar material</Boton>
       </fieldset>
     </form>}
