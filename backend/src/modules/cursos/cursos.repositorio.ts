@@ -1,3 +1,4 @@
+import { categoriasCatalogo } from './cursos.categorias.js';
 import type { PoolClient } from 'pg';
 import { pool } from '../../shared/database.js';
 import type { ConsultaCatalogo, DatosCurso, DatosMaterial } from './cursos.validacion.js';
@@ -28,7 +29,11 @@ export async function obtenerCurso(id: string, usuarioId?: number) {
   const materiales = (await pool.query<{ id: string; moduloId: string; titulo: string; tipo: string; url: string | null }>(`
     select a.id::text,a.modulo_id::text as "moduloId",a.titulo,a.tipo,a.url from materiales_curso a
     join modulos_curso m on m.id=a.modulo_id where m.curso_id=$1 order by a.id`, [id])).rows;
-  return { ...curso, modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
+  const sesiones = (await pool.query<{ id: string; nombre: string; fecha: string; horaInicio: string; horaFin: string; lugar: string; estado: 'PROGRAMADA' | 'CANCELADA' }>(`
+    select id::text,nombre,to_char(fecha,'YYYY-MM-DD') as fecha,
+      to_char(hora_inicio,'HH24:MI') as "horaInicio",to_char(hora_fin,'HH24:MI') as "horaFin",lugar,estado
+    from classes where curso_id=$1 and organization_id=$2 order by fecha,hora_inicio,id`, [id, curso.organizacionId])).rows;
+  return { ...curso, sesiones, modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
 }
 export async function transaccion<T>(operacion: (cliente: PoolClient) => Promise<T>) {
   const cliente = await pool.connect();
@@ -69,8 +74,8 @@ export async function obtenerArchivo(cursoId: string, moduloId: string, material
 }
 
 export async function paginaCatalogo(organizacion: string, usuarioId: number, consulta: ConsultaCatalogo) {
-  // Un solo snapshot para resultados, total y categorías; nunca incluye borradores.
-  const datos = (await pool.query<{ items: Curso[]; total: number; categorias: string[] }>(`with publicados as (
+  // Un solo snapshot para resultados y total; categorías fijas del Sprint 2.
+  const datos = (await pool.query<{ items: Curso[]; total: number }>(`with publicados as (
       select ${columnas},exists(select 1 from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$7) as inscrito
       from cursos c join users u on u.id=c.instructor_id where c.organization_id=$1 and c.estado='PUBLICADO'
     ), filtrados as (
@@ -79,11 +84,10 @@ export async function paginaCatalogo(organizacion: string, usuarioId: number, co
       and ($3::text is null or modalidad=$3) and ($4::text is null or categoria=$4)
     ), pagina as (select * from filtrados order by id::bigint desc limit $5 offset $6)
     select coalesce((select jsonb_agg(to_jsonb(p) order by p.id::bigint desc) from pagina p),'[]'::jsonb) as items,
-      (select count(*)::int from filtrados) as total,
-      coalesce((select jsonb_agg(categoria order by categoria) from (select distinct categoria from publicados) cat),'[]'::jsonb) as categorias`,
+      (select count(*)::int from filtrados) as total`,
     [organizacion, consulta.buscar, consulta.modalidad ?? null, consulta.categoria ?? null, consulta.tamanoPagina,
       (consulta.pagina - 1) * consulta.tamanoPagina, usuarioId])).rows[0]!;
-  return { ...datos, pagina: consulta.pagina, tamanoPagina: consulta.tamanoPagina, totalPaginas: Math.ceil(datos.total / consulta.tamanoPagina) };
+  return { ...datos, categorias: [...categoriasCatalogo], pagina: consulta.pagina, tamanoPagina: consulta.tamanoPagina, totalPaginas: Math.ceil(datos.total / consulta.tamanoPagina) };
 }
 
 export async function inscribirseEnCurso(cursoId: string, usuarioId: number) {

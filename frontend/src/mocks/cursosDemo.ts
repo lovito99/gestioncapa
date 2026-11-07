@@ -27,7 +27,10 @@ export function crearCursosDemo() {
     { categoria: 'Educación', inicio: 30, fin: 31, titulo: 'Demo · Taller con cupos agotados', descripcion: 'Curso de ejemplo con su única plaza ocupada.', instructorId: 'i-2', instructorNombre: 'Lucía Paredes Quispe', horasLectivas: 8, modalidad: 'VIRTUAL', costo: 0, cupos: 1, tipoCertificado: 'PARTICIPACION', notaMinima: 14, estado: 'PUBLICADO',
       titulos: ['Introducción al taller', 'Actividad práctica'], enlace: 'https://www.unesco.org/es/education' },
   ].map(({ titulos, enlace, inicio, fin, ...curso }) => ({ ...curso, cuposDisponibles: curso.cupos,
-    fechaInicio: new Date(Date.now()+inicio*86400000).toISOString().slice(0,10), fechaFin: new Date(Date.now()+fin*86400000).toISOString().slice(0,10), id: nuevoId(), modulos: titulos.map((titulo, indice) => {
+    fechaInicio: new Date(Date.now()+inicio*86400000).toISOString().slice(0,10), fechaFin: new Date(Date.now()+fin*86400000).toISOString().slice(0,10), id: nuevoId(),
+    sesiones: [inicio, fin].map((dias, indice) => ({ id: `sesion-${curso.instructorId}-${inicio}-${indice}`, nombre: `Sesión ${indice + 1} de ${curso.titulo}`,
+      fecha: new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10), horaInicio: '08:00', horaFin: '09:00',
+      lugar: curso.modalidad === 'VIRTUAL' ? 'Aula virtual' : 'Sala demo de capacitación', estado: 'PROGRAMADA' as const })), modulos: titulos.map((titulo, indice) => {
     const id = nuevoId()
     if (indice === 0) {
       const pdfId = nuevoId()

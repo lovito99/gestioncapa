@@ -8,7 +8,10 @@ export type Curso = {
   categoria: string; fechaInicio: string | null; fechaFin: string | null; cuposDisponibles: number; inscrito?: boolean;
   tipoCertificado: 'PARTICIPACION' | 'APROBACION'; notaMinima: number; estado: 'BORRADOR' | 'PUBLICADO';
 }
-export type DetalleCurso = Curso & { modulos: ModuloCurso[] }
+/** Categorías fijas del Sprint 2; deben coincidir con la respuesta de la API. */
+export const categoriasCatalogo = ['Educación', 'General', 'Seguridad y salud', 'Tecnología'] as const
+export type SesionCurso = { id: string; nombre: string; fecha: string; horaInicio: string; horaFin: string; lugar: string; estado: 'PROGRAMADA' | 'CANCELADA' }
+export type DetalleCurso = Curso & { modulos: ModuloCurso[]; sesiones: SesionCurso[] }
 export type CursoEntrada = Pick<Curso, 'titulo' | 'descripcion' | 'instructorId' | 'horasLectivas' | 'modalidad' | 'costo' | 'cupos' | 'tipoCertificado'> & {
   categoria?: string; fechaInicio?: string | null; fechaFin?: string | null;
   notaMinima?: number; modulos: { titulo: string }[]

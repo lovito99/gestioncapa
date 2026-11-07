@@ -41,3 +41,20 @@ describe('Cursos de demostración', () => {
     expect(texto).toContain('startxref')
   })
 })
+
+it('HU-14: las categorías fijas permanecen disponibles incluso sin resultados', async () => {
+  const pagina = await (await consultar('/catalogo/cursos/pagina?buscar=curso-inexistente-hu14')).json()
+  expect(pagina.items).toEqual([])
+  expect(pagina.categorias).toEqual(['Educación', 'General', 'Seguridad y salud', 'Tecnología'])
+})
+
+it('HU-14: el detalle demo tiene modalidad y sesiones con fecha, horario y lugar', async () => {
+  const catalogo = await (await consultar('/catalogo/cursos')).json()
+  const curso = catalogo.find((c: { modalidad: string }) => c.modalidad === 'PRESENCIAL')
+  const detalle = await (await consultar(`/cursos/${curso.id}`)).json()
+  expect(detalle.modalidad).toBe('PRESENCIAL')
+  expect(detalle.sesiones).toHaveLength(2)
+  expect(detalle.sesiones[0]).toMatchObject({ horaInicio: '08:00', horaFin: '09:00', lugar: 'Sala demo de capacitación', estado: 'PROGRAMADA' })
+  expect(detalle.sesiones.map((s: { fecha: string }) => s.fecha)).toEqual([...detalle.sesiones.map((s: { fecha: string }) => s.fecha)].sort())
+  expect(detalle.sesiones.every((s: object) => !('participantes' in s) && !('inscritos' in s))).toBe(true)
+})

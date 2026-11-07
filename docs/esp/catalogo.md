@@ -3,7 +3,7 @@
 El colegiado abre **Catálogo de cursos** para buscar por nombre, combinar filtros
 por modalidad y categoría y recorrer resultados paginados. Cada tarjeta muestra
 descripción, instructor, fechas, horas lectivas, modalidad, costo y cupos
-**disponibles**. El enlace del título abre el detalle, módulos y materiales.
+**disponibles**. El enlace del título abre el detalle, sesiones, requisitos, módulos y materiales.
 
 ## Criterios y comportamiento
 
@@ -12,8 +12,10 @@ descripción, instructor, fechas, horas lectivas, modalidad, costo y cupos
   borrador como colegiado sigue devolviendo 403.
 - Buscar coincide con una parte literal del nombre, sin distinguir mayúsculas ni
   tildes. `%` y `_` se buscan literalmente, no como comodines SQL.
-- Modalidad y categoría se combinan con la búsqueda. Las categorías proceden de
-  los cursos publicados de la organización. El formulario del administrador
+- Modalidad y categoría se combinan con la búsqueda. En Sprint 2 las categorías son la lista fija de demostración: `Educación`,
+  `General`, `Seguridad y salud` y `Tecnología`. No dependen de los resultados
+  de búsqueda ni revelan categorías de borradores u otras organizaciones. La
+  gestión de categorías corresponde a HU-15. El formulario del administrador
   permite indicar categoría; el valor predeterminado es `General`.
 - Se muestran seis cursos por página. Cambiar búsqueda o filtros vuelve a la
   primera página. La URL conserva filtros y página para navegación y recarga.
@@ -64,8 +66,8 @@ numérico descendente para mantener un orden definido. La respuesta contiene:
 ```
 
 Cada curso incluye `categoria`, `fechaInicio`, `fechaFin`, `cuposDisponibles` e
-`inscrito`, además de los campos anteriores. Resultados, total y categorías se
-consultan en un mismo snapshot. Una página fuera del total devuelve `items: []`;
+`inscrito`, además de los campos anteriores. Resultados y total se consultan en un mismo snapshot; las categorías son fijas
+durante el Sprint 2. Una página fuera del total devuelve `items: []`;
 la interfaz permite volver a la primera página. Los resultados paginados se envían
 con `Cache-Control: private, no-store` porque incluyen el estado de inscripción.
 
@@ -113,3 +115,18 @@ npm exec -- playwright test e2e/prb/demo/catalogo.spec.ts --project=movil
 ```
 
 El build queda para ejecución manual del usuario.
+
+## Detalle y sesiones (criterio agregado del 02/11)
+
+`GET /api/cursos/:id` incluye `sesiones`, ordenadas por fecha, hora de inicio e
+identificador, con `id`, `nombre`, `fecha`, `horaInicio`, `horaFin`, `lugar` y
+`estado`. Solo se consultan clases asociadas a ese curso. No se incluyen datos
+de los participantes ni asistencias individuales. Los borradores y cursos de
+otra organización mantienen su control de acceso.
+
+El detalle muestra siempre la modalidad y las sesiones (o su estado vacío).
+En cursos presenciales e híbridos indica el mínimo del 80 % de asistencia para
+la constancia. Si el certificado es de aprobación también recuerda la nota
+mínima. Las sesiones canceladas se distinguen y no se presentan como sesiones
+que cuenten para asistencia. Esta historia informa los requisitos; la emisión
+del certificado corresponde a HU-20. No requiere nuevas migraciones.

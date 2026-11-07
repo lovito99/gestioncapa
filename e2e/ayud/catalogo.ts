@@ -1,11 +1,11 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import { cuentas } from './datos'
 import { completarAcceso, entrar } from './sesion'
 
 export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>[1], persistente: boolean) {
   await entrar(page, admin)
   const clave = `HU14 catálogo ${Date.now()}`
-  const categoria = `Catálogo E2E ${Date.now()}`
+  const categoria = 'Educación'
   const fixtures = await page.evaluate(async ({ clave, categoria, luz }) => {
     const token = sessionStorage.getItem('gc.token')!
     const llamar = async (ruta: string, data?: object, credencial = token) => {
@@ -73,4 +73,18 @@ export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>
   await expect(page.getByRole('status')).toContainText('Inscripción registrada')
   await page.getByRole('link', { name: 'Mi historial', exact: true }).click()
   await expect(page.getByRole('heading', { name: fixtures[0]!.titulo, exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Catálogo de cursos', exact: true }).click()
+  await buscar('Demo · Didáctica y evaluación')
+  await page.getByRole('link', { name: 'Demo · Didáctica y evaluación', exact: true }).click()
+  await expect(page.locator('dl > div').filter({ hasText: 'Modalidad' })).toContainText('Presencial')
+  const sesiones = page.getByRole('region', { name: 'Sesiones del curso' })
+  await expect(sesiones.getByRole('listitem')).toHaveCount(2)
+  await expect(sesiones).toContainText('Asistencia mínima del 80 %')
+  await expect(sesiones.getByRole('listitem').first()).toContainText('08:00–09:00 (hora de Lima)')
+  await expect(sesiones.getByRole('listitem').first()).toContainText('Sala demo de capacitación')
+  const fechas = await sesiones.locator('time').evaluateAll(elementos => elementos.map(elemento => elemento.getAttribute('datetime')))
+  expect(fechas.every(fecha => /^\d{4}-\d{2}-\d{2}$/.test(fecha ?? ''))).toBe(true)
+  expect(fechas).toEqual([...fechas].sort())
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.screenshot({ path: test.info().outputPath('detalle-catalogo.png'), fullPage: true })
 }

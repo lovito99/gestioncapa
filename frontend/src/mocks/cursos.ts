@@ -1,3 +1,4 @@
+import { categoriasCatalogo } from '@/servicios/cursos'
 import { crearCursosDemo } from './cursosDemo'
 import { http, HttpResponse } from 'msw'
 import { usuarios } from './datos'
@@ -62,7 +63,7 @@ export const handlersCursos = [
     const normalizar = (texto: string) => texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
     const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO')
     const filtrados = publicados.filter(c => normalizar(c.titulo).includes(normalizar(buscar)) && (!categoria || c.categoria === categoria) && (!modalidad || c.modalidad === modalidad)).sort((a,b) => Number(b.id)-Number(a.id))
-    return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => disponibilidad(c, auth.usuario!.id)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...new Set(publicados.map(c => c.categoria))].sort() })
+    return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => disponibilidad(c, auth.usuario!.id)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...categoriasCatalogo] })
   }),
   http.post(`${API}/cursos/:id/inscribirme`, ({ request, params }) => {
     const auth = acceso(request, ['PARTICIPANTE']); if (auth.fallo) return auth.fallo
@@ -81,7 +82,7 @@ export const handlersCursos = [
     if (!datos.success) return error(422, 'Completa los campos obligatorios: horas mayores que cero, certificado y al menos un módulo.')
     const instructor = usuarios.find(u => u.id === datos.data.instructorId && u.rol === 'INSTRUCTOR')
     if (!instructor) return error(422, 'Selecciona un instructor válido.')
-    const curso: DetalleCurso = { ...datos.data, cuposDisponibles: datos.data.cupos, id: nuevoId(), instructorNombre: instructor.nombre, estado: 'BORRADOR',
+    const curso: DetalleCurso = { ...datos.data, cuposDisponibles: datos.data.cupos, id: nuevoId(), instructorNombre: instructor.nombre, estado: 'BORRADOR', sesiones: [],
       modulos: datos.data.modulos.map((m, i) => ({ ...m, id: nuevoId(), orden: i + 1, materiales: [] })) }
     cursosSimulados.push(curso)
     return HttpResponse.json(curso, { status: 201 })
