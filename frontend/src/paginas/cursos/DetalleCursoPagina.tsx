@@ -1,4 +1,5 @@
 import { SesionesCurso } from './SesionesCurso'
+import { FechasCurso } from './CursosPagina'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
@@ -38,19 +39,21 @@ export function DetalleCursoPagina() {
         <div><dt className="font-semibold">Horas lectivas</dt><dd>{curso.horasLectivas}</dd></div>
         <div><dt className="font-semibold">Modalidad</dt><dd>{{ PRESENCIAL: 'Presencial', VIRTUAL: 'Virtual', HIBRIDA: 'Híbrida' }[curso.modalidad]}</dd></div>
         <div><dt className="font-semibold">Costo</dt><dd>S/ {curso.costo.toFixed(2)}</dd></div>
-        <div><dt className="font-semibold">Cupos</dt><dd>{curso.cupos}</dd></div>
+        <div><dt className="font-semibold">Cupos disponibles</dt><dd>{curso.cuposDisponibles === 0 ? 'Sin cupos' : curso.cuposDisponibles}</dd></div>
+        <div><dt className="font-semibold">Categoría</dt><dd>{curso.categoria}</dd></div>
+        <div><dt className="font-semibold">Fechas</dt><dd><FechasCurso curso={curso} /></dd></div>
         <div><dt className="font-semibold">Certificado</dt><dd>{curso.tipoCertificado === 'APROBACION' ? 'Aprobación' : 'Participación'}</dd></div>
         <div><dt className="font-semibold">Nota mínima</dt><dd>{curso.notaMinima}</dd></div>
       </dl>
       {usuario?.rol === 'ADMIN' && curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
+      {usuario?.rol === 'PARTICIPANTE' && curso.estado === 'PUBLICADO' && <div className="space-y-2">
+        <Boton disabled={curso.inscrito || curso.cuposDisponibles === 0} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? 'Ya estás inscrito(a)' : curso.cuposDisponibles === 0 ? 'Sin cupos' : 'Inscribirme'}</Boton>
+        {inscripcion.isSuccess && <p role="status">Inscripción registrada.</p>}
+        {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.')}</Alerta>}
+      </div>}
       {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
     </header>
-    {usuario?.rol === 'PARTICIPANTE' && curso.estado === 'PUBLICADO' && <div className="space-y-3">
-      <Boton disabled={curso.inscrito || curso.cuposDisponibles === 0} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? 'Ya estás inscrito(a)' : curso.cuposDisponibles === 0 ? 'Sin cupos' : 'Inscribirme'}</Boton>
-      {inscripcion.isSuccess && <p role="status">Inscripción registrada.</p>}
-      {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos completar la inscripción.')}</Alerta>}
-    </div>}
-    {curso.modalidad !== 'VIRTUAL' && <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO'} participante={usuario?.rol === 'PARTICIPANTE'} />}
+    <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO' && curso.modalidad !== 'VIRTUAL'} participante={usuario?.rol === 'PARTICIPANTE'} />
     <h2 className="text-xl font-semibold">Módulos y material</h2>
     <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
   </div>

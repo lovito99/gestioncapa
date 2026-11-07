@@ -6,7 +6,7 @@ import { Entrada } from '@/components/ui/Entrada'
 import { mensajeDeError } from '@/lib/api'
 import { cursos, type DetalleCurso, type SesionEntrada } from '@/servicios/cursos'
 
-export function SesionesCurso({ curso, administrador, participante }: { curso: DetalleCurso; administrador: boolean; participante: boolean }) {
+export function SesionesCurso({ curso, administrador, participante }: { curso: DetalleCurso; administrador?: boolean; participante?: boolean }) {
   const cache = useQueryClient()
   const [aviso, cambiarAviso] = useState('')
   const asistencia = useQuery({ queryKey: ['curso', curso.id, 'mi-asistencia'], queryFn: () => cursos.miAsistencia(curso.id), enabled: participante })
@@ -29,8 +29,12 @@ export function SesionesCurso({ curso, administrador, participante }: { curso: D
     } catch { /* El error se muestra junto al formulario. */ }
   }
   return <section aria-labelledby="sesiones-titulo" className="space-y-4 rounded-xl border border-line bg-white p-4 sm:p-5">
-    <h2 id="sesiones-titulo" className="text-xl font-semibold">Sesiones presenciales</h2>
-    <p className="text-sm text-muted">Necesitas asistir al menos al 80 % de las sesiones no canceladas para cumplir el requisito de asistencia del certificado.</p>
+    <h2 id="sesiones-titulo" className="text-xl font-semibold">Sesiones del curso</h2>
+    {curso.modalidad !== 'VIRTUAL' && <div className="space-y-1 rounded-lg bg-brand-soft p-3">
+      <p className="font-semibold">Requisito para obtener la constancia</p>
+      <p>Asistencia mínima del {curso.requisitoAsistencia} % de las sesiones presenciales. Las sesiones canceladas no cuentan.</p>
+      {curso.tipoCertificado === 'APROBACION' && <p>Para obtener el certificado de aprobación también necesitas una nota mínima de {curso.notaMinima}.</p>}
+    </div>}
     {curso.sesiones.length === 0 ? <p>Aún no hay sesiones programadas.</p> : <ul className="space-y-3">{curso.sesiones.map(sesion => <li key={sesion.id} className="rounded-lg border border-line p-3">
       <p className="font-semibold">{sesion.nombre}</p>
       <p><time dateTime={sesion.fecha}>{sesion.fecha.split('-').reverse().join('/')}</time> · {sesion.horaInicio}–{sesion.horaFin} (hora de Lima)</p>

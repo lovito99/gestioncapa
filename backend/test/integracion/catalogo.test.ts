@@ -56,7 +56,7 @@ test('HU-14: filtros combinados, borradores y aislamiento de organizaciones', as
   assert.equal(respuesta.json().total,4);
   assert.ok(respuesta.json().items.every((c: { modalidad: string; categoria: string }) => c.modalidad==='VIRTUAL' && c.categoria==='Tecnología'));
   const todos = (await catalogo()).json(); assert.equal(todos.total,8); assert.ok(!todos.items.some((c: { id: string }) => c.id===borrador));
-  assert.deepEqual(todos.categorias,['Educación','Tecnología']);
+  assert.deepEqual(todos.categorias,['Educación','General','Seguridad y salud','Tecnología']);
   assert.equal((await catalogo('','ajeno')).json().total,1);
   assert.equal((await pedir('a','GET',`/api/cursos/${borrador}`)).statusCode,403);
   assert.equal((await pedir(null,'GET','/api/catalogo/cursos/pagina')).statusCode,401);
@@ -98,4 +98,29 @@ test('HU-14: metadatos opcionales compatibles y fechas inválidas rechazadas', a
     const r = await pedir('admin','POST','/api/cursos',{ titulo: 'Inválido',instructorId: personas.get('docente')!.id,horasLectivas: 1,modalidad: 'VIRTUAL',costo: 0,cupos: 1,tipoCertificado: 'PARTICIPACION',modulos: [{ titulo: 'Módulo' }],...fechas });
     assert.equal(r.statusCode,422,r.body);
   }
+});
+
+test('HU-14: detalle publicado incluye solo sus sesiones, ordenadas y sin datos de participantes', async () => {
+  const curso = await crear({ modalidad: 'PRESENCIAL' });
+  const ajeno = await crear({ modalidad: 'PRESENCIAL' }, true, 'adminAjeno', 'docenteAjeno');
+  for (const [id, organizacion, docente, fecha, inicio, fin, estado] of [
+    [curso.id, org, 'docente', '2031-04-12', '10:00', '11:00', 'PROGRAMADA'],
+    [curso.id, org, 'docente', '2031-04-11', '11:00', '12:00', 'CANCELADA'],
+    [curso.id, org, 'docente', '2031-04-11', '08:00', '09:00', 'PROGRAMADA'],
+    [ajeno.id, otra, 'docenteAjeno', '2031-04-10', '08:00', '09:00', 'PROGRAMADA'],
+  ]) await pool.query(`insert into classes(organization_id,curso_id,instructor_id,nombre,fecha,hora_inicio,hora_fin,lugar,estado)
+    values($1,$2,$3,'Sesión HU14',$4,$5,$6,'Auditorio CPPP',$7)`, [organizacion,id,personas.get(docente!)!.id,fecha,inicio,fin,estado]);
+  const respuesta = await pedir('a','GET',`/api/cursos/${curso.id}`);
+  assert.equal(respuesta.statusCode,200,respuesta.body);
+  const detalle = respuesta.json();
+  assert.equal(detalle.modalidad,'PRESENCIAL');
+  assert.deepEqual(detalle.sesiones.map((s: { fecha: string; horaInicio: string; lugar: string; estado: string }) => [s.fecha,s.horaInicio,s.lugar,s.estado]), [
+    ['2031-04-11','08:00','Auditorio CPPP','PROGRAMADA'],
+    ['2031-04-11','11:00','Auditorio CPPP','CANCELADA'],
+    ['2031-04-12','10:00','Auditorio CPPP','PROGRAMADA'],
+  ]);
+  assert.ok(detalle.sesiones.every((s: object) => !('inscritos' in s) && !('participantes' in s)));
+  assert.equal((await pedir('ajeno','GET',`/api/cursos/${curso.id}`)).statusCode,403);
+  const sinSesiones = await crear();
+  assert.deepEqual((await pedir('a','GET',`/api/cursos/${sinSesiones.id}`)).json().sesiones,[]);
 });

@@ -7,14 +7,15 @@ export type ModuloCurso = { id: string; titulo: string; orden: number; materiale
 export type Curso = {
   id: string; titulo: string; descripcion: string; instructorId: string; instructorNombre: string;
   horasLectivas: number; modalidad: 'PRESENCIAL' | 'VIRTUAL' | 'HIBRIDA'; costo: number; cupos: number;
+  categoria: string; fechaInicio: string | null; fechaFin: string | null; cuposDisponibles: number; inscrito?: boolean;
   tipoCertificado: 'PARTICIPACION' | 'APROBACION'; notaMinima: number; estado: 'BORRADOR' | 'PUBLICADO' | 'CERRADO';
-  categoria: string; fechaInicio: string | null; fechaFin: string | null;
-  cuposDisponibles: number; inscrito?: boolean; requisitoAsistencia: number;
+  requisitoAsistencia: number;
 }
+export const categoriasCatalogo = ['Educación', 'General', 'Seguridad y salud', 'Tecnología'] as const
+export type ModuloEntrada = { id?: string; titulo: string }
 export type SesionEntrada = { nombre: string; fecha: string; horaInicio: string; horaFin: string; lugar: string }
 export type SesionCurso = SesionEntrada & { id: string; cursoId?: string; estado: 'PROGRAMADA' | 'CANCELADA' }
 export type AsistenciaCurso = { totalSesiones: number; presentes: number; porcentaje: number; requisitoAsistencia: number; cumpleAsistencia: boolean }
-export type ModuloEntrada = { id?: string; titulo: string }
 export type DetalleCurso = Curso & { modulos: ModuloCurso[]; sesiones: SesionCurso[] }
 export type FilaCierre = { agremiado: { id: string; nombre: string }; presentes: number; sesiones: number; porcentaje: number; cumple: boolean }
 export type CierreCurso = { curso: DetalleCurso; requisitoAsistencia: number; filas: FilaCierre[] }
