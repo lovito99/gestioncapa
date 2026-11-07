@@ -1,4 +1,5 @@
-import { expect, type Page } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
+import { expect, test, type Page } from '@playwright/test'
 import { cuentas } from './datos'
 import { completarAcceso, entrar } from './sesion'
 
@@ -17,7 +18,14 @@ export async function flujoHistorial(page: Page, admin: Parameters<typeof entrar
   for (const [nombre, archivo] of [['Descargar historial PDF', 'historial-capacitacion.pdf'], ['Descargar certificado DEMO-HU18-MARIA-SEGURIDAD', 'certificado.pdf']]) {
     const espera = page.waitForEvent('download')
     await page.getByRole('button', { name: nombre!, exact: true }).click()
-    expect((await espera).suggestedFilename()).toBe(archivo)
+    const descarga = await espera
+    expect(descarga.suggestedFilename()).toBe(archivo)
+    const destinoPdf = test.info().outputPath(archivo!)
+    await descarga.saveAs(destinoPdf)
+    expect(await descarga.failure()).toBeNull()
+    const contenido = await readFile(destinoPdf)
+    expect(contenido.subarray(0, 5).toString('ascii')).toBe('%PDF-')
+    expect(contenido.toString('latin1').trimEnd().endsWith('%%EOF')).toBe(true)
   }
   const destino = page.url()
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
@@ -32,4 +40,5 @@ export async function flujoHistorial(page: Page, admin: Parameters<typeof entrar
   await page.getByRole('link', { name: /Ver historial de María/ }).click()
   await expect(page.getByRole('heading', { name: 'Historial del colegiado', exact: true })).toBeVisible()
   await expect(page.getByText('DNI: ****1234', { exact: true })).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath('historial-admin.png'), fullPage: true })
 }

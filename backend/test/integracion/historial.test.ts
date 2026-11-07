@@ -106,3 +106,26 @@ test('HU-18: historial vacío y DNI no registrado se representan sin inventar da
   assert.deepEqual(h.asistenciaGeneral, { presentes: 0, realizadas: 0, porcentaje: null });
   assert.equal((await pedir('admin', '/api/colegiados/no-valido/historial')).statusCode, 404);
 });
+
+test('HU-18: el administrador no puede atribuir un certificado a otro colegiado', async () => {
+  const respuesta = await pedir('admin', descargar('luz', certificadoId));
+  assert.equal(respuesta.statusCode, 404, respuesta.body);
+  assert.equal(respuesta.json().code, 'HISTORIAL_NO_EXISTE');
+  assert.ok(!respuesta.rawPayload.toString().startsWith('%PDF-'));
+  assert.equal(respuesta.headers['cache-control'], 'private, no-store');
+  assert.equal((await pedir('admin', descargar('maria', certificadoId))).statusCode, 200);
+});
+
+test('HU-18: HEAD autorizado conserva los encabezados de descarga sin enviar el PDF', async () => {
+  for (const persona of ['maria', 'admin']) {
+    for (const url of [`${ruta()}/pdf`, descargar()]) {
+      const respuesta = await app.inject({ method: 'HEAD', url,
+        headers: { authorization: `Bearer ${usuarios.get(persona)!.token}` } });
+      assert.equal(respuesta.statusCode, 200, respuesta.body);
+      assert.match(String(respuesta.headers['content-type']), /application\/pdf/);
+      assert.match(String(respuesta.headers['content-disposition']), /attachment/);
+      assert.equal(respuesta.headers['cache-control'], 'private, no-store');
+      assert.equal(respuesta.rawPayload.length, 0);
+    }
+  }
+});
