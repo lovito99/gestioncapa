@@ -1,6 +1,7 @@
+import { SesionesCurso } from './SesionesCurso'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { Alerta } from '@/components/ui/Alerta'
 import { Boton } from '@/components/ui/Boton'
@@ -10,10 +11,7 @@ import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { EtiquetaEstadoCurso } from '@/components/ui/Etiqueta'
 import { mensajeDeError } from '@/lib/api'
-import { fechaCorta, rangoHorario } from '@/lib/formato'
-import { CERTIFICADOS_CURSO, cursos, leerPdfBase64 as leerPdf, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
-import { costoCurso, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
-import { DatoCurso, EtiquetasCurso } from './presentacion'
+import { cursos, leerPdfBase64 as leerPdf, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
 
 export function DetalleCursoPagina() {
   const { id = '' } = useParams()
@@ -29,58 +27,31 @@ export function DetalleCursoPagina() {
   const curso = consulta.data
   const gestion = usuario?.rol === 'ADMIN' || usuario?.rol === 'INSTRUCTOR'
   const puedeAgregar = usuario?.rol === 'INSTRUCTOR' && usuario.id === curso.instructorId
-  const sinCupos = curso.cuposDisponibles === 0
-  return <div className="mx-auto flex max-w-240 flex-col gap-4 px-4 pt-6 pb-8 wrap-anywhere sm:pt-10">
-    <EnlaceVolver to={gestion ? '/cursos' : '/catalogo'}>{gestion ? 'Volver a cursos' : 'Volver al catálogo'}</EnlaceVolver>
-    <div className="flex flex-wrap items-center gap-3">
-      <h1 className="text-[22px] font-bold text-ink">{curso.titulo}</h1>
-      {gestion && <EtiquetaEstadoCurso estado={curso.estado} />}
-    </div>
-    <EtiquetasCurso curso={curso} />
-    <p className="text-base whitespace-pre-wrap text-muted">{curso.descripcion}</p>
-    <dl className="flex flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
-      <DatoCurso termino="Instructor">{curso.instructorNombre}</DatoCurso>
-      <DatoCurso termino="Modalidad">{ETIQUETA_MODALIDAD[curso.modalidad]}</DatoCurso>
-      <DatoCurso termino="Categoría">{curso.categoria}</DatoCurso>
-      <DatoCurso termino="Fechas">{fechasCurso(curso)}</DatoCurso>
-      <DatoCurso termino="Horas">{curso.horasLectivas} horas lectivas</DatoCurso>
-      <DatoCurso termino="Costo">{costoCurso(curso.costo)}</DatoCurso>
-      <DatoCurso termino="Cupos" alerta={sinCupos}>{cuposCurso(curso)}</DatoCurso>
-      {gestion && <>
-        <DatoCurso termino="Certificado">{CERTIFICADOS_CURSO[curso.tipoCertificado]}</DatoCurso>
-        <DatoCurso termino="Nota mínima">{curso.notaMinima}</DatoCurso>
-      </>}
-    </dl>
-    {/* 2.2 · Sesiones del curso y requisito para la constancia (SCRUM-171) */}
-    {curso.sesiones.some(s => s.estado === 'PROGRAMADA') && <section aria-labelledby="titulo-sesiones" className="flex flex-col gap-2.5">
-      <h2 id="titulo-sesiones" className="font-serif text-lg font-bold text-ink">Sesiones</h2>
-      <ol className="divide-y divide-line rounded-xl border border-line bg-white px-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
-        {curso.sesiones.filter(s => s.estado === 'PROGRAMADA').map((s, i) => <li key={s.id} className="flex flex-col gap-0.5 py-3">
-          <p className="text-sm font-medium text-ink">Sesión {i + 1} · {fechaCorta(s.fecha)} {s.fecha.slice(0, 4)}</p>
-          <p className="text-[13px] text-muted">{rangoHorario(s.horaInicio, s.horaFin)} · {s.lugar}</p>
-        </li>)}
-      </ol>
-    </section>}
-    {curso.estado !== 'BORRADOR' && <div className="flex flex-col gap-0.5 rounded-lg border border-brand bg-brand-soft px-4 py-3 text-sm text-brand">
-      <p className="font-semibold">Requisito para la {curso.tipoCertificado === 'APROBACION' ? 'certificación' : 'constancia'}</p>
-      <p>Asistir al menos al {curso.requisitoAsistencia} % de las sesiones.</p>
+  return <div className="mx-auto max-w-240 space-y-5 px-4 py-6 wrap-anywhere">
+    <EnlaceVolver to={gestion ? '/cursos' : '/catalogo'}>{gestion ? 'Volver a mis cursos' : 'Volver al catálogo'}</EnlaceVolver>
+    <header className="space-y-2 rounded-xl border border-line bg-white p-5">
+      <EtiquetaEstadoCurso estado={curso.estado} />
+      <h1 className="text-2xl font-semibold">{curso.titulo}</h1>
+      <p className="whitespace-pre-wrap">{curso.descripcion}</p>
+      <dl className="grid gap-3 py-3 text-sm sm:grid-cols-2">
+        <div><dt className="font-semibold">Instructor</dt><dd>{curso.instructorNombre}</dd></div>
+        <div><dt className="font-semibold">Horas lectivas</dt><dd>{curso.horasLectivas}</dd></div>
+        <div><dt className="font-semibold">Modalidad</dt><dd>{{ PRESENCIAL: 'Presencial', VIRTUAL: 'Virtual', HIBRIDA: 'Híbrida' }[curso.modalidad]}</dd></div>
+        <div><dt className="font-semibold">Costo</dt><dd>S/ {curso.costo.toFixed(2)}</dd></div>
+        <div><dt className="font-semibold">Cupos</dt><dd>{curso.cupos}</dd></div>
+        <div><dt className="font-semibold">Certificado</dt><dd>{curso.tipoCertificado === 'APROBACION' ? 'Aprobación' : 'Participación'}</dd></div>
+        <div><dt className="font-semibold">Nota mínima</dt><dd>{curso.notaMinima}</dd></div>
+      </dl>
+      {usuario?.rol === 'ADMIN' && curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
+      {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
+    </header>
+    {usuario?.rol === 'PARTICIPANTE' && curso.estado === 'PUBLICADO' && <div className="space-y-3">
+      <Boton disabled={curso.inscrito || curso.cuposDisponibles === 0} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? 'Ya estás inscrito(a)' : curso.cuposDisponibles === 0 ? 'Sin cupos' : 'Inscribirme'}</Boton>
+      {inscripcion.isSuccess && <p role="status">Inscripción registrada.</p>}
+      {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos completar la inscripción.')}</Alerta>}
     </div>}
-    {usuario?.rol === 'ADMIN' && <div className="flex flex-wrap gap-3">
-      <Link to={`/admin/cursos/${curso.id}/editar`} className="inline-flex h-10 items-center rounded-lg bg-white px-5 text-sm font-semibold text-ink-2 ring-1 ring-line-2 ring-inset hover:bg-surface-2">Editar curso</Link>
-      {curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
-    </div>}
-    {usuario?.rol === 'PARTICIPANTE' && curso.estado === 'PUBLICADO' && <div className="flex flex-col gap-3">
-      {/* 2.2a: sin cupos se avisa y el botón queda deshabilitado */}
-      {sinCupos && !curso.inscrito && <Alerta tipo="error">Este curso no tiene cupos disponibles. No es posible inscribirse.</Alerta>}
-      {inscripcion.isSuccess && (inscripcion.data.estado === 'PENDIENTE_PAGO'
-        ? <Alerta tipo="advertencia" titulo="Inscripción pendiente de pago">Tu vacante quedó reservada. Podrás pagar cuando se habilite el pago en línea; mientras tanto, el curso aparece en Mis cursos.</Alerta>
-        : <Alerta tipo="exito">Inscripción registrada. Puedes ver el curso en Mis cursos.</Alerta>)}
-      {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.')}</Alerta>}
-      <Boton className="h-12 w-full text-base disabled:bg-surface-3 disabled:text-muted" disabled={curso.inscrito || sinCupos} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? 'Ya estás inscrito(a)' : sinCupos ? 'Sin cupos' : 'Inscribirme'}</Boton>
-      {curso.costo > 0 && !curso.inscrito && !sinCupos && <p className="text-sm text-muted">La inscripción queda pendiente de pago hasta que se habilite el pago en línea.</p>}
-    </div>}
-    {publicar.isError && <Alerta tipo="error">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</Alerta>}
-    <h2 className="mt-4 font-serif text-xl font-bold text-ink">Módulos y material</h2>
+    {curso.modalidad !== 'VIRTUAL' && <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO'} participante={usuario?.rol === 'PARTICIPANTE'} />}
+    <h2 className="text-xl font-semibold">Módulos y material</h2>
     <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
   </div>
 }

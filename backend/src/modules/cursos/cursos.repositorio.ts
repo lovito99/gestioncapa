@@ -1,3 +1,4 @@
+import { listarSesiones } from './sesiones.repositorio.js';
 import type { PoolClient } from 'pg';
 import { pool } from '../../shared/database.js';
 import type { ConsultaCatalogo, DatosCurso, DatosMaterial } from './cursos.validacion.js';
@@ -28,7 +29,7 @@ export async function obtenerCurso(id: string, usuarioId?: number) {
   const materiales = (await pool.query<{ id: string; moduloId: string; titulo: string; tipo: string; url: string | null }>(`
     select a.id::text,a.modulo_id::text as "moduloId",a.titulo,a.tipo,a.url from materiales_curso a
     join modulos_curso m on m.id=a.modulo_id where m.curso_id=$1 order by a.id`, [id])).rows;
-  return { ...curso, modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
+  return { ...curso, sesiones: await listarSesiones(id), modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
 }
 export async function transaccion<T>(operacion: (cliente: PoolClient) => Promise<T>) {
   const cliente = await pool.connect();

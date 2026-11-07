@@ -93,7 +93,8 @@ La entrada del administrador está cubierta por las [pruebas reales de Playwrigh
 
 ## Cursos y materiales (HU-13)
 
-Contrato, permisos, cuerpos de creación y descarga de PDF en [cursos](esp/cursos.md).
+Contrato, permisos, cuerpos de creación, descarga de PDF, programación de sesiones
+presenciales y cálculo del 80 % de asistencia en [cursos](esp/cursos.md).
 Los tipos del cliente están en `frontend/src/servicios/cursos.ts`.
 
 ## Historial del colegiado (HU-18)

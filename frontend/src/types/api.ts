@@ -44,6 +44,8 @@ export interface CursoResumen {
 }
 
 export interface Clase {
+  /** Presente cuando la clase es una sesión de curso. */
+  cursoId?: string
   id: string
   /** `null` solo en clases antiguas creadas antes de vincularlas a un curso */
   curso: CursoResumen | null
