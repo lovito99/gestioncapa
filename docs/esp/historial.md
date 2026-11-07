@@ -89,8 +89,13 @@ la simulación recupera sus valores iniciales; PostgreSQL conserva los cambios.
   y referencias válidas.
 - Integración PostgreSQL: cursos en ambos estados, sesiones, porcentajes, vacío,
   datos mínimos, permisos de JSON/PDF/certificados, HEAD y aislamiento organizacional.
+  El administrador debe usar el propietario correcto al descargar un certificado;
+  cambiar el identificador del colegiado devuelve 404, sin entregar el documento.
+  HEAD autorizado conserva los encabezados de descarga y no envía el cuerpo.
 - E2E real y demo a 360 px: historial, descargas, bloqueo a otro colegiado y consulta
-  por administrador.
+  por administrador. Las descargas se guardan como artefactos de prueba y se
+  comprueba su cabecera PDF y su terminador para detectar respuestas vacías,
+  documentos truncados o errores guardados con extensión `.pdf`.
 - El PDF también puede inspeccionarse con `pdftotext` para validar texto y paginación.
 
 ```bash
