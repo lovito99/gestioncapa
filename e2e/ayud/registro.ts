@@ -1,0 +1,41 @@
+import { expect, type Page } from '@playwright/test'
+
+export async function flujoRegistro(page: Page) {
+  await page.goto('/login')
+  await page.getByRole('link', { name: 'Crear cuenta', exact: true }).click()
+  await expect(page).toHaveURL('/registro')
+  await expect(page.getByRole('textbox', { name: 'DNI', exact: true })).toHaveAttribute('inputmode', 'numeric')
+  await expect(page.getByRole('textbox', { name: 'Celular', exact: true })).toHaveAttribute('inputmode', 'numeric')
+  const marca = Date.now().toString()
+  const dni = marca.slice(-8)
+  const email = `registro-${marca}@prueba.local`
+  const llenar = async (correo: string) => {
+    await page.getByRole('textbox', { name: 'DNI', exact: true }).fill(dni)
+    await page.getByRole('textbox', { name: 'Nombres', exact: true }).fill('Docente')
+    await page.getByRole('textbox', { name: 'Apellidos', exact: true }).fill('De prueba')
+    await page.getByRole('textbox', { name: 'Correo electrónico', exact: true }).fill(correo)
+    await page.getByRole('textbox', { name: 'Celular', exact: true }).fill('987654321')
+    await page.getByLabel(/^Contraseña/).fill('abcdefgh')
+    await page.getByRole('checkbox').check()
+  }
+  await llenar('invalido')
+  await page.getByRole('button', { name: 'Crear cuenta', exact: true }).click()
+  await expect(page.getByText('Ingresa un correo válido.', { exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Nombres', exact: true })).toHaveValue('Docente')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await page.getByRole('textbox', { name: 'Correo electrónico', exact: true }).fill(email)
+  const respuesta = page.waitForResponse(r => r.url().endsWith('/api/auth/registro') && r.request().method() === 'POST')
+  await page.getByRole('button', { name: 'Crear cuenta', exact: true }).click()
+  expect((await respuesta).status()).toBe(201)
+  await expect(page).toHaveURL('/catalogo')
+  await expect(page.getByRole('heading', { name: 'Catálogo de cursos', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
+  await page.getByRole('link', { name: 'Crear cuenta', exact: true }).click()
+  await llenar(email)
+  await page.getByRole('button', { name: 'Crear cuenta', exact: true }).click()
+  await expect(page.getByText('Ya tienes una cuenta', { exact: true })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Nombres', exact: true })).toHaveValue('Docente')
+  await page.getByRole('link', { name: 'Recuperar mi contraseña', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Recuperar mi contraseña', exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Solicitar ayuda al CPPP' })).toHaveAttribute('href', /^https:\/\/wa.me\//)
+}

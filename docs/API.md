@@ -146,3 +146,10 @@ El límite autenticado por usuario es configurable mediante `limitePeticiones`
 `PARTICIPANTE` conserva su valor en el contrato y se presenta como **Agremiado**.
 El rol `COORDINADOR` se mantiene por compatibilidad del Sprint 1.
 Consultar [la matriz CPPP](enfoqueCppp.md) para distinguir API real y simulaciones.
+
+
+## HU-50: registro con DNI
+
+`POST /api/auth/registro` crea un agremiado y devuelve `201` con el mismo contrato
+de sesión que el login. DNI/correo duplicados devuelven `409 CUENTA_YA_REGISTRADA`;
+los errores por campo usan `422 VALIDACION`. Consulta [el contrato completo](esp/registro.md).

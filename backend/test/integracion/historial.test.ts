@@ -17,8 +17,9 @@ const extraerTexto = (archivo: Buffer) => [...archivo.toString().matchAll(/<([0-
 before(async () => {
   await migrar(pool); app = await buildApp();
   await pool.query('insert into organizations(id,name) values($1,$3),($2,$3)', [org, orgAjena, 'Prueba HU-18']);
+  let siguienteDni = 22345670;
   for (const [nombre, rol, organizacion] of [['admin','admin',org],['docente','instructor',org],['coord','coordinador',org],['maria','participante',org],['luz','participante',org],['vacio','participante',org],['adminAjeno','admin',orgAjena],['ajeno','participante',orgAjena]]) {
-    const persona = (await pool.query<{ id: string }>(`insert into users(name,email,password_hash,role,organization_id,dni) values($1,$2,'sin-clave',$3,$4,'12345678') returning id::text`, [nombre, `hu18-${org}-${nombre}@prueba.local`, rol, organizacion])).rows[0]!;
+    const persona = (await pool.query<{ id: string }>(`insert into users(name,email,password_hash,role,organization_id,dni) values($1,$2,'sin-clave',$3,$4,$5) returning id::text`, [nombre, `hu18-${org}-${nombre}@prueba.local`, rol, organizacion, nombre === 'maria' ? '12345678' : String(siguienteDni++)])).rows[0]!;
     usuarios.set(nombre!, { id: persona.id, token: app.jwt.sign({ sub: persona.id }) });
   }
   const crearCurso = async (nombre: string, estado: string) => {

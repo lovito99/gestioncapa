@@ -45,3 +45,12 @@ export async function limitarPeticiones(usuarioId: number) {
     if total > tonumber(ARGV[1]) then return math.max(1,redis.call('TTL',KEYS[1])) end
     return 0`, 1, `${prefijo}usuario:${usuarioId}`, env.limitePeticiones));
 }
+
+/** Alta pública: acota el trabajo de bcrypt antes de disponer de un usuario. */
+export async function limitarRegistros(direccion: string) {
+  return Number(await redis.eval(`
+    local total=redis.call('INCR',KEYS[1])
+    if total == 1 then redis.call('EXPIRE',KEYS[1],60) end
+    if total > 10 then return math.max(1,redis.call('TTL',KEYS[1])) end
+    return 0`, 1, `${prefijo}registro:${huella(direccion)}`));
+}

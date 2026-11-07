@@ -1,3 +1,4 @@
+import { RecuperarPagina } from '@/paginas/RecuperarPagina'
 import { HistorialPagina, HistorialesAdminPagina } from '@/paginas/historial/HistorialPagina'
 import { CatalogoPagina, CursosPagina } from '@/paginas/cursos/CursosPagina'
 import { CursoFormPagina } from '@/paginas/cursos/CursoFormPagina'
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
   { path: '/capacitaciones', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
   { path: '/login', element: <LoginPagina /> },
   { path: '/registro', element: <RegistroPagina /> },
+  { path: '/recuperar', element: <RecuperarPagina /> },
   // Públicas: el QR del certificado lleva aquí sin pedir sesión
   { path: '/verificar', element: <VerificarCertificadoPagina /> },
   { path: '/verificar/:codigo', element: <VerificarCertificadoPagina /> },

@@ -130,8 +130,8 @@ API/esquema del padrón; pasarela aprobada y reglas de comisión/reembolso;
 cuenta BCP y validación de vouchers; SMTP; acceso al servidor/DNS; firma autorizada
 del Decano y confirmación de HU-20. Configurar secretos únicamente en `.env`
 locales o el gestor de secretos del despliegue, nunca en el chat ni el repositorio.
-La política de privacidad de la web institucional no se asume automáticamente
-como autorización o política completa de esta plataforma.
+HU-50 enlaza el aviso institucional indicado por el usuario y registra su
+aceptación. Esto no acredita por sí solo cumplimiento legal integral.
 
 La continuación independiente es completar los módulos locales de las etapas
 2–4; sus pruebas pueden usar adaptadores de prueba explícitos. La integración
@@ -154,3 +154,11 @@ con servicios y la aprobación de producción quedan pendientes de esos contrato
 - `git diff --check`: sin errores. No se ejecutaron builds ni operaciones Git de
   escritura. Quedan build manual, revisión humana del PR y validaciones de
   producción/navegadores de las etapas siguientes.
+
+
+## HU-50
+
+El registro público con DNI dejó de ser únicamente demo: ahora persiste cuentas,
+contraseñas bcrypt y auditoría con fecha, e inicia sesión. Véase [HU-50](esp/registro.md).
+La recuperación automática por correo (RF-02), el padrón (HU-33) y cuentas externas
+(HU-43) conservan sus estados pendientes.

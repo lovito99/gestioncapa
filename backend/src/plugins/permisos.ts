@@ -18,6 +18,7 @@ const rolesGestionClases: Rol[] = ["ADMIN", "COORDINADOR"];
  * de lo contrario el servidor no arranca.
  */
 export const permisos: Permiso[] = [
+  { metodo: "POST", ruta: "/api/auth/registro", acceso: "publico" },
   { metodo: "GET", ruta: "/api/publico/cursos", acceso: "publico" },
   { metodo: "GET", ruta: "/api/catalogo/cursos/pagina", acceso: "autenticado" },
   { metodo: "POST", ruta: "/api/cursos/:id/inscribirme", acceso: ["PARTICIPANTE"], critica: true },

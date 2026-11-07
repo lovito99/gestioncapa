@@ -17,6 +17,6 @@ export const CPPP = {
   whatsapp: '984663946',
   /** Firma institucional de los certificados (5.1); nombre tomado del Figma, pendiente de confirmar */
   decano: { nombre: 'Dr. Juan Huillca Ochoa', cargo: 'Decano Regional' },
-  /** Página del aviso de privacidad (Ley N.° 29733); pendiente de que el CPPP la publique */
-  avisoPrivacidad: null as string | null,
+  /** Aviso institucional enlazado desde HU-50. */
+  avisoPrivacidad: 'https://www.cpppregion-cusco.com/privacidad.html',
 }
