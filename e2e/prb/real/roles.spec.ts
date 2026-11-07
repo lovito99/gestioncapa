@@ -7,7 +7,7 @@ import { completarAcceso, entrar } from '../../ayud/sesion'
 const usuariosSeed = [
   { cuenta: cuentas.coord, encabezado: 'Ana Torres · Coordinador' },
   { cuenta: cuentas.instr, encabezado: 'Carlos Mendoza Ríos · Instructor' },
-  { cuenta: cuentas.part, encabezado: 'María Quispe · Participante' },
+  { cuenta: cuentas.part, encabezado: 'María Quispe · Agremiado' },
   { cuenta: cuentaReal, encabezado: 'Administrador E2E · Administrador' },
 ]
 

@@ -33,6 +33,7 @@ export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>
   const buscar = async (texto: string) => {
     await page.getByRole('searchbox', { name: 'Buscar curso' }).fill(texto)
     await page.getByRole('button', { name: 'Buscar', exact: true }).click()
+    await expect(page).toHaveURL(url => url.searchParams.get('buscar') === texto.trim())
   }
   const lista = page.getByRole('list').filter({ has: page.getByRole('heading', { level: 2 }) })
   await buscar(clave.normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase())
@@ -51,10 +52,18 @@ export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>
     await expect(lista.getByRole('listitem')).toHaveCount(2)
   }
   await page.getByRole('combobox', { name: 'Modalidad' }).selectOption('VIRTUAL')
+  await expect(page).toHaveURL(url => url.searchParams.get('modalidad') === 'VIRTUAL' && !url.searchParams.has('pagina'))
+  await expect(page.getByRole('status')).toContainText('de 4 cursos')
   await page.getByRole('combobox', { name: 'Categoría' }).selectOption(categoria)
+  await expect(page).toHaveURL(url => url.searchParams.get('modalidad') === 'VIRTUAL' && url.searchParams.get('categoria') === categoria)
   await expect(page.getByRole('status')).toContainText('de 4 cursos')
   await expect(page.getByText('Página 1 de 1')).toBeVisible()
   await page.getByRole('button', { name: 'Limpiar filtros' }).click()
+  await expect(page).toHaveURL(url => !['buscar', 'modalidad', 'categoria', 'pagina'].some(campo => url.searchParams.has(campo)))
+  await expect(page.getByRole('button', { name: 'Limpiar filtros' })).toHaveCount(0)
+  await expect(page.getByRole('searchbox', { name: 'Buscar curso' })).toHaveValue('')
+  await expect(page.getByRole('combobox', { name: 'Modalidad' })).toHaveValue('')
+  await expect(page.getByRole('combobox', { name: 'Categoría' })).toHaveValue('')
   await buscar(fixtures[8]!.titulo)
   await expect(page.getByRole('status')).toContainText('No hay cursos que coincidan')
   await buscar(fixtures[7]!.titulo)

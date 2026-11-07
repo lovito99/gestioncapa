@@ -51,6 +51,7 @@ Característica: Acceso únicamente a las opciones del rol
     Dado los usuarios del seed en la base real
     Cuando cada uno inicia sesión en el navegador
     Entonces llega al inicio de su rol y el encabezado muestra su cargo
+    Y para el código PARTICIPANTE muestra "Agremiado", conforme al enfoque CPPP
 
   Escenario: ROL-03 Usuario inactivo
     Dado un usuario con active = false y contraseña correcta

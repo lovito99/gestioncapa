@@ -28,3 +28,23 @@ No se cambia el estado de una etapa por tener únicamente una pantalla demo.
 - Mutación comprobada: cambiar el bloqueo al sexto fallo hace fallar la prueba.
 - Lint frontend: sin errores, con dos advertencias preexistentes (regex en pdfTexto y estado en efecto del catálogo).
 - Pendientes: build manual, revisión humana del PR y matriz completa de navegadores.
+
+
+## T-23: adaptación y evidencia
+
+- [x] Documentar cambio de enfoque, vocabulario y compatibilidad del Sprint 1.
+- [x] Corregir el mapa de la portada pública y los nombres visibles de roles en documentación vigente.
+- [x] Registrar prioridades de los sprints 2 y 3 sin inventar fechas o puntos.
+- [x] Distinguir integración real, demostración y evidencia externa pendiente.
+- [ ] Validar correspondencia del original Figma con la copia usada por el frontend.
+- [ ] Adjuntar evidencia del backlog y Planning Poker del Lab 5.
+- [ ] Validar reglas de HU-20 con el CPPP.
+
+Esta entrega de T-23 modifica documentación; las pruebas de la etapa 1 registradas
+arriba corresponden a la entrega anterior, no se atribuyen a nuevas funciones.
+
+
+Verificación documental de T-23: 55 enlaces locales comprobados, referencias a
+código/pruebas existentes y alcance de sprints revisados; `git diff --check` sin
+errores. No se ejecutaron pruebas funcionales nuevas ni build porque todos los
+cambios de esta entrega son Markdown. No se modificaron versiones ni Git.

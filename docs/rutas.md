@@ -20,9 +20,12 @@ antes de ejecutar el modo demo. También puedes elegir otro puerto con
 |---|---|---|---|
 | Coordinador | ana.torres@organizacion.pe | demo123 | `/coordinador/clases` |
 | Instructor | carlos.mendoza@organizacion.pe | demo123 | `/instructor/clases` |
-| Participante | maria.quispe@demo.pe | demo123 | `/participante/clases` |
-| Participante | luz.apaza@demo.pe | demo123 | `/participante/clases` |
+| Agremiado | maria.quispe@demo.pe | demo123 | `/participante/clases` |
+| Agremiado | luz.apaza@demo.pe | demo123 | `/participante/clases` |
 | Administrador | admin@gestioncapa.local | demo123 | `/admin` |
+
+Agremiado es el nombre visible del rol técnico `PARTICIPANTE`. Coordinador se
+conserva por compatibilidad del Sprint 1, según [T-23](esp/reestructuracionCppp.md).
 
 Los datos demo están en memoria: recargar restaura los datos iniciales.
 
@@ -32,7 +35,7 @@ Los datos demo están en memoria: recargar restaura los datos iniciales.
 
 | Ruta | Acceso | Pantalla |
 |---|---|---|
-| `/` | Público | Redirige al login (o al inicio si ya existe sesión) |
+| `/` y `/capacitaciones` | Público | Catálogo de cursos publicados vigentes, con búsqueda, filtros y paginación |
 | `/login` | Público | Formulario de acceso |
 | `/coordinador` | Coordinador | Redirige a clases |
 | `/coordinador/clases` | Coordinador | Listado y cancelación |
@@ -43,11 +46,11 @@ Los datos demo están en memoria: recargar restaura los datos iniciales.
 | `/instructor` | Instructor | Redirige a sus clases |
 | `/instructor/clases` | Instructor | Clases asignadas |
 | `/instructor/clases/:id/qr` | Instructor | Proyección del QR rotativo |
-| `/participante` | Participante | Redirige a sus clases |
-| `/participante/clases` | Participante | Clases inscritas |
-| `/participante/clases/:id/escanear` | Participante | Escáner de una clase |
-| `/participante/escanear` | Participante | Escáner general |
-| `/asistencia/marcar?token=...` | Participante | Registro desde enlace QR |
+| `/participante` | Agremiado | Redirige a sus clases |
+| `/participante/clases` | Agremiado | Clases inscritas |
+| `/participante/clases/:id/escanear` | Agremiado | Escáner de una clase |
+| `/participante/escanear` | Agremiado | Escáner general |
+| `/asistencia/marcar?token=...` | Agremiado | Registro desde enlace QR |
 | `/admin` | Administrador | Accesos de gestión y salud de API, Postgres y Redis |
 | `/admin/clases` | Administrador | Listado y cancelación |
 | `/admin/clases/nueva` | Administrador | Crear clase |

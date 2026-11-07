@@ -130,3 +130,29 @@ la constancia. Si el certificado es de aprobación también recuerda la nota
 mínima. Las sesiones canceladas se distinguen y no se presentan como sesiones
 que cuenten para asistencia. Esta historia informa los requisitos; la emisión
 del certificado corresponde a HU-20. No requiere nuevas migraciones.
+
+
+## Sincronización del recorrido E2E
+
+El ayudante `e2e/ayud/catalogo.ts`, compartido entre demo y API real, comprueba
+la búsqueda enviada en la URL. Después de cambiar modalidad espera el resultado
+filtrado antes de seleccionar categoría y verifica que ambos filtros permanezcan.
+Tras limpiar espera URL y controles vacíos antes de buscar el borrador y el curso
+sin cupos. Esto evita encadenar acciones sobre el estado anterior de la navegación.
+Se conservan las comprobaciones de borradores ocultos, bloqueo de inscripción por
+falta de cupos, inscripción correcta e historial. No se usan pausas fijas ni se
+amplían los tiempos de espera para ocultar errores.
+
+
+Verificación de la sincronización (07/11/2026): cuatro repeticiones móviles
+aprobadas con CPU ralentizada seis veces y la suite demo completa aprobada
+(122 casos de escritorio/móvil), además de `npm run e2e:tipos` y
+`git diff --check`. El archivo temporal usado para el diagnóstico se retiró.
+La suite con API real y el build manual no se ejecutaron en esta corrección.
+
+
+Los archivos `*.spec.ts` declaran escenarios y no deben importar otros archivos
+`*.spec.ts`. Los recorridos compartidos se mantienen en `e2e/ayud/catalogo.ts`.
+El diagnóstico temporal `catalogoDiagnostico.spec.ts` no forma parte de la suite:
+su eliminación debe incluirse en la entrega Git. Borrarlo solo del directorio
+local no elimina la copia del commit que ejecuta CI.

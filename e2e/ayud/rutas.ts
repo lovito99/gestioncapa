@@ -1,5 +1,6 @@
 /** Rutas públicas de la aplicación: expectativas, independientes del router interno. */
 export const rutas = {
+  inicio: '/',
   login: '/login',
   admin: '/admin',
   clases: '/coordinador/clases',
