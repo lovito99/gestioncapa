@@ -20,7 +20,8 @@ test('ENT-02: rechaza una contraseña incorrecta y permite corregirla', async ({
   await expect(page.getByRole('alert')).toContainText('Correo o contraseña incorrectos')
   await expect(page).toHaveURL(rutas.login)
   await completarAcceso(page, cuentas.coord)
-  await expect(page).toHaveURL(rutas.clases)
+  await expect(page).toHaveURL(cuentas.coord.inicio)
+  await expect(page.getByRole('heading', { name: cuentas.coord.titulo, exact: true })).toBeVisible()
 })
 
 for (const rol of ['coord', 'instr', 'part', 'admin'] as const) {
