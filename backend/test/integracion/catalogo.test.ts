@@ -9,6 +9,7 @@ let app: FastifyInstance;
 const org = String(Date.now()); const otra = String(Number(org)+1);
 const personas = new Map<string, { id: string; token: string }>();
 let borrador: string;
+let totalInicial: number;
 const pedir = (persona: string | null, method: 'GET' | 'POST', url: string, payload?: object) => app.inject({ method, url, headers: persona ? { authorization: `Bearer ${personas.get(persona)!.token}` } : {}, ...(payload ? { payload } : {}) });
 async function crear(datos: object = {}, publicar = true, admin = 'admin', docente = 'docente') {
   const r = await pedir(admin,'POST','/api/cursos',{ titulo: 'Curso para inscripción', instructorId: personas.get(docente)!.id, descripcion: 'Descripción del curso', horasLectivas: 16, modalidad: 'VIRTUAL', costo: 25, cupos: 5, tipoCertificado: 'PARTICIPACION', categoria: 'Educación', fechaInicio: '2030-01-01', fechaFin: '2030-01-31', modulos: [{ titulo: 'Introducción' }], ...datos });
@@ -24,6 +25,9 @@ before(async () => {
     const id = (await pool.query<{ id: string }>("insert into users(name,email,password_hash,role) values($1,$2,'sin-clave',$3) returning id::text", [nombre, `hu14-${org}-${nombre}@prueba.local`, rol])).rows[0]!.id;
     personas.set(nombre!,{ id,token: app.jwt.sign({ sub: id }) });
   }
+  const catalogoInicial = await catalogo();
+  assert.equal(catalogoInicial.statusCode,200,catalogoInicial.body);
+  totalInicial = catalogoInicial.json().total;
   for (let i=0;i<8;i++) await crear({ titulo: `HU14 · Capacitación ${i}`, modalidad: i%2 ? 'PRESENCIAL' : 'VIRTUAL', categoria: i%2 ? 'Educación' : 'Tecnología' });
   borrador = (await crear({ titulo: 'HU14 · Capacitación borrador',categoria: 'Solo borrador' },false)).id;
   await crear({ titulo: 'HU14 · Curso ajeno',categoria: 'Educación' },true,'adminAjeno','docenteAjeno');
@@ -55,7 +59,11 @@ test('HU-14: filtros combinados y catálogo único del CPPP', async () => {
   const respuesta = await catalogo('buscar=hu14&modalidad=VIRTUAL&categoria=Tecnolog%C3%ADa');
   assert.equal(respuesta.json().total,4);
   assert.ok(respuesta.json().items.every((c: { modalidad: string; categoria: string }) => c.modalidad==='VIRTUAL' && c.categoria==='Tecnología'));
-  const todos = (await catalogo()).json(); assert.equal(todos.total,9); assert.ok(!todos.items.some((c: { id: string }) => c.id===borrador));
+  // El seed de CI también aporta cursos al catálogo único del CPPP.
+  const todos = (await catalogo()).json(); assert.equal(todos.total,totalInicial+9);
+  const propios = (await catalogo('buscar=hu14&tamanoPagina=50')).json();
+  assert.equal(propios.total,9); assert.equal(propios.items.length,9);
+  assert.ok(!propios.items.some((c: { id: string }) => c.id===borrador));
   assert.deepEqual(todos.categorias,['Educación','General','Seguridad y salud','Tecnología']);
   assert.equal((await catalogo('','ajeno')).json().total,todos.total);
   assert.equal((await pedir('a','GET',`/api/cursos/${borrador}`)).statusCode,403);

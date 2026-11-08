@@ -98,8 +98,11 @@ Consulta pública realizada el 7 de noviembre de 2026:
   registraban `success`; son antecedentes, no validación de estos cambios.
 - [Calidad 42438264586](https://github.com/lovito99/gestioncapa/actions/runs/42438264586)
   falló en **Pruebas de integración del seed**, después de instalar dependencias
-  y arrancar servicios. No es `startup_failure`. Revisar ese log antes de
-  integrar; no omitir las pruebas ni reducir los checks para obtener verde.
+  y arrancar servicios. No es `startup_failure`: HU-14 esperaba nueve cursos
+  globales, pero el seed aportaba otros tres publicados. La prueba ahora comprueba
+  el total inicial más sus nueve cursos y verifica por separado sus resultados
+  filtrados, incluida la exclusión del borrador. Confirmar el resultado en una
+  nueva ejecución del PR; no omitir pruebas ni reducir los checks para obtener verde.
 - Las revisiones consultadas de los PR #22 y #23 eran comentarios de bot;
   no acreditan aprobación de otro integrante.
 
