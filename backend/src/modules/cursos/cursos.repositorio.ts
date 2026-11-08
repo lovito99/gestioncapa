@@ -9,7 +9,7 @@ export type Curso = {
   titulo: string; descripcion: string; horasLectivas: number; modalidad: string; costo: number;
   categoria: string; fechaInicio: string | null; fechaFin: string | null; cuposDisponibles: number; inscrito?: boolean;
   estadoInscripcion?: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO' | null;
-  cupos: number; tipoCertificado: string; notaMinima: number; estado: 'BORRADOR' | 'PUBLICADO';
+  cupos: number; tipoCertificado: string; notaMinima: number; estado: 'BORRADOR' | 'PUBLICADO' | 'CERRADO';
 };
 const columnas = `c.id::text, c.organization_id::text as "organizacionId", c.instructor_id::text as "instructorId",
   u.name as "instructorNombre", c.titulo, c.descripcion, c.horas_lectivas as "horasLectivas",
@@ -63,7 +63,7 @@ export async function guardarMaterial(cursoId: string, moduloId: string, instruc
 }
 export async function publicarCurso(id: string, organizacion: string) {
   return (await pool.query(`update cursos set estado='PUBLICADO',publicado_en=coalesce(publicado_en,now())
-    where id=$1 and organization_id=$2 and horas_lectivas > 0 and
+    where id=$1 and organization_id=$2 and estado<>'CERRADO' and horas_lectivas > 0 and
     exists(select 1 from modulos_curso where curso_id=cursos.id) returning id`, [id, organizacion])).rowCount;
 }
 export async function obtenerArchivo(cursoId: string, moduloId: string, materialId: string) {

@@ -183,3 +183,12 @@ la vez**: los correos `@organizacion.pe` y la clase «Manejo de extintores» de 
 - **Códigos para verificar:** `CPPP-7K4M-Q9X2` (válido), `CPPP-2B6F-H8Z4` (anulado) y
   `CPPP-3H8R-T5N1` (reemplazado por `CPPP-9P2D-L6W3`).
 - El DNI `45671234` simula una cuenta ya registrada.
+
+
+## Implementación HU-20 (Sprint 2)
+
+[Cierre y constancias con QR](certificados.md) ya tienen backend persistente para
+cursos presenciales gratuitos sin examen, con firmas genéricas de demostración.
+Los contratos públicos y privados están separados: el endpoint de verificación
+no devuelve DNI ni nota, y la vista completa se obtiene con sesión en `/documento`.
+Las modalidades, pagos y evaluaciones de sprints posteriores siguen pendientes.

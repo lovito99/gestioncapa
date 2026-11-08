@@ -27,6 +27,7 @@ type Accion = { tipo: 'anular' | 'corregir'; fila: FilaCertificado & { certifica
 export function CertificadosCursoPagina() {
   const { id = '' } = useParams()
   const consulta = useQuery({ queryKey: ['curso', id, 'certificados'], queryFn: () => cursos.certificados(id), retry: false })
+  const [excepcion, cambiarExcepcion] = useState<FilaCertificado | null>(null)
   const [accion, cambiarAccion] = useState<Accion | null>(null)
 
   if (consulta.isPending) return <Cargando texto="Cargando certificados…" />
@@ -102,14 +103,13 @@ export function CertificadosCursoPagina() {
                     Anular
                   </button>
                 </span>
-              ) : (
-                '—'
-              )}
+              ) : !f.certificado ? <button type="button" className="text-sm font-semibold text-brand underline" onClick={() => cambiarExcepcion(f)}>Emitir por excepción</button> : '—'}
             </Celda>
           </tr>
         ))}
       </Tabla>
 
+      {excepcion && <DialogoExcepcionPosterior cursoId={id} fila={excepcion} onCerrar={() => cambiarExcepcion(null)} />}
       {accion?.tipo === 'anular' && <DialogoAnular cursoId={id} fila={accion.fila} onCerrar={() => cambiarAccion(null)} />}
       {accion?.tipo === 'corregir' && <DialogoCorregir cursoId={id} fila={accion.fila} onCerrar={() => cambiarAccion(null)} />}
     </div>
@@ -118,7 +118,7 @@ export function CertificadosCursoPagina() {
 
 function useRecargar(cursoId: string) {
   const cache = useQueryClient()
-  return () => cache.invalidateQueries({ queryKey: ['curso', cursoId, 'certificados'] })
+  return () => Promise.all([['curso', cursoId, 'certificados'], ['historial'], ['certificado'], ['certificadoDocumento']].map(queryKey => cache.invalidateQueries({ queryKey })))
 }
 
 /** 2.5a / 2.5b · Anular: la verificación pública mostrará el certificado como «Anulado». */
@@ -233,4 +233,28 @@ function DialogoCorregir({ cursoId, fila, onCerrar }: { cursoId: string; fila: A
       )}
     </Dialogo>
   )
+}
+
+
+function DialogoExcepcionPosterior({ cursoId, fila, onCerrar }: { cursoId: string; fila: FilaCertificado; onCerrar: () => void }) {
+  const [motivo, cambiarMotivo] = useState('')
+  const [error, cambiarError] = useState('')
+  const recargar = useRecargar(cursoId)
+  const emision = useMutation({
+    mutationFn: () => cursos.emitirExcepcion(cursoId, fila.agremiado.id, motivo.trim()),
+    onSuccess: async () => { await recargar(); toast.success('Constancia emitida por excepción.'); onCerrar() },
+  })
+  const enviar = () => {
+    if (!motivo.trim()) { cambiarError('Ingresa el motivo de la excepción.'); return }
+    cambiarError(''); emision.mutate()
+  }
+  return <Dialogo abierto onCerrar={onCerrar} titulo="Emitir por excepción" acciones={<>
+    <Boton variante="secundario" onClick={onCerrar}>Cancelar</Boton>
+    <Boton cargando={emision.isPending} onClick={enviar}>Emitir constancia</Boton>
+  </>}>
+    <DatosDialogo datos={[['Agremiado', fila.agremiado.nombre]]} />
+    <CampoMotivo etiqueta="Motivo de la excepción" placeholder="Explica la excepción." valor={motivo} onCambio={cambiarMotivo} error={error} />
+    <AvisoDialogo>Se registrará el motivo y tu usuario en la auditoría.</AvisoDialogo>
+    {emision.isError && <Alerta tipo="error">{mensajeDeError(emision.error, 'No pudimos emitir la constancia.')}</Alerta>}
+  </Dialogo>
 }

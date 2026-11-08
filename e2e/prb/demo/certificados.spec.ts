@@ -58,7 +58,7 @@ test('CER-01: cierra el curso con una excepción, anula y corrige certificados',
   }, codigoAnterior)
   await expect(page.getByText('Este certificado fue reemplazado por el código', { exact: false })).toBeVisible()
   await page.getByRole('link', { name: 'Ver certificado vigente' }).click()
-  await expect(page.getByText('Este certificado es auténtico.')).toBeVisible()
+  await expect(page.getByText('Registro de demostración verificado.')).toBeVisible()
   await expect(page.getByText('María Fernanda Quispe Ramos de Torres')).toBeVisible()
 })
 
@@ -67,7 +67,7 @@ test('CER-02: verifica certificados sin sesión', async ({ page }) => {
   await page.goto('/verificar')
   await page.getByLabel('Código del certificado').fill('cppp-7k4m-q9x2')
   await page.getByRole('button', { name: 'Verificar' }).click()
-  await expect(page.getByText('Este certificado es auténtico.')).toBeVisible()
+  await expect(page.getByText('Registro de demostración verificado.')).toBeVisible()
   await page.goto('/verificar/CPPP-2B6F-H8Z4')
   await expect(page.getByText('Este certificado fue anulado y no tiene validez.')).toBeVisible()
   await page.goto('/verificar/NO-EXISTE')

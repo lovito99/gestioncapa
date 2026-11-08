@@ -3,7 +3,7 @@ export type SesionHistorial = {
   estado: 'PRESENTE' | 'AUSENTE' | 'PENDIENTE' | 'CANCELADA'; contabiliza: boolean; horaRegistro: string | null;
 };
 export type ResumenAsistencia = { presentes: number; realizadas: number; porcentaje: number | null };
-export type CertificadoHistorial = { id: string; cursoId: string; codigo: string; tipo: 'PARTICIPACION' | 'APROBACION'; emitidoEn: string; horasLectivas: number; estado: 'VALIDO' | 'ANULADO' | 'REEMPLAZADO' };
+export type CertificadoHistorial = { id: string; cursoId: string; codigo: string; tipo: 'PARTICIPACION' | 'APROBACION'; emitidoEn: string };
 export type CursoHistorial = {
   id: string; titulo: string; estado: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO'; horasLectivas: number; modalidad: string;
   pagoPendiente: boolean; inscritoEn: string; terminadoEn: string | null; sesiones: SesionHistorial[];

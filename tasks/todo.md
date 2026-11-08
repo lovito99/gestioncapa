@@ -38,7 +38,7 @@ No se cambia el estado de una etapa por tener únicamente una pantalla demo.
 - [x] Distinguir integración real, demostración y evidencia externa pendiente.
 - [ ] Validar correspondencia del original Figma con la copia usada por el frontend.
 - [ ] Adjuntar evidencia del backlog y Planning Poker del Lab 5.
-- [ ] Validar reglas de HU-20 con el CPPP.
+- [x] Incorporar reglas HU-20 v2 delegadas al equipo; firmas oficiales pendientes.
 
 Esta entrega de T-23 modifica documentación; las pruebas de la etapa 1 registradas
 arriba corresponden a la entrega anterior, no se atribuyen a nuevas funciones.
@@ -69,12 +69,3 @@ de esta entrega.
 - [ ] Migración 0012 y build en el entorno de entrega: ejecución manual.
 
 HU-33 y HU-32 quedan fuera de esta entrega.
-
-## HU-34 · Horas acumuladas
-
-- [x] Total y desglose anual de certificados válidos con horas de su documento.
-- [x] Exclusión de anulados/reemplazados, compatibilidad histórica y año en Lima.
-- [x] Todos los años por defecto, selector anual, cero horas y resumen PDF.
-- [x] Tipos, pruebas unitarias, integración y navegador verificados sobre HU-20.
-- [ ] Integrar sobre la rama con HU-20 y su migración 0013 en el entorno de entrega.
-- [ ] Build y entrega Git/PR manual del usuario.

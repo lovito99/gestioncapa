@@ -101,6 +101,11 @@ function catalogoPaginado(request: Request, publico = false, usuarioId = '') {
   return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => publico ? resumenPublico(disponibilidad(c, '')) : disponibilidad(c, usuarioId)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...categoriasCatalogo] })
 }
 
+function alcanceCertificacion(curso: DetalleCurso) {
+  return curso.modalidad !== 'PRESENCIAL' || curso.tipoCertificado !== 'PARTICIPACION' || curso.costo > 0
+    ? error(409, 'Esta entrega emite constancias presenciales gratuitas sin examen.', 'CERTIFICACION_FUERA_ALCANCE') : null
+}
+
 export const estadosInscripcionDemo = new Map<string, 'EN_CURSO' | 'PENDIENTE_PAGO'>()
 
 export const handlersCursos = [
@@ -171,11 +176,28 @@ export const handlersCursos = [
     archivos.delete(quitado!.id)
     return new HttpResponse(null, { status: 204 })
   }),
+  http.post(`${API}/cursos/:id/excepciones`, async ({ request, params }) => {
+    const rol = acceso(request, ['ADMIN']); if (rol.fallo) return rol.fallo
+    const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
+    const curso = auth.curso!
+    const fueraDeAlcance = alcanceCertificacion(curso); if (fueraDeAlcance) return fueraDeAlcance
+    const datos = z.object({ agremiadoId: z.string(), motivo: z.string().trim().min(1).max(1000) }).strict().safeParse(await request.json())
+    if (!datos.success) return error(422, 'Ingresa el motivo de la excepción.')
+    if (curso.estado !== 'CERRADO') return error(409, 'Cierra el curso antes de emitir una excepción.')
+    if (!inscripcionesCursosDemo.get(curso.id)?.has(datos.data.agremiadoId)) return error(403, 'El colegiado no pertenece a este curso.')
+    if (certificadoDe(curso.id, datos.data.agremiadoId)) return error(409, 'Ya existe un certificado para este colegiado.')
+    const fila = filaCierre(curso, datos.data.agremiadoId)
+    const certificado = emitirCertificado({ cursoId: curso.id, agremiadoId: datos.data.agremiadoId, porExcepcion: true, motivo: datos.data.motivo,
+      tipo: curso.tipoCertificado, nombre: fila.agremiado.nombre, dniEnmascarado: null, curso: curso.titulo, modalidad: curso.modalidad,
+      horasLectivas: curso.horasLectivas, fechaInicio: curso.fechaInicio ?? '', fechaFin: curso.fechaFin ?? '', instructorNombre: curso.instructorNombre })
+    return HttpResponse.json({ codigo: certificado.codigo }, { status: 201 })
+  }),
   // ---------- Cierre del curso y certificados (SCRUM-171) ----------
   http.get(`${API}/cursos/:id/cierre`, ({ request, params }) => {
     const rol = acceso(request, ['ADMIN']); if (rol.fallo) return rol.fallo
     const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
     const curso = auth.curso!
+    const fueraDeAlcance = alcanceCertificacion(curso); if (fueraDeAlcance) return fueraDeAlcance
     if (curso.estado === 'BORRADOR') return error(409, 'Publica el curso antes de cerrarlo.', 'CURSO_NO_PUBLICADO')
     if (curso.estado === 'CERRADO') return error(409, 'El curso ya está cerrado y sus certificados fueron emitidos.', 'CURSO_CERRADO')
     const filas = [...(inscripcionesCursosDemo.get(curso.id) ?? [])].map(id => filaCierre(curso, id))
@@ -185,6 +207,7 @@ export const handlersCursos = [
     const rol = acceso(request, ['ADMIN']); if (rol.fallo) return rol.fallo
     const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
     const curso = auth.curso!
+    const fueraDeAlcance = alcanceCertificacion(curso); if (fueraDeAlcance) return fueraDeAlcance
     if (curso.estado === 'CERRADO') return error(409, 'El curso ya está cerrado.', 'CURSO_CERRADO')
     if (curso.estado === 'BORRADOR') return error(409, 'Publica el curso antes de cerrarlo.', 'CURSO_NO_PUBLICADO')
     const { excepciones = [] } = await request.json() as { excepciones?: { agremiadoId: string; motivo: string }[] }

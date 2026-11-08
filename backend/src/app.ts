@@ -1,3 +1,4 @@
+import { registrarCertificados } from './modules/certificados/certificados.rutas.js';
 import { tokenRevocado, limitarPeticiones } from './modules/auth/seguridadAcceso.js';
 import { registrarAccesoSesiones } from './modules/cursos/sesiones.acceso.js';
 import { registrarHistorial } from './modules/historial/historial.rutas.js';
@@ -51,6 +52,7 @@ export async function buildApp() {
   await app.register(clasesRoutes);
   await app.register(registrarCursos);
   await app.register(registrarHistorial);
+  await app.register(registrarCertificados);
   await app.register(asistenciaRoutes);
   // Al final: solo agrega las rutas del contrato que aún no existen (501).
   await app.register(registrarRutasReuniones);
