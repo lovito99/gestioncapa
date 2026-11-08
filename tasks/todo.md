@@ -69,14 +69,3 @@ de esta entrega.
 - [ ] Migración 0012 y build en el entorno de entrega: ejecución manual.
 
 HU-33 y HU-32 quedan fuera de esta entrega.
-
-
-## HU-20 (Sprint 2, demostración)
-
-- [x] Emisión presencial por 80 %, cierre transaccional y código estable.
-- [x] PDF con logo, DNI oculto, QR, fuentes locales y firmas genéricas identificadas.
-- [x] Verificación pública mínima; documento/archivo solo para titular o administrador.
-- [x] Excepción, anulación y corrección con actor, fecha y motivo auditados.
-- [x] Recorrido real a 360 px y contraste del QR renderizado en PDF.
-- [ ] Migración 0013 y build del entorno de entrega: ejecución manual.
-- [ ] Firmas auténticas y plantilla oficial; reglas de los sprints 3–5.

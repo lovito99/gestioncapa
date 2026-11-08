@@ -4,11 +4,12 @@ export type SesionHistorial = { id: string; cursoId: string | null; titulo: stri
 export type ResumenAsistencia = { presentes: number; realizadas: number; porcentaje: number | null }
 export type ColegiadoHistorial = { id: string; nombre: string; dniEnmascarado: string | null }
 export type CertificadoHistorial = {
-  id: string; cursoId: string; codigo: string; tipo: 'PARTICIPACION' | 'APROBACION'; emitidoEn: string;
+  id: string; cursoId: string; codigo: string; tipo: 'PARTICIPACION' | 'APROBACION'; emitidoEn: string; horasLectivas: number;
   /** Solo los VALIDO suman horas (HU-34); un anulado se muestra pero no cuenta */
   estado: EstadoCertificado;
 }
 export type Historial = {
+  horasAcumuladas: { total: number; porAnio: { anio: string; horas: number }[] };
   colegiado: ColegiadoHistorial; generadoEn: string; asistenciaGeneral: ResumenAsistencia; sesionesIndependientes: SesionHistorial[];
   cursos: { id: string; titulo: string; estado: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO'; horasLectivas: number; modalidad: string; inscritoEn: string; terminadoEn: string | null;
     /** Porcentaje mínimo de asistencia para la constancia (SCRUM-171); explica por qué no se emitió */

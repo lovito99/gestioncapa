@@ -9,6 +9,8 @@ export function pdfHistorial(historial: Historial) {
     `DNI: ${historial.colegiado.dniEnmascarado ?? 'No registrado'}`,
     `Generado: ${fecha(historial.generadoEn)} (hora de Lima)`, '',
     `Asistencia general: ${historial.asistenciaGeneral.presentes} de ${historial.asistenciaGeneral.realizadas} sesiones realizadas (${porcentaje(historial.asistenciaGeneral.porcentaje)})`,
+    `Horas acumuladas: ${historial.horasAcumuladas.total} horas (solo certificados válidos).`,
+    ...historial.horasAcumuladas.porAnio.map(a => `Año ${a.anio}: ${a.horas} horas`),
     'Se excluyen sesiones futuras y canceladas del porcentaje.', '', 'CURSOS',
     ...(historial.cursos.length ? historial.cursos.flatMap(c => [
       `${c.titulo} | ${c.estado === 'PENDIENTE_PAGO' ? 'Pendiente de pago' : c.estado === 'EN_CURSO' ? 'En curso' : 'Terminado'} | ${c.horasLectivas} horas lectivas`,

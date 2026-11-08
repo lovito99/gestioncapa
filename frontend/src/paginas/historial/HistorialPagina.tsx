@@ -25,7 +25,6 @@ const ESTADO_SESION: Record<SesionHistorial['estado'], { texto: string; tono: 'e
 }
 
 const tarjeta = 'flex min-w-0 flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)]'
-const anioEnLima = (fechaIso: string) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric' }).format(new Date(fechaIso))
 
 /** 4.1 · Mi historial (y el historial de un colegiado cuando lo abre el administrador). */
 export function HistorialPagina() {
@@ -35,7 +34,7 @@ export function HistorialPagina() {
   const consulta = useQuery({ queryKey: ['historial', usuario?.id, id], queryFn: () => historiales.obtener(id), enabled: !!id, retry: false })
   const [descargando, cambiarDescargando] = useState(false)
   const [error, cambiarError] = useState('')
-  const [anio, cambiarAnio] = useState(() => anioEnLima(new Date().toISOString()))
+  const [anio, cambiarAnio] = useState('')
   const descargar = async (certificadoId?: string) => {
     if (descargando) return
     cambiarDescargando(true); cambiarError('')
@@ -47,18 +46,16 @@ export function HistorialPagina() {
   if (consulta.isError) return <div className="mx-auto max-w-240 px-4 py-6"><ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar el historial.')} onReintentar={consulta.refetch} /></div>
   const historial = consulta.data
   const esAdmin = usuario?.rol === 'ADMIN'
-  // Cada curso con certificado suma sus horas una sola vez, en el año en que se emitió
-  const certificadosPorAnio = historial.cursos.flatMap(c => c.certificados.filter(cert => cert.estado === 'VALIDO')
-    .map(cert => ({ anio: anioEnLima(cert.emitidoEn), cursoId: c.id, horas: c.horasLectivas })))
-  const anios = [...new Set([anio, ...certificadosPorAnio.map(c => c.anio)])].sort().reverse()
-  const horas = [...new Map(certificadosPorAnio.filter(c => c.anio === anio).map(c => [c.cursoId, c.horas])).values()].reduce((suma, h) => suma + h, 0)
+  const anios = historial.horasAcumuladas.porAnio
+  const horas = anio ? anios.find(a => a.anio === anio)?.horas ?? 0 : historial.horasAcumuladas.total
   const enCurso = historial.cursos.filter(c => c.estado === 'EN_CURSO')
   const pendientes = historial.cursos.filter(c => c.estado === 'PENDIENTE_PAGO')
   const terminados = historial.cursos.filter(c => c.estado === 'TERMINADO')
 
   const selectorAnio = (oculto: string) => <Campo etiqueta="Año" className={oculto}>
     <Selector value={anio} onChange={e => cambiarAnio(e.target.value)} className="sm:h-12 sm:text-base">
-      {anios.map(a => <option key={a} value={a}>{a}</option>)}
+      <option value="">Todos los años</option>
+      {anios.map(a => <option key={a.anio} value={a.anio}>{a.anio}</option>)}
     </Selector>
   </Campo>
   const botonResumen = <Boton variante="secundario" className="h-12 w-full text-base sm:h-10 sm:text-sm" disabled={descargando} onClick={() => void descargar()}>Descargar resumen en PDF</Boton>
@@ -73,10 +70,10 @@ export function HistorialPagina() {
     <div className="grid gap-4 sm:grid-cols-[1fr_14.5rem] sm:items-stretch sm:gap-5">
     <section aria-labelledby="horas-acumuladas" className={cn(tarjeta, 'gap-2')}>
       <h2 id="horas-acumuladas" className="text-sm font-semibold text-muted">Horas de capacitación acumuladas</h2>
-      <p className="font-serif text-[32px] font-bold text-brand">{horas.toLocaleString('es-PE')} {horas === 1 ? 'hora' : 'horas'}</p>
+      <p role="status" aria-live="polite" className="font-serif text-[32px] font-bold text-brand">{horas.toLocaleString('es-PE')} {horas === 1 ? 'hora' : 'horas'}</p>
       <p className="text-[13px] text-muted">{horas > 0
         ? 'Suma de las horas lectivas de tus certificados válidos.'
-        : 'Aún no tienes certificados válidos. Las horas se suman cuando obtienes un certificado.'}</p>
+        : anio ? `No tienes horas de certificados válidos emitidos en ${anio}.` : 'Aún no tienes certificados válidos. Las horas se suman cuando obtienes un certificado.'}</p>
       {/* En celular (4.1) el año va dentro de la tarjeta; en escritorio (5.1), a la derecha */}
       {selectorAnio('sm:hidden')}
     </section>
@@ -129,7 +126,7 @@ function TarjetaCurso({ curso, descargando, onDescargar }: { curso: CursoHistori
     {curso.certificados.filter(cert => cert.estado === 'VALIDO').map(cert => <div key={cert.id} className="flex flex-col gap-2 rounded-lg bg-brand-soft p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-brand">{CERTIFICADOS_CURSO[cert.tipo]}</p>
-        <p className="text-[13px] text-muted">Código {cert.codigo} · {curso.horasLectivas} horas lectivas</p>
+        <p className="text-[13px] text-muted">Código {cert.codigo} · {cert.horasLectivas} horas lectivas</p>
       </div>
       <div className="flex flex-col items-center gap-2 sm:flex-row-reverse sm:gap-4">
         <Boton variante="secundario" className="w-full sm:w-auto" disabled={descargando} onClick={() => onDescargar(cert.id)} aria-label={`Descargar certificado ${cert.codigo}`}>Descargar certificado</Boton>

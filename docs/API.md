@@ -162,11 +162,3 @@ los errores por campo usan `422 VALIDACION`. Consulta [el contrato completo](esp
 y `PENDIENTE_PAGO` para nuevas con costo; `TERMINADO` se conserva en las históricas.
 El detalle incluye `estadoInscripcion` y el historial `pagoPendiente`.
 Véase [HU-16](esp/inscripcionCurso.md) para cupos, concurrencia y compatibilidad.
-
-
-## HU-20: certificados
-
-La emisión de constancias presenciales gratuitas, el PDF privado y la verificación
-pública tienen backend persistente. Véase [HU-20](esp/certificados.md).
-La consulta pública del código excluye DNI, nota y motivos. El documento completo
-y el archivo exigen titular o administrador de su organización.
