@@ -38,7 +38,7 @@ No se cambia el estado de una etapa por tener únicamente una pantalla demo.
 - [x] Distinguir integración real, demostración y evidencia externa pendiente.
 - [ ] Validar correspondencia del original Figma con la copia usada por el frontend.
 - [ ] Adjuntar evidencia del backlog y Planning Poker del Lab 5.
-- [ ] Validar reglas de HU-20 con el CPPP.
+- [x] Incorporar reglas HU-20 v2 delegadas al equipo; firmas oficiales pendientes.
 
 Esta entrega de T-23 modifica documentación; las pruebas de la etapa 1 registradas
 arriba corresponden a la entrega anterior, no se atribuyen a nuevas funciones.
@@ -69,3 +69,14 @@ de esta entrega.
 - [ ] Migración 0012 y build en el entorno de entrega: ejecución manual.
 
 HU-33 y HU-32 quedan fuera de esta entrega.
+
+
+## HU-20 (Sprint 2, demostración)
+
+- [x] Emisión presencial por 80 %, cierre transaccional y código estable.
+- [x] PDF con logo, DNI oculto, QR, fuentes locales y firmas genéricas identificadas.
+- [x] Verificación pública mínima; documento/archivo solo para titular o administrador.
+- [x] Excepción, anulación y corrección con actor, fecha y motivo auditados.
+- [x] Recorrido real a 360 px y contraste del QR renderizado en PDF.
+- [ ] Migración 0013 y build del entorno de entrega: ejecución manual.
+- [ ] Firmas auténticas y plantilla oficial; reglas de los sprints 3–5.

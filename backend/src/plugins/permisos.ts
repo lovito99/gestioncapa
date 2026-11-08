@@ -18,6 +18,11 @@ const rolesGestionClases: Rol[] = ["ADMIN", "COORDINADOR"];
  * de lo contrario el servidor no arranca.
  */
 export const permisos: Permiso[] = [
+  { metodo: 'GET', ruta: '/api/certificados/:codigo', acceso: 'publico' },
+  ...['archivo','documento'].map(accion => ({ metodo: 'GET' as const, ruta: `/api/certificados/:codigo/${accion}`, acceso: ['ADMIN','PARTICIPANTE'] as Rol[] })),
+  ...['anular','corregir'].map(accion => ({ metodo: 'POST' as const, ruta: `/api/certificados/:codigo/${accion}`, acceso: ['ADMIN'] as Rol[], critica: true })),
+  ...['cierre','certificados'].map(accion => ({ metodo: 'GET' as const, ruta: `/api/cursos/:id/${accion}`, acceso: ['ADMIN'] as Rol[] })),
+  ...['cerrar','excepciones'].map(accion => ({ metodo: 'POST' as const, ruta: `/api/cursos/:id/${accion}`, acceso: ['ADMIN'] as Rol[], critica: true })),
   { metodo: "POST", ruta: "/api/auth/registro", acceso: "publico" },
   { metodo: "GET", ruta: "/api/publico/cursos", acceso: "publico" },
   { metodo: "GET", ruta: "/api/catalogo/cursos/pagina", acceso: "autenticado" },

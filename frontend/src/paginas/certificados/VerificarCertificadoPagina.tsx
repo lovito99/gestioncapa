@@ -22,6 +22,11 @@ const PRESENTACION: Record<EstadoCertificado, { etiqueta: string; tono: 'exito' 
  * así el resultado (5.3 / 5.3a / 5.3b) aparece sin escribir nada.
  */
 export function VerificarCertificadoPagina() {
+  const { codigo } = useParams()
+  return <VerificacionCertificado key={codigo ?? ''} />
+}
+
+function VerificacionCertificado() {
   const { codigo: codigoRuta } = useParams()
   const codigo = codigoRuta ? normalizarCodigo(codigoRuta) : undefined
   const navegar = useNavigate()
@@ -91,7 +96,7 @@ function Resultado({ certificado }: { certificado: CertificadoPublico }) {
       </p>
 
       {certificado.estado === 'VALIDO' ? (
-        <Alerta tipo="exito">Este certificado es auténtico.</Alerta>
+        <Alerta tipo="exito">{certificado.demo ? 'Registro de demostración verificado.' : 'Este certificado es auténtico.'}</Alerta>
       ) : certificado.estado === 'ANULADO' ? (
         <div role="status" className="rounded-lg border border-danger bg-danger-soft px-4 py-3 text-sm text-danger">
           Este certificado fue anulado y no tiene validez.
@@ -107,6 +112,7 @@ function Resultado({ certificado }: { certificado: CertificadoPublico }) {
         </div>
       )}
 
+      {certificado.demo && <Alerta tipo="advertencia">Documento de demostración. Sin validez oficial.</Alerta>}
       <dl className="flex flex-col gap-3 text-sm wrap-anywhere">
         <Dato termino="Nombre">{certificado.nombre}</Dato>
         <Dato termino="Curso">{certificado.curso}</Dato>

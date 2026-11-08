@@ -38,7 +38,7 @@ export const router = createBrowserRouter([
   // Públicas: el QR del certificado lleva aquí sin pedir sesión
   { path: '/verificar', element: <VerificarCertificadoPagina /> },
   { path: '/verificar/:codigo', element: <VerificarCertificadoPagina /> },
-  { path: '/certificados/:codigo', element: <CertificadoPagina /> },
+  { element: <RutaProtegida />, children: [{ path: '/certificados/:codigo', element: <CertificadoPagina /> }] },
   {
     path: '/coordinador',
     element: <RutaProtegida rol="COORDINADOR" />,

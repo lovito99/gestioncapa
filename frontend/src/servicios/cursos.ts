@@ -77,6 +77,7 @@ export const cursos = {
   cierre: async (id: string) => (await api.get<CierreCurso>(`/cursos/${id}/cierre`)).data,
   cerrar: async (id: string, excepciones: ExcepcionCierre[]) => (await api.post<{ emitidos: number }>(`/cursos/${id}/cerrar`, { excepciones })).data,
   certificados: async (id: string) => (await api.get<CertificadosCurso>(`/cursos/${id}/certificados`)).data,
+  emitirExcepcion: async (id: string, agremiadoId: string, motivo: string) => (await api.post<{ codigo: string }>(`/cursos/${id}/excepciones`, { agremiadoId, motivo })).data,
   anularCertificado: async (codigo: string, motivo: string) => { await api.post(`/certificados/${encodeURIComponent(codigo)}/anular`, { motivo }) },
   corregirCertificado: async (codigo: string, nombre: string, motivo: string) =>
     (await api.post<{ codigo: string }>(`/certificados/${encodeURIComponent(codigo)}/corregir`, { nombre, motivo })).data,

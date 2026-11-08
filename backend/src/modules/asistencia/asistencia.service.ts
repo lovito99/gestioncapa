@@ -40,6 +40,8 @@ export async function marcarAsistencia(entrada: EntradaAsistencia, usuarioId: nu
     const clase = await obtenerClase(claseId, cliente);
     if (!clase) return rechazar(404, "CLASE_NO_EXISTE", "La clase no existe.");
     if (clase.estado === "CANCELADA") return rechazar(409, "CLASE_CANCELADA", "La clase está cancelada.");
+    const cursoCerrado = await cliente.query(`select 1 from classes s join cursos c on c.id=s.curso_id where s.id=$1 and c.estado='CERRADO'`, [claseId]);
+    if (cursoCerrado.rowCount) return rechazar(409, 'CURSO_CERRADO', 'El curso ya está cerrado y no admite nuevas asistencias.');
     if (!(await estaInscrito(claseId, usuarioId, cliente))) {
       return rechazar(403, "NO_INSCRITO", "No estás inscrito(a) en esta clase. Pide al coordinador que te inscriba.");
     }

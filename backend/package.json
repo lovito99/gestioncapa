@@ -31,17 +31,21 @@
     "@fastify/helmet": "^13.1.1",
     "@fastify/jwt": "^10.0.0",
     "@fastify/sensible": "^6.0.6",
+    "@pdf-lib/fontkit": "^1.1.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^18.0.4",
-    "fastify": "^5.12.5",
+    "fastify": "^5.12.8",
     "ioredis": "^5.8.2",
     "jose": "^6.2.13",
+    "pdf-lib": "^1.17.1",
     "pg": "^8.16.3",
-    "zod": "^4.6.5"
+    "qrcode": "^1.5.4",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
     "@types/pg": "^8.16.0",
+    "@types/qrcode": "^1.5.6",
     "pino-pretty": "^13.1.3",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2"

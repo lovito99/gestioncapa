@@ -29,6 +29,7 @@ Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
 - [HU-14: búsqueda, filtros y cupos del catálogo](docs/esp/catalogo.md).
 - [HU-16: inscripción gratuita y reserva pendiente de pago](docs/esp/inscripcionCurso.md).
 - [HU-18: historial, asistencia y descarga de certificados](docs/esp/historial.md).
+- [HU-20: emisión y verificación de constancias con QR, demo Sprint 2](docs/esp/certificados.md).
 - [HU-50: registro con DNI, sesión y auditoría](docs/esp/registro.md).
 - [HU-10: asistencia móvil y medición pendiente SCRUM-96](docs/esp/experiencia-movil.md).
 - [Ajustes y evidencia según el documento del proceso de desarrollo](docs/esp/ajustes.md).
