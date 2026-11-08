@@ -46,7 +46,7 @@ test('ENT-04: muestra y oculta la contraseña sin cambiar su contenido', async (
 })
 
 test('ENT-05: cerrar sesión impide volver a una página protegida', async ({ page }) => {
-  await entrar(page, cuentas.coord)
+  await entrar(page, cuentas.coord); await page.goto('/admin/clases')
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
   await expect(page).toHaveURL(rutas.login)
   await page.goto(rutas.clases)

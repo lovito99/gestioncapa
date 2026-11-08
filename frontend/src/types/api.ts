@@ -3,7 +3,7 @@
  * Mantener sincronizado con el OpenAPI/Swagger que publique el equipo de backend.
  */
 
-export type Rol = 'ADMIN' | 'COORDINADOR' | 'INSTRUCTOR' | 'PARTICIPANTE'
+export type Rol = 'ADMIN' | 'INSTRUCTOR' | 'AGREMIADO'
 
 export interface Usuario {
   id: string

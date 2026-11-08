@@ -28,7 +28,7 @@ const consultar = (token: string) => app.inject({ method: 'GET', url: '/api/auth
 
 before(async () => {
   await migrar(pool); app = await buildApp();
-  usuarioId = (await pool.query<{ id: string }>(`insert into users(name,email,password_hash,role) values('Agremiado de prueba',$1,$2,'participante') returning id::text`, [email, await bcrypt.hash(password, 4)])).rows[0]!.id;
+  usuarioId = (await pool.query<{ id: string }>(`insert into users(name,email,password_hash,role) values('Agremiado de prueba',$1,$2,'agremiado') returning id::text`, [email, await bcrypt.hash(password, 4)])).rows[0]!.id;
 });
 after(async () => {
   await redis.del(`${baseLogin}:fallos`, `${baseLogin}:bloqueo`, `${prefijo}usuario:${usuarioId}`, ...tokens.map(token => `${prefijo}token:${huella(token)}`));

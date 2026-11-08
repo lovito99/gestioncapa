@@ -18,9 +18,7 @@
 ## 2. Roles
 
 Los roles del producto CPPP son administrador (`ADMIN`), instructor (`INSTRUCTOR`)
-y agremiado (`PARTICIPANTE`). Se conserva `COORDINADOR` por compatibilidad del
-Sprint 1. El seed de desarrollo/pruebas crea los cuatro códigos; en producción,
-solo el administrador. No se migran los códigos como parte de T-23.
+y agremiado (`AGREMIADO`). HU-35 convierte coordinadores a administradores sin conservar el rol anterior. El seed de desarrollo/pruebas crea los tres roles; en producción, solo el administrador. Las conversiones se realizan mediante HU-35.
 
 - Sin sesión o con token inválido → **401** `NO_AUTENTICADO`.
 - Con sesión pero rol incorrecto → **403** `SIN_PERMISO`. El backend debe validar el rol en **cada** ruta; ocultar botones en la interfaz no basta.
@@ -31,15 +29,15 @@ solo el administrador. No se migran los códigos como parte de T-23.
 |---|---|---|---|---|
 | POST | `/auth/login` `{email, password}` | público | `200 { token, usuario: {id, nombre, email, rol, cargo} }` | 401 `CREDENCIALES_INVALIDAS` |
 | POST | `/auth/logout` | autenticado | `204` | — |
-| GET | `/instructores` | administrador, coordinador | `200 [{id, nombre}]` | — |
-| GET | `/clases` | administrador, coordinador | `200 Clase[]` | 401 `NO_AUTENTICADO` |
-| GET | `/clases/:id` | administrador, coordinador e instructor (solo su clase) | `200 Clase` | 404 `CLASE_NO_EXISTE` |
-| POST | `/clases` `ClaseEntrada` | administrador, coordinador | `201 Clase` | 422 `VALIDACION` (con `fields`), 409 `CONFLICTO_HORARIO` (con `details.claseId`) |
-| PUT | `/clases/:id` `ClaseEntrada` | administrador, coordinador | `200 Clase` | igual que el anterior, más 404 |
-| POST | `/clases/:id/cancelar` | administrador, coordinador | `200 Clase`, con `estado: "CANCELADA"` | 404 |
-| GET | `/clases/:id/inscritos` | administrador, coordinador | `200 [{id, nombre, email}]` | 404 |
-| POST | `/clases/:id/inscritos` `{email}` | administrador, coordinador | `201 Participante` | 422 `VALIDACION` (`fields.email`), 404 `PARTICIPANTE_NO_EXISTE`, 409 `YA_INSCRITO` (con `details.participanteId` y `details.inscritoEn`), 409 `CLASE_CANCELADA` |
-| GET | `/clases/:id/asistencia` | administrador, coordinador | `200 {inscritos, presentes, ausentes, registros: [{participante, estado: "PRESENTE"/"AUSENTE", horaRegistro}]}` | 404 |
+| GET | `/instructores` | administrador | `200 [{id, nombre}]` | — |
+| GET | `/clases` | administrador | `200 Clase[]` | 401 `NO_AUTENTICADO` |
+| GET | `/clases/:id` | administrador e instructor (solo su clase) | `200 Clase` | 404 `CLASE_NO_EXISTE` |
+| POST | `/clases` `ClaseEntrada` | administrador | `201 Clase` | 422 `VALIDACION` (con `fields`), 409 `CONFLICTO_HORARIO` (con `details.claseId`) |
+| PUT | `/clases/:id` `ClaseEntrada` | administrador | `200 Clase` | igual que el anterior, más 404 |
+| POST | `/clases/:id/cancelar` | administrador | `200 Clase`, con `estado: "CANCELADA"` | 404 |
+| GET | `/clases/:id/inscritos` | administrador | `200 [{id, nombre, email}]` | 404 |
+| POST | `/clases/:id/inscritos` `{email}` | administrador | `201 Participante` | 422 `VALIDACION` (`fields.email`), 404 `PARTICIPANTE_NO_EXISTE`, 409 `YA_INSCRITO` (con `details.participanteId` y `details.inscritoEn`), 409 `CLASE_CANCELADA` |
+| GET | `/clases/:id/asistencia` | administrador | `200 {inscritos, presentes, ausentes, registros: [{participante, estado: "PRESENTE"/"AUSENTE", horaRegistro}]}` | 404 |
 | GET | `/instructor/clases` | instructor | `200 Clase[]`: solo sus clases en estado `PROGRAMADA` | 401 |
 | GET | `/clases/:id/qr` | administrador o instructor de esa clase | `200 {token, expiraEn, servidorAhora, duracionSegundos}` | 403 `SIN_PERMISO` (clase ajena), 404, 409 `CLASE_CANCELADA` |
 | GET | `/participante/clases` | participante | `200 ClaseParticipante[]`: solo las clases en las que está inscrito | 401, 403 |
@@ -82,7 +80,7 @@ Las pruebas en `frontend/src/mocks/asistencia.test.ts` (`npm test -w frontend`) 
 1. El login y `/auth/me` ya incluyen `usuario` con id texto, `nombre`, `rol` en mayúsculas y `cargo`. Se conserva `user` por compatibilidad. El login devuelve 401 `CREDENCIALES_INVALIDAS` para credenciales incorrectas.
 2. Las validaciones Zod devuelven 422 `VALIDACION` con mensajes en español y `fields`. JSON inválido, rutas inexistentes y fallos internos mantienen el formato `{code, message}`. Los detalles internos se registran en el servidor, sin enviarlos al navegador.
 3. `/auth/logout` ya existe y devuelve 204 con un token válido. El cliente elimina su sesión; el backend no revoca JWT emitidos. **Todas las rutas de la tabla están implementadas** en el backend: clases e inscritos (HU-04, HU-06), QR rotativo (HU-07, ver [QR](esp/qr.md)), `POST /asistencia/marcar`, `GET /clases/:id/asistencia` y `/participante/clases` (HU-08, HU-09, ver [asistencia](esp/asistencia.md)). La interfaz funciona completa con `VITE_USE_MOCKS=false`.
-4. El esquema está versionado en `backend/migraciones/` (T-07, ver [base de datos](esp/base-datos.md)): `organizations`, `users`, `classes`, `enrollments` y `attendances`, todas con `organization_id` (demo = 1) y con las restricciones UNIQUE en la base. La API usa `attendances` y registra `created_by` y la hora local de Lima. El escaneo y la inscripción bloquean la clase durante la transacción para impedir escrituras posteriores a una cancelación concurrente; el QR se vuelve a comprobar antes de insertar. El seed crea un usuario `COORDINADOR`, instructores y dos `PARTICIPANTE` fuera de producción (ver [calidad](esp/calidad.md), AMB-02).
+4. El esquema está versionado en `backend/migraciones/`. HU-35 retira `organizations` y `organization_id` mediante migraciones nuevas y conserva los identificadores y relaciones de negocio. Los roles son administrador, instructor y agremiado. La asistencia conserva la hora de Lima y los bloqueos de clase. Ver [adaptación de roles](esp/rolesCppp.md).
 5. La autorización por rol está en el servidor (T-04, ver [permisos](esp/permisos.md)): la matriz `backend/src/plugins/permisos.ts` declara el acceso de cada ruta de la tabla anterior y un hook aplica el guard a todas (401 `NO_AUTENTICADO`, 403 `SIN_PERMISO`). Las rutas aún no implementadas ya validan el rol y responden 501 `NO_IMPLEMENTADO`. Una ruta nueva sin entrada en la matriz impide arrancar el servidor. Un usuario con `active = false` recibe 403 `USUARIO_INACTIVO` al entrar y 401 con un token anterior.
 
 La entrada del administrador está cubierta por las [pruebas reales de Playwright](e2e.md).
@@ -132,7 +130,7 @@ y `tamanoPagina` (1–50, por defecto 6). No requiere sesión. Devuelve
 `{ items, total, pagina, tamanoPagina, totalPaginas, categorias }`. Cada item
 incluye únicamente id, título, descripción, nombre del instructor, horas,
 modalidad, costo, cupos, cupos disponibles, categoría y fechas. Solo publica
-cursos publicados de `cpppOrganizacionId` con fecha final vigente o por confirmar.
+cursos publicados del CPPP con fecha final vigente o por confirmar.
 No incluye módulos, materiales, inscritos ni identificadores internos de personas.
 
 `POST /api/auth/logout` invalida el token utilizado hasta su expiración. Los
@@ -143,8 +141,8 @@ responde 423. Un login correcto posterior al bloqueo limpia los fallos.
 El límite autenticado por usuario es configurable mediante `limitePeticiones`
 (por defecto 300/minuto): `429 LIMITE_PETICIONES` con `Retry-After`.
 
-`PARTICIPANTE` conserva su valor en el contrato y se presenta como **Agremiado**.
-El rol `COORDINADOR` se mantiene por compatibilidad del Sprint 1.
+El contrato usa `AGREMIADO` y se presenta como **Agremiado**.
+HU-35 retira el rol coordinador; sus cuentas pasan a administrador.
 Consultar [la matriz CPPP](enfoqueCppp.md) para distinguir API real y simulaciones.
 
 
@@ -162,3 +160,20 @@ los errores por campo usan `422 VALIDACION`. Consulta [el contrato completo](esp
 y `PENDIENTE_PAGO` para nuevas con costo; `TERMINADO` se conserva en las históricas.
 El detalle incluye `estadoInscripcion` y el historial `pagoPendiente`.
 Véase [HU-16](esp/inscripcionCurso.md) para cupos, concurrencia y compatibilidad.
+
+## HU-35 · Usuarios y roles del CPPP
+
+Roles del contrato: `ADMIN`, `INSTRUCTOR`, `AGREMIADO`; en la base: `admin`,
+`instructor`, `agremiado`. `GET /usuarios` solo para administrador, paginado con
+`pagina`, `tamanoPagina` (máximo 50) y `buscar` por nombre/correo. Devuelve
+`{ items: [{ id, nombre, email, rol, activo }], total, pagina, tamanoPagina }`.
+
+`POST /usuarios` crea una cuenta con `{ nombre, email, rol, activo, password,
+motivo }`; `PUT /usuarios/:id` actualiza los mismos campos sin `password`. El rol
+se envía en minúsculas. Ambos requieren motivo y registran actor y fecha en
+`auditoriaRoles`; la clave inicial requiere ocho caracteres y bcrypt. Devuelven
+409 por correo duplicado; editar la propia cuenta no permite quitarse el rol
+administrativo ni desactivarla. Agremiados e instructores reciben 403.
+
+La lista de asistencia de sesión admite al administrador y al instructor
+asignado. El instructor ajeno recibe 403, incluso en sesiones sin curso.

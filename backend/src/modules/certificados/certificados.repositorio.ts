@@ -11,7 +11,7 @@ export type CursoEmision = { id: string; estado: string; titulo: string; modalid
 export async function cursoAdministrable(cliente: PoolClient, id: string, actor: UsuarioAutenticado) {
   const curso = (await cliente.query<CursoEmision>(`select c.id::text,c.estado,c.titulo,c.modalidad,c.costo::float8,c.tipo_certificado as "tipoCertificado",
     c.horas_lectivas as "horasLectivas",i.name as "instructorNombre" from cursos c join users i on i.id=c.instructor_id
-    join users a on a.id=$2 and a.organization_id=c.organization_id and a.role='admin' and a.active
+    join users a on a.id=$2 and a.role='admin' and a.active
     where c.id=$1 for update of c`, [id,actor.id])).rows[0];
   if (!curso) {
     const existe=(await cliente.query('select 1 from cursos where id=$1',[id])).rowCount;
@@ -27,9 +27,9 @@ export function validarAlcance(curso: CursoEmision) {
 export async function filasCierre(cliente: PoolClient, cursoId: string): Promise<FilaCierre[]> {
   const filas = (await cliente.query<{ id: string; nombre: string; presentes: number; sesiones: number }>(`select u.id::text,u.name as nombre,
     count(s.id)::int as sesiones,count(a.id)::int as presentes
-    from inscripciones_curso ins join users u on u.id=ins.usuario_id join cursos c on c.id=ins.curso_id and c.organization_id=u.organization_id
-    left join classes s on s.curso_id=c.id and s.organization_id=c.organization_id and s.estado='PROGRAMADA'
-    left join attendances a on a.class_id=s.id and a.user_id=u.id and a.organization_id=c.organization_id
+    from inscripciones_curso ins join users u on u.id=ins.usuario_id join cursos c on c.id=ins.curso_id
+    left join classes s on s.curso_id=c.id and s.estado='PROGRAMADA'
+    left join attendances a on a.class_id=s.id and a.user_id=u.id
     where c.id=$1 and ins.estado<>'PENDIENTE_PAGO' group by u.id order by u.name,u.id`,[cursoId])).rows;
   return filas.map(f => ({ agremiado:{id:f.id,nombre:f.nombre}, presentes:f.presentes,sesiones:f.sesiones,
     porcentaje:f.sesiones ? Math.round(f.presentes*10000/f.sesiones)/100 : 0, cumple:f.sesiones>0 && f.presentes*100>=f.sesiones*80 }));

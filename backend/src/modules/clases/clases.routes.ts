@@ -90,7 +90,7 @@ async function leerDatos(request: FastifyRequest, reply: FastifyReply): Promise<
 export async function clasesRoutes(app: FastifyInstance) {
   app.get("/api/instructores", async () => listarInstructores());
 
-  app.get("/api/clases", async request => listarClases(request.usuario!.id));
+  app.get("/api/clases", async request => listarClases());
 
   app.get("/api/clases/:id", async (request: ConId, reply) => {
     const id = leerId(request);

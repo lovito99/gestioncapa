@@ -22,13 +22,13 @@ test('INS-07: la coordinadora inscribe a una participante sin duplicarla con el 
   expect(creada.status()).toBe(201)
   const { id } = await creada.json()
 
-  await entrar(page, cuentas.coord)
+  await entrar(page, cuentas.coord); await page.goto('/admin/clases')
   await page.goto(rutas.detalle(id))
   await expect(page.getByRole('heading', { name: 'Inscritos (0)', exact: true })).toBeVisible()
   const correo = page.getByLabel('Correo del agremiado')
   const inscribir = page.getByRole('button', { name: 'Inscribir', exact: true })
 
-  await correo.fill('persona-inexistente@demo.pe')
+  await correo.fill('persona-inexistente@demo.cpppregion-cusco.com')
   await inscribir.click()
   await expect(page.getByRole('alert')).toContainText('No encontramos un participante')
 

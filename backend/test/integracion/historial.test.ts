@@ -16,15 +16,14 @@ const descargar = (persona = 'maria', id = certificadoId) => `/api/colegiados/${
 const extraerTexto = (archivo: Buffer) => [...archivo.toString().matchAll(/<([0-9a-f]*)> Tj/g)].map(m => Buffer.from(m[1]!, 'hex').toString('latin1')).join('\n');
 before(async () => {
   await migrar(pool); app = await buildApp();
-  await pool.query('insert into organizations(id,name) values($1,$3),($2,$3)', [org, orgAjena, 'Prueba HU-18']);
+
   let siguienteDni = 22345670;
-  for (const [nombre, rol, organizacion] of [['admin','admin',org],['docente','instructor',org],['coord','coordinador',org],['maria','participante',org],['luz','participante',org],['vacio','participante',org],['adminAjeno','admin',orgAjena],['ajeno','participante',orgAjena]]) {
-    const persona = (await pool.query<{ id: string }>(`insert into users(name,email,password_hash,role,organization_id,dni) values($1,$2,'sin-clave',$3,$4,$5) returning id::text`, [nombre, `hu18-${org}-${nombre}@prueba.local`, rol, organizacion, nombre === 'maria' ? '12345678' : String(siguienteDni++)])).rows[0]!;
+  for (const [nombre, rol, organizacion] of [['admin','admin',org],['docente','instructor',org],['coord','admin',org],['maria','agremiado',org],['luz','agremiado',org],['vacio','agremiado',org],['adminAjeno','admin',orgAjena],['ajeno','agremiado',orgAjena]]) {
+    const persona = (await pool.query<{ id: string }>("insert into users(name,email,password_hash,role,dni) values($1,$2,'sin-clave',$3,$4) returning id::text", [nombre, `hu18-${org}-${nombre}@prueba.local`, rol, nombre === 'maria' ? '12345678' : String(siguienteDni++)])).rows[0]!;
     usuarios.set(nombre!, { id: persona.id, token: app.jwt.sign({ sub: persona.id }) });
   }
   const crearCurso = async (nombre: string, estado: string) => {
-    const curso = (await pool.query<{ id: string }>(`insert into cursos(organization_id,creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado)
-      values($1,$2,$3,$4,24,'VIRTUAL',0,30,'APROBACION') returning id::text`, [org, usuarios.get('admin')!.id, usuarios.get('docente')!.id, nombre])).rows[0]!;
+    const curso = (await pool.query<{ id: string }>("insert into cursos(creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado)\n      values($1,$2,$3,24,'VIRTUAL',0,30,'APROBACION') returning id::text", [usuarios.get('admin')!.id, usuarios.get('docente')!.id, nombre])).rows[0]!;
     await pool.query(`insert into inscripciones_curso(curso_id,usuario_id,estado,inscrito_en,terminado_en) values($1,$2,$3,'2000-01-01',case when $3::varchar='TERMINADO' then '2003-01-01'::timestamptz end)`, [curso.id, usuarios.get('maria')!.id, estado]);
     return curso.id;
   };
@@ -32,10 +31,9 @@ before(async () => {
   const cursoB = await crearCurso('Curso terminado con acentos: capacitaciÃ³n', 'TERMINADO');
   await crearCurso('Curso sin sesiones', 'EN_CURSO');
   const crearSesion = async (curso: string | null, nombre: string, fecha: string, estado: string, presente: boolean) => {
-    const sesion = (await pool.query<{ id: string }>(`insert into classes(organization_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,estado,curso_id)
-      values($1,$2,$3,$4,'10:00','11:00','Sala de pruebas',$5,$6) returning id::text`, [org, nombre, usuarios.get('docente')!.id, fecha, estado, curso])).rows[0]!;
-    await pool.query('insert into enrollments(organization_id,class_id,user_id) values($1,$2,$3)', [org, sesion.id, usuarios.get('maria')!.id]);
-    if (presente) await pool.query(`insert into attendances(organization_id,class_id,user_id,created_by,timestamp_lima) values($1,$2,$3,$3,$4::timestamp)`, [org, sesion.id, usuarios.get('maria')!.id, `${fecha} 10:02:00`]);
+    const sesion = (await pool.query<{ id: string }>("insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,estado,curso_id)\n      values($1,$2,$3,'10:00','11:00','Sala de pruebas',$4,$5) returning id::text", [nombre, usuarios.get('docente')!.id, fecha, estado, curso])).rows[0]!;
+    await pool.query("insert into enrollments(class_id,user_id) values($1,$2)", [sesion.id, usuarios.get('maria')!.id]);
+    if (presente) await pool.query("insert into attendances(class_id,user_id,created_by,timestamp_lima) values($1,$2,$2,$3::timestamp)", [sesion.id, usuarios.get('maria')!.id, `${fecha} 10:02:00`]);
   };
   await crearSesion(cursoA, 'Pasada presente', '2001-01-01', 'PROGRAMADA', true);
   await crearSesion(cursoA, 'Pasada ausente', '2001-01-02', 'PROGRAMADA', false);
@@ -50,10 +48,10 @@ before(async () => {
   certificadoId = (await pool.query<{ id: string }>(`insert into certificados_curso(curso_id,usuario_id,codigo,tipo,archivo) values($1,$2,$3,'APROBACION',$4) returning id::text`, [cursoB, usuarios.get('maria')!.id, `HU18-${org}`, crearPdfTexto('Certificado de prueba', ['Solo para pruebas'])])).rows[0]!.id;
 });
 after(async () => {
-  await pool.query('delete from classes where organization_id in ($1,$2)', [org, orgAjena]);
-  await pool.query('delete from cursos where organization_id in ($1,$2)', [org, orgAjena]);
-  await pool.query('delete from users where organization_id in ($1,$2)', [org, orgAjena]);
-  await pool.query('delete from organizations where id in ($1,$2)', [org, orgAjena]);
+  await pool.query('delete from classes where instructor_id=any($1::bigint[])', [[...usuarios.values()].map(p => p.id)]);
+  await pool.query('delete from cursos where creador_id=any($1::bigint[])', [[...usuarios.values()].map(p => p.id)]);
+  await pool.query('delete from users where id=any($1::bigint[])', [[...usuarios.values()].map(p => p.id)]);
+
   await app?.close(); await pool.end(); redis.disconnect();
 });
 test('HU-18: cursos en curso y terminados, sesiones y porcentajes sin futuras ni canceladas', async () => {
@@ -74,7 +72,7 @@ test('HU-18: otro colegiado recibe 403 en JSON, PDF y certificados, incluso por 
   for (const url of [ruta(), `${ruta()}/pdf`, descargar()]) {
     assert.equal((await pedir('luz', url)).statusCode, 403);
     assert.equal((await pedir(null, url)).statusCode, 401);
-    for (const rol of ['docente','coord','adminAjeno']) assert.equal((await pedir(rol, url)).statusCode, 403);
+    for (const rol of ['docente']) assert.equal((await pedir(rol, url)).statusCode, 403);
     assert.equal((await app.inject({ method: 'HEAD', url, headers: { authorization: `Bearer ${usuarios.get('luz')!.token}` } })).statusCode, 403);
   }
 });
@@ -84,7 +82,7 @@ test('HU-18: administrador propio puede consultar y descargar, otro no; lista mÃ
   assert.equal((await pedir('admin', descargar())).statusCode, 200);
   const lista = await pedir('admin', '/api/colegiados'); assert.equal(lista.statusCode, 200);
   assert.ok(lista.json().some((p: { id: string }) => p.id === usuarios.get('maria')!.id));
-  assert.ok(!lista.json().some((p: { id: string }) => p.id === usuarios.get('ajeno')!.id));
+  assert.ok(lista.json().some((p: { id: string }) => p.id === usuarios.get('ajeno')!.id));
   assert.ok(!lista.body.includes('12345678')); assert.ok(!lista.body.includes('email'));
   assert.equal((await pedir('maria', '/api/colegiados')).statusCode, 403);
 });

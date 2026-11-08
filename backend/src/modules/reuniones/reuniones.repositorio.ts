@@ -30,17 +30,17 @@ export async function conTransaccion<T>(operacion: (cliente: PoolClient) => Prom
   } finally { cliente.release(); }
 }
 
-// La organización, inscripción y estado se vuelven a comprobar incluso con un JWT vigente.
+// La inscripción y el estado se vuelven a comprobar incluso con un JWT vigente.
 export async function comprobarAcceso(cliente: PoolClient, reunion: Reunion, usuario: UsuarioAutenticado) {
   const resultado = await cliente.query<{ gestion: boolean; instructor: boolean; inscrito: boolean; activa: boolean; retirado: boolean }>(`
     select
-      (persona.role in ('admin','coordinador')) as gestion,
+      (persona.role in ('admin')) as gestion,
       (clase.instructor_id = persona.id) as instructor,
       exists(select 1 from enrollments where class_id = clase.id and user_id = persona.id) as inscrito,
       (clase.estado = 'PROGRAMADA') as activa,
       exists(select 1 from "participantesReunion" where "reunionIdentificador" = $1
         and "usuarioIdentificador" = persona.id and estado = 'retirado') as retirado
-    from classes clase join users persona on persona.organization_id = clase.organization_id
+    from classes clase join users persona on true
     where clase.id = $2 and persona.id = $3 and persona.active
     for share of clase, persona`, [reunion.identificador, reunion.claseIdentificador, usuario.id]);
   return resultado.rows[0];
@@ -54,9 +54,9 @@ export async function listarReuniones(usuario: UsuarioAutenticado) {
   return (await pool.query<Reunion>(`
     select reunion.* from reuniones reunion
     join classes clase on clase.id = reunion."claseIdentificador"
-    join users persona on persona.organization_id = clase.organization_id and persona.id = $1
+    join users persona on persona.id = $1
     where persona.active and (
-      persona.role in ('admin','coordinador') or clase.instructor_id = persona.id or
+      persona.role in ('admin') or clase.instructor_id = persona.id or
       exists(select 1 from enrollments where class_id = clase.id and user_id = persona.id)
     ) and not exists(select 1 from "participantesReunion" participante
       where participante."reunionIdentificador" = reunion.identificador

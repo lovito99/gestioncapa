@@ -16,7 +16,7 @@ let app: FastifyInstance;
 async function crearUsuario(email: string, active: boolean) {
   await pool.query(
     `insert into users (name, email, password_hash, role, active)
-     values ($1, $2, $3, 'participante', $4)
+     values ($1, $2, $3, 'agremiado', $4)
      on conflict (email) do update set active = excluded.active, password_hash = excluded.password_hash`,
     [email, email, await bcrypt.hash(CLAVE, 4), active]
   );

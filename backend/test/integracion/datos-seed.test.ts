@@ -81,7 +81,7 @@ describe("Característica: Seed completo para todos los perfiles", () => {
 
     assert.deepEqual(await contar(), { usuarios: 6, clases: 9, inscripciones: 15, asistencias: 4 });
     assert.deepEqual([...new Set(resumen.usuarios.map((u) => u.role))].sort(),
-      ["admin", "coordinador", "instructor", "participante"]);
+      ["admin", "agremiado", "instructor"]);
     assert.equal(resumen.clases, 9);
     assert.equal(resumen.inscripciones, 15);
     assert.equal(resumen.asistencias, 4);
@@ -111,7 +111,7 @@ describe("Característica: Seed completo para todos los perfiles", () => {
       `select id from users u
        where (role = 'instructor' and not exists (
          select 1 from classes where instructor_id = u.id and estado = 'PROGRAMADA'
-       )) or (role = 'participante' and not exists (
+       )) or (role = 'agremiado' and not exists (
          select 1 from enrollments where user_id = u.id
        ))`
     );
@@ -139,7 +139,7 @@ describe("Característica: Seed completo para todos los perfiles", () => {
   test("repetir el seed conserva contraseñas, fechas, cancelaciones y asistencias existentes", async () => {
     await sembrarDatos(conexion, configuracion);
     await conexion.query("update users set name = 'Nombre editado', password_hash = 'hash editado' where role = 'admin'");
-    await conexion.query("update classes set estado = 'CANCELADA' where nombre = 'Demo · Atención al cliente'");
+    await conexion.query("update classes set estado = 'CANCELADA' where nombre = 'Demo · Atención a la diversidad'");
     await conexion.query("update attendances set timestamp_lima = timestamp_lima + interval '5 minutes'");
     await conexion.query("update reuniones set titulo = 'Reunión editada', estado = 'cancelada'");
     await conexion.query(`update "participantesReunion" set estado = 'retirado' where rol = 'participante'`);
@@ -234,7 +234,7 @@ describe("Característica: Seed completo para todos los perfiles", () => {
   test("un horario ocupado revierte todos los datos nuevos y conserva los anteriores", async () => {
     const instructor = await conexion.query<{ id: string }>(
       `insert into users (name, email, password_hash, role)
-       values ('Carlos', 'carlos.mendoza@organizacion.pe', 'hash propio', 'instructor') returning id`
+       values ('Carlos', 'carlos.mendoza@cpppregion-cusco.com', 'hash propio', 'instructor') returning id`
     );
     await conexion.query(
       `insert into classes (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar)

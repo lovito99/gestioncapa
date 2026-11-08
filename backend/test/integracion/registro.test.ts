@@ -27,11 +27,11 @@ test('HU-50: crea agremiado, guarda bcrypt y auditoría, e inicia sesión sin ex
   const respuesta = await registrar();
   assert.equal(respuesta.statusCode, 201, respuesta.body);
   const cuerpo = respuesta.json();
-  assert.equal(cuerpo.usuario.rol, 'PARTICIPANTE'); assert.equal(cuerpo.usuario.cargo, 'Agremiado');
+  assert.equal(cuerpo.usuario.rol, 'AGREMIADO'); assert.equal(cuerpo.usuario.cargo, 'Agremiado');
   assert.equal(cuerpo.usuario.nombre, 'Docente De prueba');
   assert.equal((await app.inject({ url: '/api/auth/me', headers: { authorization: `Bearer ${cuerpo.token}` } })).statusCode, 200);
   const usuario = (await pool.query('select * from users where id=$1', [cuerpo.usuario.id])).rows[0];
-  assert.equal(usuario.role, 'participante'); assert.equal(String(usuario.organization_id), env.cpppOrganizacionId);
+  assert.equal(usuario.role, 'agremiado'); assert.ok(!('organization_id' in usuario));
   assert.equal(usuario.celular, '987654321'); assert.equal(usuario.dni, '00000071');
   assert.notEqual(usuario.password_hash, 'abcdefgh'); assert.equal(await bcrypt.compare('abcdefgh', usuario.password_hash), true);
   const auditoria = (await pool.query('select * from "auditoriaRegistro" where "usuarioId"=$1', [usuario.id])).rows;

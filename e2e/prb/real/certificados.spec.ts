@@ -38,7 +38,9 @@ test('HU-20: constancia real de demostración, PDF estable y verificación sin D
   await descargar()
   const qr=page.getByRole('link',{name:`Verificar el certificado ${codigo}`,exact:true})
   await expect(qr).toHaveAttribute('href',new RegExp(`/verificar/${codigo}$`))
+  const verificado=page.waitForResponse(r => new URL(r.url()).pathname===`/api/certificados/${codigo}` && r.status()===200)
   await qr.click()
+  await verificado
   await expect(page.getByRole('region',{name:'Resultado de la verificación'})).toContainText('Válido')
   const anonima=await context.browser()!.newContext()
   try {

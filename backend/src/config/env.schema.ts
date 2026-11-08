@@ -53,7 +53,6 @@ const envSchema = z.object({
   REDIS_URL: requerida((s) => s.url("debe ser una URL, por ejemplo redis://:clave@localhost:6379")),
   JWT_SECRET: requerida((s) => s.min(32, "debe tener al menos 32 caracteres")),
   limitePeticiones: z.coerce.number().int().min(1).max(10000).default(300),
-  cpppOrganizacionId: z.string().regex(/^[1-9]\d{0,14}$/).default('1'),
   JWT_EXPIRES_IN: z.string().default("1d"),
   // Firma los tokens del QR de asistencia; distinto de JWT_SECRET.
   QR_SECRET: requerida((s) => s.min(32, "debe tener al menos 32 caracteres")),

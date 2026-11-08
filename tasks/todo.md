@@ -69,3 +69,13 @@ de esta entrega.
 - [ ] Migración 0012 y build en el entorno de entrega: ejecución manual.
 
 HU-33 y HU-32 quedan fuera de esta entrega.
+
+## HU-35 · Roles y entidad única del CPPP
+
+- [x] Roles administrador, instructor y agremiado en API, interfaz y demo.
+- [x] Migraciones nuevas de roles y retirada de multiorganización conservando relaciones.
+- [x] Instructor asignado consulta asistencia; otros instructores reciben 403.
+- [x] Gestión administrativa de usuarios con bcrypt, cambios de rol y auditoría.
+- [x] Correos CPPP y sustitución de sesión/reunión de extintores.
+- [x] Tipos, 329 pruebas unitarias, 239 integraciones y recorridos reales de roles/usuarios verificados.
+- [ ] Respaldo/restauración, build, migración y Git/PR manuales en el entorno de entrega.

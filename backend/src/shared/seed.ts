@@ -7,25 +7,25 @@ import { sembrarUsuarios } from "../modules/auth/auth.service.js";
 import type { EnvSeed } from "../modules/auth/usuarios-seed.js";
 import { pool } from "./database.js";
 
-const MARIA = "maria.quispe@demo.pe";
-const LUZ = "luz.apaza@demo.pe";
-const CARLOS = "carlos.mendoza@organizacion.pe";
-const LUCIA = "lucia.paredes@organizacion.pe";
+const MARIA = "maria.quispe@demo.cpppregion-cusco.com";
+const LUZ = "luz.apaza@demo.cpppregion-cusco.com";
+const CARLOS = "carlos.mendoza@cpppregion-cusco.com";
+const LUCIA = "lucia.paredes@cpppregion-cusco.com";
 
 const clasesDemo = [
   { nombre: "Demo · Seguridad y salud en el trabajo", instructor: CARLOS, dias: -1,
     inicio: "10:00", fin: "11:00", lugar: "Auditorio principal, piso 2", cancelada: false,
     inscritos: [MARIA, LUZ], presentes: [MARIA] },
-  { nombre: "Demo · Atención al cliente", instructor: LUCIA, dias: 1,
+  { nombre: "Demo · Atención a la diversidad", instructor: LUCIA, dias: 1,
     inicio: "15:00", fin: "16:30", lugar: "Sala de capacitación B", cancelada: false,
     inscritos: [MARIA, LUZ], presentes: [] },
   { nombre: "Demo · Primeros auxilios básicos", instructor: CARLOS, dias: 2,
     inicio: "09:00", fin: "10:00", lugar: "Laboratorio 3", cancelada: false,
     inscritos: [MARIA, LUZ], presentes: [] },
-  { nombre: "Demo · Liderazgo de equipos", instructor: LUCIA, dias: 3,
+  { nombre: "Demo · Liderazgo pedagógico", instructor: LUCIA, dias: 3,
     inicio: "16:00", fin: "17:00", lugar: "Sala de capacitación A", cancelada: true,
     inscritos: [LUZ], presentes: [] },
-  { nombre: "Demo · Manejo de extintores", instructor: CARLOS, dias: 4,
+  { nombre: "Demo · Estrategias de evaluación docente", instructor: CARLOS, dias: 4,
     inicio: "15:00", fin: "16:30", lugar: "Patio central", cancelada: false,
     inscritos: [MARIA, LUZ], presentes: [] }
 ];
@@ -47,14 +47,14 @@ export async function sembrarDatos(conexion: Pool = pool, configuracion: EnvSeed
 
     if (configuracion.NODE_ENV !== "production") {
       const resultado = await cliente.query<{ id: string; email: string; role: string }>(
-        "select id, email, role from users where email = any($1) and active and organization_id = 1 for update",
+        "select id, email, role from users where email = any($1) and active for update",
         [[CARLOS, LUCIA, MARIA, LUZ]]
       );
       const cuentas = new Map(resultado.rows.map((usuario) => [usuario.email, usuario]));
       const usuarioId = (email: string, rol: string) => {
         const usuario = cuentas.get(email);
         if (!usuario || usuario.role !== rol) {
-          throw new Error(`El seed necesita la cuenta demo activa ${email} con rol ${rol} en la organización 1.`);
+          throw new Error(`El seed necesita la cuenta demo activa ${email} con rol ${rol} en el CPPP.`);
         }
         return usuario.id;
       };
@@ -62,7 +62,7 @@ export async function sembrarDatos(conexion: Pool = pool, configuracion: EnvSeed
       for (const datos of clasesDemo) {
         const instructorId = usuarioId(datos.instructor, "instructor");
         const existente = await cliente.query<{ id: string }>(
-          "select id from classes where nombre = $1 and instructor_id = $2 and organization_id = 1 order by id limit 1 for update",
+          "select id from classes where nombre = $1 and instructor_id = $2 order by id limit 1 for update",
           [datos.nombre, instructorId]
         );
         let claseId = existente.rows[0]?.id;
@@ -90,7 +90,7 @@ export async function sembrarDatos(conexion: Pool = pool, configuracion: EnvSeed
         resumen.clases++;
 
         for (const email of datos.inscritos) {
-          const participanteId = usuarioId(email, "participante");
+          const participanteId = usuarioId(email, "agremiado");
           await cliente.query(
             `insert into enrollments (class_id, user_id) values ($1, $2)
              on conflict (class_id, user_id) do nothing`,
@@ -112,7 +112,7 @@ export async function sembrarDatos(conexion: Pool = pool, configuracion: EnvSeed
       }
       const asistencias = await cliente.query<{ total: number }>(
         `select count(*)::int as total from attendances a join classes c on c.id = a.class_id
-         where c.nombre = any($1) and c.organization_id = 1`,
+         where c.nombre = any($1)`,
         [clasesDemo.map((clase) => clase.nombre)]
       );
       resumen.asistencias = asistencias.rows[0]!.total;

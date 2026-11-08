@@ -103,7 +103,7 @@ export const handlersCertificados = [
   }),
 
   ...['documento', 'archivo'].map(accion => http.get(`${API}/certificados/:codigo/${accion}`, ({ request, params }) => {
-    const usuario = usuarios.find(u => request.headers.get('Authorization') === `Bearer demo-${u.id}`)
+    const usuario = usuarios.find(u => u.activo !== false && request.headers.get('Authorization') === `Bearer demo-${u.id}`)
     if (!usuario) return error(401, 'NO_AUTENTICADO', 'Inicia sesión para descargar tu certificado.')
     const certificado = certificados.find(c => c.codigo === String(params.codigo).toUpperCase())
     if (!certificado) return error(404, 'CERTIFICADO_NO_EXISTE', 'No encontramos ese certificado.')

@@ -17,17 +17,17 @@ const OPCIONES: Record<Rol, Opcion[]> = {
     { to: '/cursos', texto: 'Cursos' },
     { to: '/admin/clases', texto: 'Clases' },
     { to: '/admin/certificados', texto: 'Certificados' },
-    { to: '/admin/historial', texto: 'Usuarios', end: true },
+    { to: '/admin/usuarios', texto: 'Usuarios', end: true },
+    { to: '/admin/historial', texto: 'Historiales', end: true },
     REUNIONES,
     { to: '/admin', texto: 'Estado del sistema', end: true },
   ],
-  COORDINADOR: [{ to: '/coordinador/clases', texto: 'Clases' }, REUNIONES],
   INSTRUCTOR: [{ to: '/instructor/clases', texto: 'Mis clases' }, { to: '/cursos', texto: 'Mis cursos' }, REUNIONES],
-  PARTICIPANTE: [
+  AGREMIADO: [
     { to: '/catalogo', texto: 'Catálogo', end: true },
     { to: '/participante/cursos', texto: 'Mis cursos' },
     { to: '/historial', texto: 'Historial', end: true },
-    REUNIONES,
+    { to: '/participante/escanear', texto: 'Registrar asistencia' },
   ],
 }
 

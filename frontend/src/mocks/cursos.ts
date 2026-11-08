@@ -57,7 +57,7 @@ let secuencia = demo.siguienteId
 const nuevoId = () => String(secuencia++)
 const error = (status: number, message: string, code?: string) => HttpResponse.json({ code: code ?? (status === 422 ? 'VALIDACION' : status === 401 ? 'NO_AUTENTICADO' : status === 403 ? 'SIN_PERMISO' : 'CURSO_NO_EXISTE'), message }, { status })
 function acceso(request: Request, roles?: string[]) {
-  const usuario = usuarios.find(u => request.headers.get('Authorization') === `Bearer demo-${u.id}`)
+  const usuario = usuarios.find(u => u.activo !== false && request.headers.get('Authorization') === `Bearer demo-${u.id}`)
   if (!usuario) return { fallo: error(401, 'Tu sesión expiró. Vuelve a iniciar sesión.') }
   if (roles && !roles.includes(usuario.rol)) return { fallo: error(403, 'No tienes permiso para realizar esta acción.') }
   return { usuario }
@@ -67,6 +67,7 @@ function detalle(request: Request, id: string) {
   if (auth.fallo) return { fallo: auth.fallo }
   const curso = cursosSimulados.find(c => c.id === id)
   if (!curso) return { fallo: error(404, 'El curso no existe.') }
+  if (auth.usuario!.rol === 'INSTRUCTOR' && curso.instructorId !== auth.usuario!.id) return { fallo: error(403, 'No tienes permiso para acceder a este curso.') }
   if (curso.estado === 'BORRADOR' && auth.usuario!.rol !== 'ADMIN' && curso.instructorId !== auth.usuario!.id) return { fallo: error(403, 'No tienes permiso para acceder a este curso.') }
   return { curso, usuario: auth.usuario! }
 }
@@ -114,7 +115,7 @@ export const handlersCursos = [
     return HttpResponse.json(usuarios.filter(u => u.rol === 'INSTRUCTOR').map(u => ({ id: u.id, nombre: u.nombre })))
   }),
   http.get(`${API}/cursos`, ({ request }) => {
-    const auth = acceso(request, ['ADMIN', 'COORDINADOR', 'INSTRUCTOR']); if (auth.fallo) return auth.fallo
+    const auth = acceso(request, ['ADMIN', 'INSTRUCTOR']); if (auth.fallo) return auth.fallo
     return HttpResponse.json(cursosSimulados.filter(c => auth.usuario!.rol !== 'INSTRUCTOR' || c.instructorId === auth.usuario!.id).map(c => disponibilidad(c, auth.usuario!.id)))
   }),
   http.get(`${API}/catalogo/cursos`, ({ request }) => {
@@ -127,7 +128,7 @@ export const handlersCursos = [
     return catalogoPaginado(request, false, auth.usuario!.id)
   }),
   http.post(`${API}/cursos/:id/inscribirme`, ({ request, params }) => {
-    const auth = acceso(request, ['PARTICIPANTE']); if (auth.fallo) return auth.fallo
+    const auth = acceso(request, ['AGREMIADO']); if (auth.fallo) return auth.fallo
     const curso = cursosSimulados.find(c => c.id === params.id)
     if (!curso) return error(404, 'El curso no existe.')
     if (curso.estado !== 'PUBLICADO') return error(409, 'El curso no está publicado.', 'CURSO_NO_PUBLICADO')
@@ -272,7 +273,7 @@ export const handlersCursos = [
     return HttpResponse.json(nueva, { status: 201 })
   }),
   http.get(`${API}/cursos/:id/mi-asistencia`, ({ request, params }) => {
-    const rol = acceso(request, ['PARTICIPANTE']); if (rol.fallo) return rol.fallo
+    const rol = acceso(request, ['AGREMIADO']); if (rol.fallo) return rol.fallo
     const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
     const sesiones = sesionesDe(String(params.id)).filter(c => c.estado === 'PROGRAMADA')
     const presentesDemo = (sesionesDemo.get(String(params.id)) ?? []).filter(s => s.sesion.estado === 'PROGRAMADA' && s.presentes.includes(auth.usuario!.id)).length

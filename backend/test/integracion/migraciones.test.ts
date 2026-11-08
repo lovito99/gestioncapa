@@ -48,7 +48,7 @@ async function sembrar(pool: Pool) {
   const usuarios = await pool.query<{ id: string }>(
     `insert into users (name, email, password_hash, role) values
        ('Instructor', 'instructor@bd.local', 'x', 'instructor'),
-       ('Participante', 'participante@bd.local', 'x', 'participante')
+       ('Participante', 'participante@bd.local', 'x', 'agremiado')
      returning id`
   );
   const [instructor, participante] = usuarios.rows.map((fila) => fila.id);
@@ -83,7 +83,7 @@ const ESQUEMA_ANTERIOR = `
     primary key (clase_id, participante_id)
   );
   insert into users (id, name, email, password_hash, role) values
-    (10, 'Carlos', 'carlos@bd.local', 'x', 'instructor'), (11, 'María', 'maria@bd.local', 'x', 'participante');
+    (10, 'Carlos', 'carlos@bd.local', 'x', 'instructor'), (11, 'María', 'maria@bd.local', 'x', 'agremiado');
   select setval('users_id_seq', 11);
   insert into clases (id, nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar, estado) values
     (7, 'Clase antigua', 10, '2030-05-01', '09:00', '10:00', 'Sala A', 'PROGRAMADA'),
@@ -114,7 +114,7 @@ describe("Característica: Base de datos versionada del Sprint 1", () => {
     assert.deepEqual(await migrar(pool), []);
   });
 
-  test("BD-02: Dado la base migrada, entonces existen las tablas y columnas con organization_id obligatorio", async () => {
+  test("BD-02: Dado la base migrada, entonces existen las tablas y columnas sin multiorganización", async () => {
     const pool = await baseTemporal("columnas");
     await migrar(pool);
     const columnas = await pool.query<{ table_name: string; column_name: string; is_nullable: string; column_default: string | null }>(
@@ -123,24 +123,18 @@ describe("Característica: Base de datos versionada del Sprint 1", () => {
     );
     const de = (tabla: string) => columnas.rows.filter((c) => c.table_name === tabla).map((c) => c.column_name);
 
-    for (const columna of ["fecha", "hora_inicio", "hora_fin", "lugar", "instructor_id", "organization_id"]) {
+    for (const columna of ["fecha", "hora_inicio", "hora_fin", "lugar", "instructor_id"]) {
       assert.ok(de("classes").includes(columna), `classes.${columna}`);
     }
-    for (const columna of ["class_id", "user_id", "organization_id"]) {
+    for (const columna of ["class_id", "user_id"]) {
       assert.ok(de("enrollments").includes(columna), `enrollments.${columna}`);
     }
-    for (const columna of ["class_id", "user_id", "timestamp_lima", "created_by", "organization_id"]) {
+    for (const columna of ["class_id", "user_id", "timestamp_lima", "created_by"]) {
       assert.ok(de("attendances").includes(columna), `attendances.${columna}`);
     }
 
-    for (const tabla of ["users", "classes", "enrollments", "attendances"]) {
-      const organizacion = columnas.rows.find((c) => c.table_name === tabla && c.column_name === "organization_id");
-      assert.equal(organizacion?.is_nullable, "NO", `${tabla}.organization_id obligatorio`);
-      assert.match(organizacion?.column_default ?? "", /^1\b/, `${tabla}.organization_id por defecto 1`);
-    }
-
-    const demo = await pool.query("select id::int, name from organizations");
-    assert.deepEqual(demo.rows, [{ id: 1, name: "Organización demo" }]);
+    for (const tabla of ["users", "classes", "enrollments", "attendances"]) assert.ok(!de(tabla).includes('organization_id'));
+    assert.equal((await pool.query("select to_regclass('organizations') as tabla")).rows[0].tabla, null);
   });
 
   test("BD-03: Dado una inscripción, cuando se repite por SQL, entonces Postgres la rechaza (23505)", async () => {
@@ -182,9 +176,7 @@ describe("Característica: Base de datos versionada del Sprint 1", () => {
 
     for (const indice of [
       "users_email_key",
-      "users_organization_idx",
       "classes_instructor_fecha_idx",
-      "classes_organization_fecha_idx",
       "enrollments_class_user_key",
       "enrollments_user_idx",
       "attendances_class_user_key",
@@ -199,10 +191,10 @@ describe("Característica: Base de datos versionada del Sprint 1", () => {
     await pool.query(ESQUEMA_ANTERIOR);
     await migrar(pool);
 
-    const clases = await pool.query("select id::int, nombre, estado, organization_id::int from classes order by id");
+    const clases = await pool.query("select id::int, nombre, estado from classes order by id");
     assert.deepEqual(clases.rows, [
-      { id: 7, nombre: "Clase antigua", estado: "PROGRAMADA", organization_id: 1 },
-      { id: 8, nombre: "Clase cancelada", estado: "CANCELADA", organization_id: 1 }
+      { id: 7, nombre: "Clase antigua", estado: "PROGRAMADA" },
+      { id: 8, nombre: "Clase cancelada", estado: "CANCELADA" }
     ]);
     const inscripciones = await pool.query("select class_id::int, user_id::int from enrollments");
     assert.deepEqual(inscripciones.rows, [{ class_id: 7, user_id: 11 }]);

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from "fastify";
 import { buscarPermiso } from "./permisos.js";
 
-export type Rol = "ADMIN" | "COORDINADOR" | "INSTRUCTOR" | "PARTICIPANTE";
+export type Rol = "ADMIN" | "INSTRUCTOR" | "AGREMIADO";
 
 export type UsuarioAutenticado = {
   id: number;

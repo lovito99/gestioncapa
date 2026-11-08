@@ -1,3 +1,4 @@
+import { handlersUsuarios } from './usuarios'
 import { esquemaRegistro } from '@/lib/registro'
 import { handlersHistorial } from './historial'
 import { handlersCertificados } from './certificados'
@@ -36,7 +37,7 @@ const conInscritos = (clase: (typeof clases)[number]): Clase => ({
 /** El token de prueba es `demo-<idUsuario>` */
 function usuarioDe(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer demo-', '')
-  return usuarios.find((u) => u.id === token)
+  return usuarios.find((u) => u.id === token && u.activo !== false)
 }
 
 const noAutenticado = () =>
@@ -156,6 +157,7 @@ function guardar(entrada: ClaseEntrada, id?: string) {
 }
 
 export const handlers = [
+  ...handlersUsuarios,
   ...handlersCursos,
   ...handlersHistorial,
   ...handlersCertificados,
@@ -168,7 +170,7 @@ export const handlers = [
   http.post(`${API}/auth/login`, async ({ request }) => {
     await delay(400)
     const { email, password } = (await request.json()) as { email: string; password: string }
-    const usuario = usuarios.find((u) => u.email === email.trim().toLowerCase())
+    const usuario = usuarios.find((u) => u.email === email.trim().toLowerCase() && u.activo !== false)
     if (!usuario || usuario.password !== password) {
       return error(401, {
         code: 'CREDENCIALES_INVALIDAS',
@@ -202,7 +204,7 @@ export const handlers = [
       id: `p-${Date.now()}`,
       nombre: `${entrada.nombres.trim()} ${entrada.apellidos.trim()}`,
       email,
-      rol: 'PARTICIPANTE' as const,
+      rol: 'AGREMIADO' as const,
       cargo: 'Agremiado',
       password: entrada.password,
     }
@@ -223,13 +225,13 @@ export const handlers = [
 
   // ---------- Catálogos ----------
   http.get(`${API}/instructores`, ({ request }) => {
-    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN')
     return respuesta ?? HttpResponse.json(instructores)
   }),
 
   // ---------- Clases ----------
   http.get(`${API}/clases`, async ({ request }) => {
-    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN')
     if (respuesta) return respuesta
     await delay(300)
     return HttpResponse.json(clases.map(conInscritos))
@@ -247,7 +249,7 @@ export const handlers = [
   }),
 
   http.get(`${API}/clases/:id`, ({ request, params }) => {
-    const { respuesta, usuario } = exigirRol(request, 'ADMIN', 'COORDINADOR', 'INSTRUCTOR')
+    const { respuesta, usuario } = exigirRol(request, 'ADMIN', 'INSTRUCTOR')
     if (respuesta) return respuesta
     const clase = clases.find((c) => c.id === params.id)
     if (!clase) return claseNoExiste()
@@ -258,21 +260,21 @@ export const handlers = [
   }),
 
   http.post(`${API}/clases`, async ({ request }) => {
-    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN')
     if (respuesta) return respuesta
     await delay(400)
     return guardar((await request.json()) as ClaseEntrada)
   }),
 
   http.put(`${API}/clases/:id`, async ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN')
     if (respuesta) return respuesta
     await delay(400)
     return guardar((await request.json()) as ClaseEntrada, params.id as string)
   }),
 
   http.post(`${API}/clases/:id/cancelar`, async ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN')
     if (respuesta) return respuesta
     await delay(300)
     const clase = clases.find((c) => c.id === params.id)
@@ -283,7 +285,7 @@ export const handlers = [
 
   // ---------- Inscripciones ----------
   http.get(`${API}/clases/:id/inscritos`, ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN')
     if (respuesta) return respuesta
     const ids = inscripciones[params.id as string]
     if (!ids) return claseNoExiste()
@@ -291,7 +293,7 @@ export const handlers = [
   }),
 
   http.post(`${API}/clases/:id/inscritos`, async ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
+    const { respuesta } = exigirRol(request, 'ADMIN')
     if (respuesta) return respuesta
     await delay(300)
     const { email } = (await request.json()) as { email: string }
@@ -316,11 +318,12 @@ export const handlers = [
     return HttpResponse.json(participante, { status: 201 })
   }),
 
-  // ---------- Asistencia (coordinador) ----------
+  // ---------- Asistencia (administrador o instructor) ----------
   http.get(`${API}/clases/:id/asistencia`, ({ request, params }) => {
-    const { respuesta } = exigirRol(request, 'ADMIN', 'COORDINADOR')
+    const { respuesta, usuario } = exigirRol(request, 'ADMIN', 'INSTRUCTOR')
     if (respuesta) return respuesta
     const id = params.id as string
+    if (usuario?.rol === 'INSTRUCTOR' && clases.find(c => c.id === id)?.instructor.id !== usuario.id) return sinPermiso()
     const ids = inscripciones[id]
     if (!ids) return claseNoExiste()
     const marcas = asistencias[id] ?? {}
@@ -364,7 +367,7 @@ export const handlers = [
 
   // ---------- Participante ----------
   http.get(`${API}/participante/clases`, async ({ request }) => {
-    const { respuesta, usuario } = exigirRol(request, 'PARTICIPANTE')
+    const { respuesta, usuario } = exigirRol(request, 'AGREMIADO')
     if (respuesta) return respuesta
     await delay(300)
     const mias: ClaseParticipante[] = clases
@@ -384,7 +387,7 @@ export const handlers = [
   }),
 
   http.post(`${API}/asistencia/marcar`, async ({ request }) => {
-    const { respuesta, usuario } = exigirRol(request, 'PARTICIPANTE')
+    const { respuesta, usuario } = exigirRol(request, 'AGREMIADO')
     if (respuesta) return respuesta
     await delay(500)
     const { token, claseId } = (await request.json()) as MarcarAsistenciaEntrada
@@ -414,7 +417,7 @@ export const handlers = [
     if (!inscripciones[clase.id]?.includes(usuario.id)) {
       return error(403, {
         code: 'NO_INSCRITO',
-        message: 'No estás inscrito(a) en esta clase. Pide al coordinador que te inscriba.',
+        message: 'No estás inscrito(a) en esta clase. Pide al administrador que te inscriba.',
       })
     }
     const marcas = (asistencias[clase.id] ??= {})

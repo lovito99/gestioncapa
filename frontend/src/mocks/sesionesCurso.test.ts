@@ -23,7 +23,7 @@ const entrada = { nombre: 'Práctica presencial', fecha: '2038-06-10', horaInici
 it('demo: valida permisos, modalidad, fecha y horario, y mantiene la asociación al curso', async () => {
   const id = await crear()
   const ruta = `/cursos/${id}/sesiones`
-  for (const usuario of ['i-1', 'i-2', 'p-1', 'u-coord-1']) expect((await llamar('POST', ruta, usuario, entrada)).status).toBe(403)
+  for (const usuario of ['i-1', 'i-2', 'p-1']) expect((await llamar('POST', ruta, usuario, entrada)).status).toBe(403)
   for (const cambio of [{ fecha: '2038-02-30' }, { horaFin: '09:00' }, { lugar: ' ' }]) {
     expect((await llamar('POST', ruta, 'u-admin-1', { ...entrada, ...cambio })).status).toBe(422)
   }

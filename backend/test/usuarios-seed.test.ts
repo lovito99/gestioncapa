@@ -13,7 +13,7 @@ describe("Característica: Entorno local reproducible", () => {
     const usuarios = usuariosSeed({ ...admin, NODE_ENV: "development" });
     const roles = new Set(usuarios.map((u) => u.role));
 
-    assert.deepEqual([...roles].sort(), ["admin", "coordinador", "instructor", "participante"]);
+    assert.deepEqual([...roles].sort(), ["admin", "agremiado", "instructor"]);
     assert.equal(usuarios[0]?.email, "admin@gestioncapa.local");
     assert.equal(usuarios[0]?.password, admin.ADMIN_PASSWORD);
   });

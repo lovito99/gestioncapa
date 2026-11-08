@@ -9,7 +9,7 @@ const conCarlos = { ...claseNueva, nombre: 'Solapamiento Carlos E2E', fecha: '20
 const conLucia = { ...conCarlos, nombre: 'Solapamiento Lucía E2E', instructor: 'Lucía Paredes Quispe' }
 
 test('SOL-08: el mismo horario se acepta con otra instructora en el backend real', async ({ page }) => {
-  await entrar(page, cuentas.coord)
+  await entrar(page, cuentas.coord); await page.goto('/admin/clases')
 
   for (const datos of [conCarlos, conLucia]) {
     await page.getByRole('link', { name: 'Nueva clase' }).click()

@@ -1,3 +1,4 @@
+import { UsuariosPagina } from '@/paginas/admin/UsuariosPagina'
 import { RecuperarPagina } from '@/paginas/RecuperarPagina'
 import { HistorialPagina, HistorialesAdminPagina } from '@/paginas/historial/HistorialPagina'
 import { CatalogoPagina, CursosPagina } from '@/paginas/cursos/CursosPagina'
@@ -40,35 +41,18 @@ export const router = createBrowserRouter([
   { path: '/verificar/:codigo', element: <VerificarCertificadoPagina /> },
   { element: <RutaProtegida />, children: [{ path: '/certificados/:codigo', element: <CertificadoPagina /> }] },
   {
-    path: '/coordinador',
-    element: <RutaProtegida rol="COORDINADOR" />,
-    children: [
-      {
-        element: <PaginaConEncabezado />,
-        children: [
-          { index: true, element: <Navigate to="clases" replace /> },
-          { path: 'clases', element: <ClasesPagina /> },
-          { path: 'clases/nueva', element: <ClaseFormPagina /> },
-          { path: 'clases/:id', element: <DetalleClasePagina /> },
-          { path: 'clases/:id/editar', element: <ClaseFormPagina /> },
-          { path: 'clases/:id/asistencia', element: <AsistenciaPagina /> },
-        ],
-      },
-    ],
-  },
-  {
     path: '/instructor',
     element: <RutaProtegida rol="INSTRUCTOR" />,
     children: [
       { index: true, element: <Navigate to="clases" replace /> },
-      { element: <PaginaConEncabezado />, children: [{ path: 'clases', element: <MisClasesPagina /> }] },
+      { element: <PaginaConEncabezado />, children: [{ path: 'clases', element: <MisClasesPagina /> }, { path: 'clases/:id/asistencia', element: <AsistenciaPagina /> }] },
       // HU-49: las pantallas de QR (proyección y escaneo) no llevan pie de página
       { element: <PaginaConEncabezado sinPie />, children: [{ path: 'clases/:id/qr', element: <QrAsistenciaPagina /> }] },
     ],
   },
   {
     // Pantallas del participante: pensadas para celular
-    element: <RutaProtegida rol="PARTICIPANTE" />,
+    element: <RutaProtegida rol="AGREMIADO" />,
     children: [
       {
         element: <PaginaConEncabezado />,
@@ -99,6 +83,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <AdminPagina /> },
           { path: 'historial', element: <HistorialesAdminPagina /> },
+          { path: 'usuarios', element: <UsuariosPagina /> },
           { path: 'cursos/nuevo', element: <CursoFormPagina /> },
           { path: 'cursos/:id/editar', element: <CursoFormPagina /> },
           // SCRUM-171: cierre del curso y certificados
@@ -126,6 +111,7 @@ export const router = createBrowserRouter([
     ] },
   ] },
   { element: <RutaProtegida />, children: [{ path: '/reuniones/:identificador', element: <SalaReunionPagina /> }] },
+  { element: <RutaProtegida rol="ADMIN" />, children: [{ path: '/coordinador/*', element: <Navigate to="/admin/clases" replace /> }] },
   { path: '/sin-permiso' , element: <SinPermisoPagina /> },
   { path: '*', element: <NoEncontradaPagina /> },
 ])

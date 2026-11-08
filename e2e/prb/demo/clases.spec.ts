@@ -4,7 +4,7 @@ import { claseNueva, cuentas } from '../../ayud/datos'
 import { rutas } from '../../ayud/rutas'
 import { entrar } from '../../ayud/sesion'
 
-test.beforeEach(async ({ page }) => { await entrar(page, cuentas.coord) })
+test.beforeEach(async ({ page }) => { await entrar(page, cuentas.coord); await page.goto('/admin/clases') })
 
 test('CLA-01: exige los campos y una hora final posterior a la inicial', async ({ page }) => {
   await page.getByRole('link', { name: 'Nueva clase' }).click()
@@ -54,7 +54,7 @@ test('CLA-04: inscribe un agremiado y evita duplicados o cuentas inexistentes', 
   await page.getByRole('link', { name: 'Ver detalle de Seguridad y salud en el trabajo' }).click()
   await expect(page.getByRole('heading', { name: 'Inscritos (6)', exact: true })).toBeVisible()
   const correo = page.getByLabel('Correo del agremiado')
-  await correo.fill('persona-inexistente@demo.pe')
+  await correo.fill('persona-inexistente@demo.cpppregion-cusco.com')
   await page.getByRole('button', { name: 'Inscribir', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText('No encontramos un agremiado')
   await correo.fill(cuentas.part.email)

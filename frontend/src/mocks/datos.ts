@@ -1,19 +1,19 @@
 import type { Clase, Participante, Usuario } from '@/types/api'
 
 /** Usuarios de prueba. Contraseña de todos: demo123 */
-export const usuarios: (Usuario & { password: string })[] = [
+export const usuarios: (Usuario & { password: string; activo?: boolean })[] = [
   {
     id: 'u-coord-1',
     nombre: 'Ana Torres Villa',
-    email: 'ana.torres@organizacion.pe',
-    rol: 'COORDINADOR',
-    cargo: 'Coordinadora',
+    email: 'ana.torres@cpppregion-cusco.com',
+    rol: 'ADMIN',
+    cargo: 'Administradora',
     password: 'demo123',
   },
   {
     id: 'i-1',
     nombre: 'Carlos Mendoza Ríos',
-    email: 'carlos.mendoza@organizacion.pe',
+    email: 'carlos.mendoza@cpppregion-cusco.com',
     rol: 'INSTRUCTOR',
     cargo: 'Instructor',
     password: 'demo123',
@@ -21,7 +21,7 @@ export const usuarios: (Usuario & { password: string })[] = [
   {
     id: 'i-2',
     nombre: 'Lucía Paredes Quispe',
-    email: 'lucia.paredes@organizacion.pe',
+    email: 'lucia.paredes@cpppregion-cusco.com',
     rol: 'INSTRUCTOR',
     cargo: 'Instructora',
     password: 'demo123',
@@ -30,16 +30,16 @@ export const usuarios: (Usuario & { password: string })[] = [
   {
     id: 'p-1',
     nombre: 'María Fernanda Quispe Ramos',
-    email: 'maria.quispe@demo.pe',
-    rol: 'PARTICIPANTE',
+    email: 'maria.quispe@demo.cpppregion-cusco.com',
+    rol: 'AGREMIADO',
     cargo: 'Agremiado',
     password: 'demo123',
   },
   {
     id: 'p-7',
     nombre: 'Luz Marina Apaza Choque',
-    email: 'luz.apaza@demo.pe',
-    rol: 'PARTICIPANTE',
+    email: 'luz.apaza@demo.cpppregion-cusco.com',
+    rol: 'AGREMIADO',
     cargo: 'Agremiado',
     password: 'demo123',
   },
@@ -60,13 +60,13 @@ export const instructores = [
 ]
 
 export const participantes: Participante[] = [
-  { id: 'p-1', nombre: 'María Fernanda Quispe Ramos', email: 'maria.quispe@demo.pe' },
-  { id: 'p-2', nombre: 'José Luis Condori Mamani', email: 'jose.condori@demo.pe' },
-  { id: 'p-3', nombre: 'Rosa Elena Ccahuana Palomino', email: 'rosa.ccahuana@demo.pe' },
-  { id: 'p-4', nombre: 'Pedro Alonso Vargas Soto', email: 'pedro.vargas@demo.pe' },
-  { id: 'p-5', nombre: 'Carmen Lucía Flores Ríos', email: 'carmen.flores@demo.pe' },
-  { id: 'p-6', nombre: 'Diego Armando Huillca Quispe', email: 'diego.huillca@demo.pe' },
-  { id: 'p-7', nombre: 'Luz Marina Apaza Choque', email: 'luz.apaza@demo.pe' },
+  { id: 'p-1', nombre: 'María Fernanda Quispe Ramos', email: 'maria.quispe@demo.cpppregion-cusco.com' },
+  { id: 'p-2', nombre: 'José Luis Condori Mamani', email: 'jose.condori@demo.cpppregion-cusco.com' },
+  { id: 'p-3', nombre: 'Rosa Elena Ccahuana Palomino', email: 'rosa.ccahuana@demo.cpppregion-cusco.com' },
+  { id: 'p-4', nombre: 'Pedro Alonso Vargas Soto', email: 'pedro.vargas@demo.cpppregion-cusco.com' },
+  { id: 'p-5', nombre: 'Carmen Lucía Flores Ríos', email: 'carmen.flores@demo.cpppregion-cusco.com' },
+  { id: 'p-6', nombre: 'Diego Armando Huillca Quispe', email: 'diego.huillca@demo.cpppregion-cusco.com' },
+  { id: 'p-7', nombre: 'Luz Marina Apaza Choque', email: 'luz.apaza@demo.cpppregion-cusco.com' },
 ]
 
 const instructor = (id: string) => instructores.find((i) => i.id === id)!
@@ -86,7 +86,7 @@ export const clases: Omit<Clase, 'inscritos'>[] = [
   {
     id: 'c-2',
     curso: null,
-    nombre: 'Atención al cliente',
+    nombre: 'Atención a la diversidad',
     instructor: instructor('i-2'),
     fecha: '2026-10-14',
     horaInicio: '15:00',
@@ -108,7 +108,7 @@ export const clases: Omit<Clase, 'inscritos'>[] = [
   {
     id: 'c-4',
     curso: null,
-    nombre: 'Liderazgo de equipos',
+    nombre: 'Liderazgo pedagógico',
     instructor: instructor('i-3'),
     fecha: '2026-10-19',
     horaInicio: '16:00',
@@ -119,7 +119,7 @@ export const clases: Omit<Clase, 'inscritos'>[] = [
   {
     id: 'c-5',
     curso: null,
-    nombre: 'Manejo de extintores',
+    nombre: 'Estrategias de evaluación docente',
     instructor: instructor('i-1'),
     fecha: '2026-10-20',
     horaInicio: '15:00',

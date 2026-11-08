@@ -16,30 +16,28 @@ let curso: string; let codigo: string; let reemplazo: string;
 const pedir = (persona: string | null, method: 'GET' | 'POST', url: string, payload?: object) => app.inject({ method, url, ...(persona ? { headers: { authorization: `Bearer ${usuarios.get(persona)!.token}` } } : {}), ...(payload ? { payload } : {}) });
 before(async () => {
   await migrar(pool); app = await buildApp();
-  await pool.query('insert into organizations(id,name) values($1,$2)', [org, 'HU20 prueba']);
-  for (const [nombre, rol] of [['admin','admin'],['docente','instructor'],['ochenta','participante'],['setenta','participante'],['ajeno','participante']]) {
-    const id = (await pool.query<{ id: string }>(`insert into users(name,email,password_hash,role,organization_id,dni) values($1,$2,'sin-clave',$3,$4,$5) returning id::text`, [nombre, `${randomUUID()}@hu20.local`, rol, org, nombre==='ochenta' ? '34561234' : null])).rows[0]!.id;
+
+  for (const [nombre, rol] of [['admin','admin'],['docente','instructor'],['ochenta','agremiado'],['setenta','agremiado'],['ajeno','agremiado']]) {
+    const id = (await pool.query<{ id: string }>("insert into users(name,email,password_hash,role,dni) values($1,$2,'sin-clave',$3,$4) returning id::text", [nombre, `${randomUUID()}@hu20.local`, rol, nombre==='ochenta' ? '34561234' : null])).rows[0]!.id;
     usuarios.set(nombre!, { id, token: app.jwt.sign({ sub: id }) });
   }
-  curso = (await pool.query<{ id: string }>(`insert into cursos(organization_id,creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado,estado)
-    values($1,$2,$3,'HU20 presencial',24,'PRESENCIAL',0,10,'PARTICIPACION','PUBLICADO') returning id::text`, [org, usuarios.get('admin')!.id, usuarios.get('docente')!.id])).rows[0]!.id;
+  curso = (await pool.query<{ id: string }>("insert into cursos(creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado,estado)\n    values($1,$2,'HU20 presencial',24,'PRESENCIAL',0,10,'PARTICIPACION','PUBLICADO') returning id::text", [usuarios.get('admin')!.id, usuarios.get('docente')!.id])).rows[0]!.id;
   for (const nombre of ['ochenta','setenta']) await pool.query('insert into inscripciones_curso(curso_id,usuario_id) values($1,$2)', [curso,usuarios.get(nombre)!.id]);
   for (let indice=0;indice<10;indice++) {
-    const id = (await pool.query<{ id: string }>(`insert into classes(organization_id,curso_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar)
-      values($1,$2,$3,$4,(now() at time zone 'America/Lima')::date-1,($5::text||':00')::time,($6::text||':00')::time,'Sala') returning id::text`, [org,curso,`Sesión ${indice}`,usuarios.get('docente')!.id,indice+7,indice+8])).rows[0]!.id;
+    const id = (await pool.query<{ id: string }>("insert into classes(curso_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar)\n      values($1,$2,$3,(now() at time zone 'America/Lima')::date-1,($4::text||':00')::time,($5::text||':00')::time,'Sala') returning id::text", [curso, `Sesión ${indice}`, usuarios.get('docente')!.id, indice+7, indice+8])).rows[0]!.id;
     for (const [nombre, cantidad] of [['ochenta',8],['setenta',7]] as const) {
-      await pool.query('insert into enrollments(organization_id,class_id,user_id) values($1,$2,$3)', [org,id,usuarios.get(nombre)!.id]);
-      if (indice<cantidad) await pool.query('insert into attendances(organization_id,class_id,user_id,created_by) values($1,$2,$3,$4)', [org,id,usuarios.get(nombre)!.id,usuarios.get('admin')!.id]);
+      await pool.query("insert into enrollments(class_id,user_id) values($1,$2)", [id, usuarios.get(nombre)!.id]);
+      if (indice<cantidad) await pool.query("insert into attendances(class_id,user_id,created_by) values($1,$2,$3)", [id, usuarios.get(nombre)!.id, usuarios.get('admin')!.id]);
     }
   }
 });
 after(async () => {
   try {
     await pool.query('delete from "auditoriaCertificados" where "cursoId"=$1', [curso]);
-    await pool.query('delete from classes where organization_id=$1',[org]);
-    await pool.query('delete from cursos where organization_id=$1',[org]);
-    await pool.query('delete from users where organization_id=$1',[org]);
-    await pool.query('delete from organizations where id=$1',[org]);
+    await pool.query('delete from classes where instructor_id=any($1::bigint[])', [[...usuarios.values()].map(p => p.id)]);
+    await pool.query('delete from cursos where creador_id=any($1::bigint[])', [[...usuarios.values()].map(p => p.id)]);
+    await pool.query('delete from users where id=any($1::bigint[])', [[...usuarios.values()].map(p => p.id)]);
+
   } finally { await app?.close(); await pool.end(); redis.disconnect(); }
 });
 test('HU-20: vista previa calcula 80 y 70; no permite excepción sin motivo ni a otros roles', async () => {
@@ -87,9 +85,8 @@ test('HU-20: excepción auditada; corrección reemplaza y anulación conserva ve
 
 test('HU-20: no certifica modalidades/exámenes/pagos futuros ni cierra antes de acabar o fuera de siete días', async () => {
   for (const [modalidad,tipo,costo,dias,esperado] of [['VIRTUAL','PARTICIPACION',0,-1,'CERTIFICACION_FUERA_ALCANCE'],['PRESENCIAL','APROBACION',0,-1,'CERTIFICACION_FUERA_ALCANCE'],['PRESENCIAL','PARTICIPACION',20,-1,'CERTIFICACION_FUERA_ALCANCE'],['PRESENCIAL','PARTICIPACION',0,1,'SESIONES_PENDIENTES'],['PRESENCIAL','PARTICIPACION',0,-9,'CIERRE_FUERA_PLAZO']] as const) {
-    const id=(await pool.query<{id:string}>(`insert into cursos(organization_id,creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado,estado)
-      values($1,$2,$3,'Alcance HU20',8,$4,$5,5,$6,'PUBLICADO') returning id::text`,[org,usuarios.get('admin')!.id,usuarios.get('docente')!.id,modalidad,costo,tipo])).rows[0]!.id;
-    await pool.query(`insert into classes(organization_id,curso_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar) values($1,$2,'Sesión límite',$3,(now() at time zone 'America/Lima')::date+$4::int,'01:00','02:00','Sala')`,[org,id,usuarios.get('docente')!.id,dias]);
+    const id=(await pool.query<{id:string}>("insert into cursos(creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado,estado)\n      values($1,$2,'Alcance HU20',8,$3,$4,5,$5,'PUBLICADO') returning id::text",[usuarios.get('admin')!.id, usuarios.get('docente')!.id, modalidad, costo, tipo])).rows[0]!.id;
+    await pool.query("insert into classes(curso_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar) values($1,'Sesión límite',$2,(now() at time zone 'America/Lima')::date+$3::int,'01:00','02:00','Sala')",[id, usuarios.get('docente')!.id, dias]);
     const resultado=await pedir('admin','POST',`/api/cursos/${id}/cerrar`,{excepciones:[]});
     assert.equal(resultado.statusCode,409,resultado.body); assert.equal(resultado.json().code,esperado);
   }
@@ -111,14 +108,12 @@ test('HU-20: un curso cerrado no admite nuevas sesiones, QR o asistencias tardí
 });
 
 test('HU-20: un fallo de auditoría revierte curso, inscripción y archivo emitido', async () => {
-  const nuevo=(await pool.query<{id:string}>(`insert into cursos(organization_id,creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado,estado)
-    values($1,$2,$3,'Cierre atómico',8,'PRESENCIAL',0,5,'PARTICIPACION','PUBLICADO') returning id::text`,[org,usuarios.get('admin')!.id,usuarios.get('docente')!.id])).rows[0]!.id;
+  const nuevo=(await pool.query<{id:string}>("insert into cursos(creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado,estado)\n    values($1,$2,'Cierre atómico',8,'PRESENCIAL',0,5,'PARTICIPACION','PUBLICADO') returning id::text",[usuarios.get('admin')!.id, usuarios.get('docente')!.id])).rows[0]!.id;
   const persona=usuarios.get('ochenta')!.id;
   await pool.query('insert into inscripciones_curso(curso_id,usuario_id) values($1,$2)',[nuevo,persona]);
-  const sesion=(await pool.query<{id:string}>(`insert into classes(organization_id,curso_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar)
-    values($1,$2,'Sesión atómica',$3,(now() at time zone 'America/Lima')::date-1,'20:00','21:00','Sala') returning id::text`,[org,nuevo,usuarios.get('docente')!.id])).rows[0]!.id;
-  await pool.query('insert into enrollments(organization_id,class_id,user_id) values($1,$2,$3)',[org,sesion,persona]);
-  await pool.query('insert into attendances(organization_id,class_id,user_id,created_by) values($1,$2,$3,$4)',[org,sesion,persona,usuarios.get('admin')!.id]);
+  const sesion=(await pool.query<{id:string}>("insert into classes(curso_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar)\n    values($1,'Sesión atómica',$2,(now() at time zone 'America/Lima')::date-1,'20:00','21:00','Sala') returning id::text",[nuevo, usuarios.get('docente')!.id])).rows[0]!.id;
+  await pool.query("insert into enrollments(class_id,user_id) values($1,$2)",[sesion, persona]);
+  await pool.query("insert into attendances(class_id,user_id,created_by) values($1,$2,$3)",[sesion, persona, usuarios.get('admin')!.id]);
   await pool.query(`alter table "auditoriaCertificados" add constraint "falloAuditoriaPrueba" check(accion<>'CERRAR') not valid`);
   try {
     assert.equal((await pedir('admin','POST',`/api/cursos/${nuevo}/cerrar`,{excepciones:[]})).statusCode,500);
