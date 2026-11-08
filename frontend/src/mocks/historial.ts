@@ -7,10 +7,10 @@ import type { Historial, ResumenAsistencia, SesionHistorial } from '@/servicios/
 const API = import.meta.env.VITE_API_URL ?? '/api'
 const fallo = (status: number, mensaje: string) => HttpResponse.json({ code: status === 403 ? 'SIN_PERMISO' : status === 401 ? 'NO_AUTENTICADO' : 'HISTORIAL_NO_EXISTE', message: mensaje }, { status, headers: { 'Cache-Control': 'private, no-store' } })
 function acceso(request: Request, id?: string) {
-  const actor = usuarios.find(u => request.headers.get('Authorization') === `Bearer demo-${u.id}`)
+  const actor = usuarios.find(u => u.activo !== false && request.headers.get('Authorization') === `Bearer demo-${u.id}`)
   if (!actor) return { error: fallo(401, 'Tu sesión expiró. Vuelve a iniciar sesión.') }
-  if (!['ADMIN', 'PARTICIPANTE'].includes(actor.rol) || (actor.rol !== 'ADMIN' && (!id || id !== actor.id))) return { error: fallo(403, 'No tienes permiso para ver el historial de otro colegiado.') }
-  const persona = id ? usuarios.find(u => u.id === id && u.rol === 'PARTICIPANTE') : undefined
+  if (!['ADMIN', 'AGREMIADO'].includes(actor.rol) || (actor.rol !== 'ADMIN' && (!id || id !== actor.id))) return { error: fallo(403, 'No tienes permiso para ver el historial de otro colegiado.') }
+  const persona = id ? usuarios.find(u => u.id === id && u.rol === 'AGREMIADO') : undefined
   if (id && !persona) return { error: fallo(404, 'El colegiado no existe.') }
   return { actor, persona }
 }
@@ -57,7 +57,7 @@ const pdf = (bytes: Uint8Array, nombre: string) => new HttpResponse(bytes as Uin
 export const handlersHistorial = [
   http.get(`${API}/colegiados`, ({ request }) => {
     const auth = acceso(request); if (auth.error) return auth.error
-    return HttpResponse.json(usuarios.filter(u => u.rol === 'PARTICIPANTE').map(u => ({ id: u.id, nombre: u.nombre, dniEnmascarado: dni(u.id) })), { headers: { 'Cache-Control': 'private, no-store' } })
+    return HttpResponse.json(usuarios.filter(u => u.rol === 'AGREMIADO').map(u => ({ id: u.id, nombre: u.nombre, dniEnmascarado: dni(u.id) })), { headers: { 'Cache-Control': 'private, no-store' } })
   }),
   http.get(`${API}/colegiados/:usuarioId/historial`, ({ request, params }) => {
     const auth = acceso(request, String(params.usuarioId)); if (auth.error) return auth.error

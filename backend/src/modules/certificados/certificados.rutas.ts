@@ -45,7 +45,7 @@ export async function registrarCertificados(app:FastifyInstance) {
     const certificado=await buscarCertificado(codigoDe(request),pool,archivo);
     if(!certificado) throw new ErrorCertificado(404,'CERTIFICADO_NO_EXISTE','No encontramos ese certificado.');
     const actor=request.usuario!;
-    const permiso=(await pool.query(`select 1 from users a join users u on a.organization_id=u.organization_id where a.id=$1 and u.id=$2 and (a.id=u.id or a.role='admin')`,[actor.id,certificado.usuarioId])).rowCount;
+    const permiso=(await pool.query(`select 1 from users a join users u on true where a.id=$1 and u.id=$2 and (a.id=u.id or a.role='admin')`,[actor.id,certificado.usuarioId])).rowCount;
     if(!permiso) throw new ErrorCertificado(403,'SIN_PERMISO','No tienes permiso para descargar este certificado.');
     if(certificado.estado!=='VALIDO') throw new ErrorCertificado(409,'CERTIFICADO_NO_VIGENTE','El certificado fue anulado o reemplazado. Consulta su verificación pública.');
     if(archivo) return reply.type('application/pdf').header('Content-Disposition',`attachment; filename="constancia-${certificado.codigo}.pdf"`).send(certificado.archivo);

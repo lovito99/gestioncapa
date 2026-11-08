@@ -48,7 +48,7 @@ export async function flujoHistorial(page: Page, admin: Parameters<typeof entrar
   await expect(page.getByRole('button', { name: 'Descargar resumen en PDF' })).toHaveCount(0)
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
   await completarAcceso(page, admin)
-  await page.getByRole('link', { name: 'Usuarios', exact: true }).click()
+  await page.getByRole('link', { name: 'Historiales', exact: true }).click()
   await page.getByRole('link', { name: /Ver historial de María/ }).click()
   await expect(page.getByRole('heading', { name: 'Historial del colegiado', exact: true })).toBeVisible()
   await expect(page.getByRole('main').getByText(`${maria.colegiado.nombre} · DNI ****1234`, { exact: true })).toBeVisible()

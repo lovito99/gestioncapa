@@ -11,10 +11,10 @@ import { redis } from "../../src/shared/redis.js";
 
 // Requiere Postgres y Redis activos (docker compose up -d --wait) y backend/.env.
 const CUENTAS = {
-  coordinadora: "ana.torres@organizacion.pe",
-  carlos: "carlos.mendoza@organizacion.pe",
-  lucia: "lucia.paredes@organizacion.pe",
-  participante: "maria.quispe@demo.pe"
+  coordinadora: "ana.torres@cpppregion-cusco.com",
+  carlos: "carlos.mendoza@cpppregion-cusco.com",
+  lucia: "lucia.paredes@cpppregion-cusco.com",
+  participante: "maria.quispe@demo.cpppregion-cusco.com"
 } as const;
 type Cuenta = keyof typeof CUENTAS | "admin";
 
@@ -117,7 +117,7 @@ describe("Característica: QR temporal rotatorio", () => {
     assert.equal((await pedir("lucia", `/api/clases/${clases.deLucia}/qr`)).statusCode, 200);
   });
 
-  for (const cuenta of ["coordinadora", "participante"] as const) {
+  for (const cuenta of ["participante"] as const) {
     test(`QR-04: Dado ${cuenta}, cuando pide un QR, entonces 403`, async () => {
       assert.equal((await pedir(cuenta, `/api/clases/${clases.deCarlos}/qr`)).statusCode, 403);
     });

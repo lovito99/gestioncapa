@@ -51,7 +51,7 @@ describe("Característica: Evitar solapamiento de instructor", () => {
     const login = await app.inject({
       method: "POST",
       url: "/api/auth/login",
-      payload: { email: "ana.torres@organizacion.pe", password: "demo123" }
+      payload: { email: "ana.torres@cpppregion-cusco.com", password: "demo123" }
     });
     token = login.json().token;
 

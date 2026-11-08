@@ -19,17 +19,17 @@ async function crear(cambios: object = {}) {
 }
 before(async () => {
   await migrar(pool); app = await buildApp();
-  await pool.query('insert into organizations(id,name) values($1,$3),($2,$3)', [organizacion, otraOrganizacion, 'Prueba HU-13']);
+
   for (const [nombre, rol, org] of [['admin', 'admin', organizacion], ['docente', 'instructor', organizacion], ['otroDocente', 'instructor', organizacion],
-    ['colegiado', 'participante', organizacion], ['coordinador', 'coordinador', organizacion], ['adminAjeno', 'admin', otraOrganizacion], ['docenteAjeno', 'instructor', otraOrganizacion]]) {
-    const persona = (await pool.query<{ id: string }>(`insert into users(name,email,password_hash,role,organization_id) values($1,$2,'sin-clave-de-acceso',$3,$4) returning id::text`, [nombre, `hu13-${organizacion}-${nombre}@prueba.local`, rol, org])).rows[0]!;
+    ['colegiado', 'agremiado', organizacion], ['adminMigrado', 'admin', organizacion], ['adminAjeno', 'admin', otraOrganizacion], ['docenteAjeno', 'instructor', otraOrganizacion]]) {
+    const persona = (await pool.query<{ id: string }>("insert into users(name,email,password_hash,role) values($1,$2,'sin-clave-de-acceso',$3) returning id::text", [nombre, `hu13-${organizacion}-${nombre}@prueba.local`, rol])).rows[0]!;
     usuarios.set(nombre!, { id: persona.id, token: app.jwt.sign({ sub: persona.id }) });
   }
 });
 after(async () => {
-  await pool.query('delete from cursos where organization_id in ($1,$2)', [organizacion, otraOrganizacion]);
-  await pool.query('delete from users where organization_id in ($1,$2)', [organizacion, otraOrganizacion]);
-  await pool.query('delete from organizations where id in ($1,$2)', [organizacion, otraOrganizacion]);
+  await pool.query('delete from cursos where creador_id=any($1::bigint[])', [[...usuarios.values()].map(p => p.id)]);
+  await pool.query('delete from users where id=any($1::bigint[])', [[...usuarios.values()].map(p => p.id)]);
+
   await app?.close(); await pool.end(); redis.disconnect();
 });
 test('HU-13: crea en borrador, conserva orden y usa nota 14 al omitirla', async () => {
@@ -47,22 +47,22 @@ test('HU-13: borrador oculto y publicación idempotente en catálogo', async () 
   for (let i = 0; i < 2; i++) assert.equal((await llamar('admin', 'POST', `/api/cursos/${curso.id}/publicar`)).json().estado, 'PUBLICADO');
   assert.equal((await llamar('colegiado', 'GET', '/api/catalogo/cursos')).json().filter((c: { id: string }) => c.id === curso.id).length, 1);
   assert.equal((await llamar('colegiado', 'GET', `/api/cursos/${curso.id}`)).statusCode, 200);
-  assert.ok(!(await llamar('adminAjeno', 'GET', '/api/catalogo/cursos')).json().some((c: { id: string }) => c.id === curso.id));
+  assert.ok((await llamar('adminAjeno', 'GET', '/api/catalogo/cursos')).json().some((c: { id: string }) => c.id === curso.id));
 });
 test('HU-13: valida horas, certificado obligatorio, nota, cupos, costo y módulos sin persistir', async () => {
-  const antes = (await pool.query('select count(*) from cursos where organization_id=$1', [organizacion])).rows[0].count;
+  const antes = (await pool.query('select count(*) from cursos where creador_id=$1', [usuarios.get('admin')!.id])).rows[0].count;
   for (const cambio of [{ horasLectivas: undefined }, { horasLectivas: 0 }, { horasLectivas: -1 }, { horasLectivas: '24' },
     { tipoCertificado: undefined }, { tipoCertificado: 'OTRO' }, { notaMinima: 21 }, { notaMinima: null }, { cupos: 0 }, { cupos: 1.5 },
     { costo: -1 }, { costo: 1.234 }, { modulos: [] }, { modulos: [{ titulo: ' ' }] }, { estado: 'PUBLICADO' }]) {
     const respuesta = await llamar('admin', 'POST', '/api/cursos', datos(cambio)); assert.equal(respuesta.statusCode, 422, respuesta.body);
   }
-  assert.equal((await pool.query('select count(*) from cursos where organization_id=$1', [organizacion])).rows[0].count, antes);
+  assert.equal((await pool.query('select count(*) from cursos where creador_id=$1', [usuarios.get('admin')!.id])).rows[0].count, antes);
   assert.equal((await crear({ notaMinima: 0, horasLectivas: 0.5, tipoCertificado: 'PARTICIPACION', costo: 0 })).notaMinima, 0);
 });
-test('HU-13: solo admin crea y el instructor debe ser activo de la misma organización', async () => {
+test('HU-13: solo admin crea y el instructor debe ser activo del CPPP', async () => {
   assert.equal((await llamar(null, 'POST', '/api/cursos', datos())).statusCode, 401);
-  for (const rol of ['docente', 'colegiado', 'coordinador']) assert.equal((await llamar(rol, 'POST', '/api/cursos', datos())).statusCode, 403);
-  for (const nombre of ['colegiado', 'admin', 'docenteAjeno']) assert.equal((await llamar('admin', 'POST', '/api/cursos', datos({ instructorId: usuarios.get(nombre)!.id }))).statusCode, 422);
+  for (const rol of ['docente', 'colegiado']) assert.equal((await llamar(rol, 'POST', '/api/cursos', datos())).statusCode, 403);
+  for (const nombre of ['colegiado', 'admin']) assert.equal((await llamar('admin', 'POST', '/api/cursos', datos({ instructorId: usuarios.get(nombre)!.id }))).statusCode, 422);
   await pool.query('update users set active=false where id=$1', [usuarios.get('otroDocente')!.id]);
   try { assert.equal((await llamar('admin', 'POST', '/api/cursos', datos({ instructorId: usuarios.get('otroDocente')!.id }))).statusCode, 422); }
   finally { await pool.query('update users set active=true where id=$1', [usuarios.get('otroDocente')!.id]); }
@@ -77,14 +77,14 @@ test('HU-13: instructor asignado guarda PDF, enlace y video; otros reciben 403',
     if (material.tipo === 'PDF') {
       const archivo = await llamar('docente', 'GET', `${ruta}/${guardado.json().id}/archivo`);
       assert.equal(archivo.statusCode, 200); assert.deepEqual(archivo.rawPayload, pdf); assert.match(String(archivo.headers['content-disposition']), /attachment/);
-      assert.equal((await llamar('adminAjeno', 'GET', `${ruta}/${guardado.json().id}/archivo`)).statusCode, 403);
+      assert.equal((await llamar('adminAjeno', 'GET', `${ruta}/${guardado.json().id}/archivo`)).statusCode, 200);
     }
   }
   const detalle = (await llamar('docente', 'GET', `/api/cursos/${curso.id}`)).json();
   assert.equal(detalle.modulos[0].materiales.length, 3); assert.equal(detalle.modulos[1].materiales.length, 0);
   assert.ok(!JSON.stringify(detalle).includes('contenidoBase64'));
-  for (const nombre of ['adminAjeno', 'docenteAjeno']) assert.equal((await llamar(nombre, 'GET', `/api/cursos/${curso.id}`)).statusCode, 403);
-  assert.equal((await llamar('adminAjeno', 'POST', `/api/cursos/${curso.id}/publicar`)).statusCode, 403);
+  for (const nombre of ['docenteAjeno']) assert.equal((await llamar(nombre, 'GET', `/api/cursos/${curso.id}`)).statusCode, 403);
+  assert.equal((await llamar('adminAjeno', 'POST', `/api/cursos/${curso.id}/publicar`)).statusCode, 200);
   assert.ok((await llamar('docente', 'GET', '/api/cursos')).json().some((c: { id: string }) => c.id === curso.id));
   assert.ok(!(await llamar('otroDocente', 'GET', '/api/cursos')).json().some((c: { id: string }) => c.id === curso.id));
 });

@@ -8,27 +8,16 @@ export function registrarAccesoSesiones(app: FastifyInstance) {
     opciones.preHandler = [...[opciones.preHandler ?? []].flat(), async (request, reply) => {
       const { id } = request.params as { id: string };
       if (!/^\d{1,15}$/.test(id) || Number(id) <= 0) return;
-      const curso = (await pool.query<{ permitido: boolean; instructorId: string; estado: string }>(`select
-        c.estado,c.organization_id=u.organization_id as permitido,c.instructor_id::text as "instructorId"
+      const curso = (await pool.query<{ instructorId: string; estado: string }>(`select
+        c.estado,c.instructor_id::text as "instructorId"
         from classes s join cursos c on c.id=s.curso_id
         join users u on u.id=$2 where s.id=$1`, [id, request.usuario!.id])).rows[0];
       if (!curso) return; // Las clases anteriores conservan su contrato.
-      if (!curso.permitido || (request.usuario!.role === 'instructor' && curso.instructorId !== String(request.usuario!.id))) {
+      if ((request.usuario!.role === 'instructor' && curso.instructorId !== String(request.usuario!.id))) {
         return reply.code(403).send({ code: 'SIN_PERMISO', message: 'No tienes permiso para acceder a esta sesión.' });
       }
       if (curso.estado === 'CERRADO' && (['PUT','POST','DELETE','PATCH'].includes(request.method) || opciones.url.endsWith('/qr'))) {
         return reply.code(409).send({ code: 'CURSO_CERRADO', message: 'El curso está cerrado y sus sesiones no se modifican.' });
-      }
-      if (request.method === 'POST' && opciones.url.endsWith('/inscritos')) {
-        const cuerpo = request.body as { email?: unknown } | null;
-        if (typeof cuerpo?.email === 'string') {
-          const participante = (await pool.query<{ permitido: boolean }>(`select p.organization_id=a.organization_id as permitido
-            from users p join users a on a.id=$2 where p.email=lower(trim($1)) and p.role='participante' and p.active`,
-          [cuerpo.email, request.usuario!.id])).rows[0];
-          if (participante && !participante.permitido) {
-            return reply.code(403).send({ code: 'SIN_PERMISO', message: 'El participante debe pertenecer a la organización del curso.' });
-          }
-        }
       }
       if (request.method === 'PUT') {
         const cuerpo = request.body as { instructorId?: unknown } | null;

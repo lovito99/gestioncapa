@@ -10,7 +10,7 @@ export type Permiso = {
   critica?: boolean;
 };
 
-const rolesGestionClases: Rol[] = ["ADMIN", "COORDINADOR"];
+const rolesGestionClases: Rol[] = ["ADMIN"];
 
 /**
  * Única fuente de verdad de quién puede llamar a cada ruta (docs/API.md y
@@ -18,21 +18,24 @@ const rolesGestionClases: Rol[] = ["ADMIN", "COORDINADOR"];
  * de lo contrario el servidor no arranca.
  */
 export const permisos: Permiso[] = [
+  { metodo: 'GET', ruta: '/api/usuarios', acceso: ['ADMIN'] },
+  { metodo: 'POST', ruta: '/api/usuarios', acceso: ['ADMIN'], critica: true },
+  { metodo: 'PUT', ruta: '/api/usuarios/:id', acceso: ['ADMIN'], critica: true },
   { metodo: 'GET', ruta: '/api/certificados/:codigo', acceso: 'publico' },
-  ...['archivo','documento'].map(accion => ({ metodo: 'GET' as const, ruta: `/api/certificados/:codigo/${accion}`, acceso: ['ADMIN','PARTICIPANTE'] as Rol[] })),
+  ...['archivo','documento'].map(accion => ({ metodo: 'GET' as const, ruta: `/api/certificados/:codigo/${accion}`, acceso: ['ADMIN','AGREMIADO'] as Rol[] })),
   ...['anular','corregir'].map(accion => ({ metodo: 'POST' as const, ruta: `/api/certificados/:codigo/${accion}`, acceso: ['ADMIN'] as Rol[], critica: true })),
   ...['cierre','certificados'].map(accion => ({ metodo: 'GET' as const, ruta: `/api/cursos/:id/${accion}`, acceso: ['ADMIN'] as Rol[] })),
   ...['cerrar','excepciones'].map(accion => ({ metodo: 'POST' as const, ruta: `/api/cursos/:id/${accion}`, acceso: ['ADMIN'] as Rol[], critica: true })),
   { metodo: "POST", ruta: "/api/auth/registro", acceso: "publico" },
   { metodo: "GET", ruta: "/api/publico/cursos", acceso: "publico" },
   { metodo: "GET", ruta: "/api/catalogo/cursos/pagina", acceso: "autenticado" },
-  { metodo: "POST", ruta: "/api/cursos/:id/inscribirme", acceso: ["PARTICIPANTE"], critica: true },
+  { metodo: "POST", ruta: "/api/cursos/:id/inscribirme", acceso: ["AGREMIADO"], critica: true },
   { metodo: "POST", ruta: "/api/cursos/:id/sesiones", acceso: ["ADMIN"], critica: true },
-  { metodo: "GET", ruta: "/api/cursos/:id/mi-asistencia", acceso: ["PARTICIPANTE"] },
+  { metodo: "GET", ruta: "/api/cursos/:id/mi-asistencia", acceso: ["AGREMIADO"] },
   { metodo: "GET", ruta: "/api/colegiados", acceso: ["ADMIN"] },
-  { metodo: "GET", ruta: "/api/colegiados/:usuarioId/historial", acceso: ["ADMIN", "PARTICIPANTE"] },
-  { metodo: "GET", ruta: "/api/colegiados/:usuarioId/historial/pdf", acceso: ["ADMIN", "PARTICIPANTE"] },
-  { metodo: "GET", ruta: "/api/colegiados/:usuarioId/certificados/:certificadoId/archivo", acceso: ["ADMIN", "PARTICIPANTE"] },
+  { metodo: "GET", ruta: "/api/colegiados/:usuarioId/historial", acceso: ["ADMIN", "AGREMIADO"] },
+  { metodo: "GET", ruta: "/api/colegiados/:usuarioId/historial/pdf", acceso: ["ADMIN", "AGREMIADO"] },
+  { metodo: "GET", ruta: "/api/colegiados/:usuarioId/certificados/:certificadoId/archivo", acceso: ["ADMIN", "AGREMIADO"] },
   { metodo: "GET", ruta: "/api/cursos", acceso: ["ADMIN", "INSTRUCTOR"] },
   { metodo: "GET", ruta: "/api/cursos/instructores", acceso: ["ADMIN"] },
   { metodo: "POST", ruta: "/api/cursos", acceso: ["ADMIN"], critica: true },
@@ -44,11 +47,11 @@ export const permisos: Permiso[] = [
   { metodo: "GET", ruta: "/api/reuniones", acceso: "autenticado" },
   { metodo: "POST", ruta: "/api/reuniones", acceso: rolesGestionClases, critica: true },
   { metodo: "GET", ruta: "/api/reuniones/:identificador", acceso: "autenticado" },
-  { metodo: "PATCH", ruta: "/api/reuniones/:identificador", acceso: ["ADMIN", "COORDINADOR", "INSTRUCTOR"], critica: true },
-  ...["iniciar", "cancelar", "finalizar", "credencial"].map(accion => ({ metodo: "POST" as const, ruta: `/api/reuniones/:identificador/${accion}`, acceso: (accion === "credencial" ? "autenticado" : ["ADMIN", "COORDINADOR", "INSTRUCTOR"]) as Permiso["acceso"], critica: true })),
-  { metodo: "PATCH", ruta: "/api/reuniones/:identificador/politicas", acceso: ["ADMIN", "COORDINADOR", "INSTRUCTOR"], critica: true },
+  { metodo: "PATCH", ruta: "/api/reuniones/:identificador", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
+  ...["iniciar", "cancelar", "finalizar", "credencial"].map(accion => ({ metodo: "POST" as const, ruta: `/api/reuniones/:identificador/${accion}`, acceso: (accion === "credencial" ? "autenticado" : ["ADMIN", "INSTRUCTOR"]) as Permiso["acceso"], critica: true })),
+  { metodo: "PATCH", ruta: "/api/reuniones/:identificador/politicas", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
   { metodo: "GET", ruta: "/api/reuniones/:identificador/participantes", acceso: "autenticado" },
-  { metodo: "POST", ruta: "/api/reuniones/:identificador/participantes/:usuarioIdentificador/retirar", acceso: ["ADMIN", "COORDINADOR", "INSTRUCTOR"], critica: true },
+  { metodo: "POST", ruta: "/api/reuniones/:identificador/participantes/:usuarioIdentificador/retirar", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
 
   { metodo: "GET", ruta: "/health", acceso: "publico" },
   { metodo: "GET", ruta: "/api/health", acceso: "publico" },
@@ -58,19 +61,19 @@ export const permisos: Permiso[] = [
 
   { metodo: "GET", ruta: "/api/instructores", acceso: rolesGestionClases },
   { metodo: "GET", ruta: "/api/clases", acceso: rolesGestionClases },
-  { metodo: "GET", ruta: "/api/clases/:id", acceso: ["ADMIN", "COORDINADOR", "INSTRUCTOR"] },
+  { metodo: "GET", ruta: "/api/clases/:id", acceso: ["ADMIN", "INSTRUCTOR"] },
   { metodo: "POST", ruta: "/api/clases", acceso: rolesGestionClases, critica: true },
   { metodo: "PUT", ruta: "/api/clases/:id", acceso: rolesGestionClases, critica: true },
   { metodo: "POST", ruta: "/api/clases/:id/cancelar", acceso: rolesGestionClases, critica: true },
   { metodo: "GET", ruta: "/api/clases/:id/inscritos", acceso: rolesGestionClases },
   { metodo: "POST", ruta: "/api/clases/:id/inscritos", acceso: rolesGestionClases, critica: true },
-  { metodo: "GET", ruta: "/api/clases/:id/asistencia", acceso: rolesGestionClases },
+  { metodo: "GET", ruta: "/api/clases/:id/asistencia", acceso: ["ADMIN", "INSTRUCTOR"] },
 
   { metodo: "GET", ruta: "/api/instructor/clases", acceso: ["INSTRUCTOR"] },
   { metodo: "GET", ruta: "/api/clases/:id/qr", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
 
-  { metodo: "GET", ruta: "/api/participante/clases", acceso: ["PARTICIPANTE"] },
-  { metodo: "POST", ruta: "/api/asistencia/marcar", acceso: ["PARTICIPANTE"], critica: true }
+  { metodo: "GET", ruta: "/api/participante/clases", acceso: ["AGREMIADO"] },
+  { metodo: "POST", ruta: "/api/asistencia/marcar", acceso: ["AGREMIADO"], critica: true }
 ];
 
 export function buscarPermiso(metodo: string, ruta: string) {

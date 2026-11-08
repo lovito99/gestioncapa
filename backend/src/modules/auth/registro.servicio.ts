@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs';
 import { pool } from '../../shared/database.js';
-import { env } from '../../config/env.js';
 import type { PublicUser } from './auth.service.js';
 import type { DatosRegistro } from './registro.validacion.js';
 
@@ -11,10 +10,10 @@ export async function registrarDocente(datos: DatosRegistro): Promise<PublicUser
   try {
     await cliente.query('begin');
     const usuario = (await cliente.query<PublicUser>(`insert into users
-      (name,nombres,apellidos,email,celular,dni,password_hash,role,organization_id)
-      values($1,$2,$3,$4,$5,$6,$7,'participante',$8) returning id,name,email,role`,
+      (name,nombres,apellidos,email,celular,dni,password_hash,role)
+      values($1,$2,$3,$4,$5,$6,$7,'agremiado') returning id,name,email,role`,
       [`${datos.nombres} ${datos.apellidos}`, datos.nombres, datos.apellidos, datos.email,
-        datos.celular, datos.dni, hash, env.cpppOrganizacionId])).rows[0]!;
+        datos.celular, datos.dni, hash])).rows[0]!;
     await cliente.query(`insert into "auditoriaRegistro"("usuarioId","aceptaPrivacidad","versionAviso") values($1,true,$2)`, [usuario.id, 'https://www.cpppregion-cusco.com/privacidad.html']);
     await cliente.query('commit');
     return usuario;

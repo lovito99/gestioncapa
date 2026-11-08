@@ -79,9 +79,8 @@ export async function authRoutes(app: FastifyInstance) {
 function toUsuario(user: PublicUser) {
   const cargos: Record<string, string> = {
     ADMIN: "Administrador",
-    COORDINADOR: "Coordinador",
     INSTRUCTOR: "Instructor",
-    PARTICIPANTE: "Agremiado"
+    AGREMIADO: "Agremiado"
   };
   const rol = user.role.toUpperCase();
   return {

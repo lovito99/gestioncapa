@@ -5,7 +5,7 @@ import { completarAcceso, entrar } from '../../ayud/sesion'
 
 // Usuarios del seed en gestioncapa_e2e (mismas cuentas que el modo demo).
 const usuariosSeed = [
-  { cuenta: cuentas.coord, encabezado: 'Ana Torres · Coordinador' },
+  { cuenta: cuentas.coord, encabezado: 'Ana Torres · Administrador' },
   { cuenta: cuentas.instr, encabezado: 'Carlos Mendoza Ríos · Instructor' },
   { cuenta: cuentas.part, encabezado: 'María Quispe · Agremiado' },
   { cuenta: cuentaReal, encabezado: 'Administrador E2E · Administrador' },
@@ -45,4 +45,23 @@ test('SES-04: si el servidor rechaza el token, el cliente vuelve al login', asyn
   await page.reload()
   await expect(page).toHaveURL(rutas.login)
   await expect(page.getByRole('alert')).toContainText('Tu sesión expiró')
+})
+
+test('HU-35: recargar una sesión antigua toma el rol actual de la API',async ({page}) => {
+  await entrar(page,cuentas.coord)
+  await page.evaluate(() => {
+    const anterior=JSON.parse(sessionStorage.getItem('gc.usuario')!)
+    sessionStorage.setItem('gc.usuario',JSON.stringify({...anterior,rol:'COORDINADOR',cargo:'Coordinador'}))
+  })
+  await page.reload()
+  await expect(page.getByRole('heading',{name:'Estado del sistema',exact:true})).toBeVisible()
+  await expect(page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Usuarios',exact:true})).toBeVisible()
+  await expect(page.getByText('Ana Torres · Administrador',{exact:true})).toBeVisible()
+})
+
+test('HU-35: instructor consulta la asistencia de su sesión sin opciones administrativas',async ({page}) => {
+  await entrar(page,cuentas.instr)
+  await page.getByRole('link',{name:'Ver asistencia',exact:true}).first().click()
+  await expect(page.getByRole('heading',{name:/Asistencia/}).first()).toBeVisible()
+  await expect(page.getByRole('navigation',{name:'Navegación principal'}).getByRole('link',{name:'Usuarios',exact:true})).toHaveCount(0)
 })

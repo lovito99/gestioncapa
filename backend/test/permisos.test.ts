@@ -8,7 +8,7 @@ import { registrarAutorizacion, type Rol } from "../src/plugins/autorizacion.js"
 import { permisos } from "../src/plugins/permisos.js";
 
 const SECRETO = "secreto-de-prueba-de-permisos-con-32-caracteres";
-const ROLES: Rol[] = ["ADMIN", "COORDINADOR", "INSTRUCTOR", "PARTICIPANTE"];
+const ROLES: Rol[] = ["ADMIN", "INSTRUCTOR", "AGREMIADO"];
 
 const usuarios = new Map(
   ROLES.map((rol, indice) => [
@@ -105,7 +105,7 @@ describe("Característica: Autorización por rol en cada ruta del servidor", () 
     const respuesta = await app.inject({
       method: "GET",
       url: "/api/participante/clases",
-      headers: { authorization: `Bearer ${tokenDe("PARTICIPANTE")}` }
+      headers: { authorization: `Bearer ${tokenDe("AGREMIADO")}` }
     });
 
     assert.equal(respuesta.statusCode, 501);
@@ -122,11 +122,11 @@ describe("Característica: Autorización por rol en cada ruta del servidor", () 
         payload: { nombre: "Clase no autorizada" }
       });
 
-    const rechazo = await pedir("PARTICIPANTE");
+    const rechazo = await pedir("AGREMIADO");
     assert.equal(rechazo.statusCode, 403);
     assert.equal(crearClaseEjecutada, 0);
 
-    const permitido = await pedir("COORDINADOR");
+    const permitido = await pedir("ADMIN");
     assert.equal(permitido.statusCode, 201);
     assert.equal(crearClaseEjecutada, 1);
   });

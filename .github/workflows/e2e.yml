@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   pruebas:
+    name: E2E demo y real
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:

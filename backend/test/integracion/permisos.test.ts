@@ -42,8 +42,8 @@ describe("Característica: Autorización por rol en cada ruta del servidor", () 
     redis.disconnect();
   });
 
-  test("PER-07: Hay un token del seed para cada uno de los 4 roles", () => {
-    assert.deepEqual([...tokens.keys()].sort(), ["ADMIN", "COORDINADOR", "INSTRUCTOR", "PARTICIPANTE"]);
+  test("PER-07: Hay un token del seed para cada uno de los 3 roles", () => {
+    assert.deepEqual([...tokens.keys()].sort(), ["ADMIN", "AGREMIADO", "INSTRUCTOR"]);
   });
 
   for (const { metodo, ruta, acceso } of criticas) {
@@ -52,7 +52,7 @@ describe("Característica: Autorización por rol en cada ruta del servidor", () 
       assert.equal(respuesta.statusCode, 401);
     });
 
-    for (const rol of ["ADMIN", "COORDINADOR", "INSTRUCTOR", "PARTICIPANTE"] as Rol[]) {
+    for (const rol of ["ADMIN", "AGREMIADO", "INSTRUCTOR"] as Rol[]) {
       const permitido = acceso === "autenticado" || (Array.isArray(acceso) && acceso.includes(rol));
 
       test(`PER-07: ${rol} del seed en ${metodo} ${ruta} ${permitido ? "pasa el guard" : "responde 403"}`, async () => {

@@ -56,10 +56,8 @@ const aClase = (fila: FilaClase): Clase => ({
   estado: fila.estado
 });
 
-export async function listarClases(usuarioId?: number) {
-  const resultado = await pool.query<FilaClase>(`${SELECT_CLASE} where c.curso_id is null or $1::bigint is null
-    or c.organization_id=(select organization_id from users where id=$1) order by c.fecha, c.hora_inicio, c.id`, [usuarioId ?? null]);
-  return resultado.rows.map(aClase);
+export async function listarClases() {
+  return (await pool.query<FilaClase>(`${SELECT_CLASE} order by c.fecha,c.hora_inicio,c.id`)).rows.map(aClase);
 }
 
 /** Clases programadas del instructor, para su pantalla «Mis clases». */
@@ -108,7 +106,7 @@ export async function buscarConflicto(datos: DatosClase, consultor: Consultor, i
 }
 
 /**
- * Ejecuta en una transacción que bloquea al instructor: dos coordinadores no
+ * Ejecuta en una transacción que bloquea al instructor: dos administradores no
  * pueden programar a la vez clases que se crucen para la misma persona.
  */
 export async function conInstructorBloqueado<T>(instructorId: number, trabajo: (consultor: PoolClient) => Promise<T>) {
@@ -191,7 +189,7 @@ export async function buscarParticipante(email: string) {
   const resultado = await pool.query<{ id: string; nombre: string; email: string }>(
     `select id::text as id, name as nombre, email
      from users
-     where email = $1 and role = 'participante' and active`,
+     where email = $1 and role = 'agremiado' and active`,
     [email.toLowerCase()]
   );
   return resultado.rows[0] ?? null;
@@ -201,9 +199,9 @@ export async function buscarParticipante(email: string) {
 export async function inscribir(claseId: number, participanteId: string) {
   return conClaseBloqueada(claseId, async (cliente) => {
     const resultado = await cliente.query(
-      `insert into enrollments (organization_id, class_id, user_id)
-       select organization_id, $1, $2 from classes where id = $1 and estado = 'PROGRAMADA'
-         and (curso_id is null or exists(select 1 from users where id=$2 and organization_id=classes.organization_id and active and role='participante'))
+      `insert into enrollments (class_id, user_id)
+       select $1, $2 from classes where id = $1 and estado = 'PROGRAMADA'
+         and (curso_id is null or exists(select 1 from users where id=$2 and active and role='agremiado'))
        on conflict do nothing`,
       [claseId, participanteId]
     );

@@ -4,16 +4,16 @@ import { ocultarDni } from './historial.modelo.js';
 
 /** Complemento demo; se llama solo fuera de producción y dentro de la transacción del seed. */
 export async function sembrarHistorial(cliente: PoolClient) {
-  const usuarios = (await cliente.query<{ id: string; email: string; name: string; dni: string | null }>(`select id,email,name,dni from users where organization_id=1 and role='participante'
-    and email in ('maria.quispe@demo.pe','luz.apaza@demo.pe') and active`)).rows;
-  const maria = usuarios.find(u => u.email === 'maria.quispe@demo.pe')!;
-  const luz = usuarios.find(u => u.email === 'luz.apaza@demo.pe')!;
+  const usuarios = (await cliente.query<{ id: string; email: string; name: string; dni: string | null }>(`select id,email,name,dni from users where role='agremiado'
+    and email in ('maria.quispe@demo.cpppregion-cusco.com','luz.apaza@demo.cpppregion-cusco.com') and active`)).rows;
+  const maria = usuarios.find(u => u.email === 'maria.quispe@demo.cpppregion-cusco.com')!;
+  const luz = usuarios.find(u => u.email === 'luz.apaza@demo.cpppregion-cusco.com')!;
   if (!maria || !luz) throw new Error('El historial demo necesita las cuentas demo de María y Luz.');
   // Son documentos ficticios exclusivamente para las cuentas de demostración.
   for (const [persona, dni] of [[maria, '00001234'], [luz, '00005678']] as const) {
     await cliente.query('update users set dni=$2 where id=$1 and dni is null', [persona.id, dni]);
   }
-  const cursos = (await cliente.query<{ id: string; clave_demo: string; instructor_id: string; titulo: string }>(`select id,clave_demo,instructor_id,titulo from cursos where organization_id=1 and clave_demo in ('seguridadPrimerosAuxilios','didacticaEvaluacion')`)).rows;
+  const cursos = (await cliente.query<{ id: string; clave_demo: string; instructor_id: string; titulo: string }>(`select id,clave_demo,instructor_id,titulo from cursos where clave_demo in ('seguridadPrimerosAuxilios','didacticaEvaluacion')`)).rows;
   for (const curso of cursos) {
     const terminado = curso.clave_demo === 'seguridadPrimerosAuxilios';
     const personas = terminado ? [maria, luz] : [maria];
@@ -25,7 +25,7 @@ export async function sembrarHistorial(cliente: PoolClient) {
     }
     for (let indice = 0; indice < 2; indice++) {
       const clave = `${curso.clave_demo}${indice + 1}`;
-      let sesion = (await cliente.query<{ id: string }>('select id from classes where organization_id=1 and clave_historial_demo=$1', [clave])).rows[0];
+      let sesion = (await cliente.query<{ id: string }>('select id from classes where clave_historial_demo=$1', [clave])).rows[0];
       if (!sesion) {
         const dias = terminado ? -15 + indice : indice === 0 ? -3 : 10;
         sesion = (await cliente.query<{ id: string }>(`insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,curso_id,clave_historial_demo)
@@ -48,12 +48,12 @@ export async function sembrarHistorial(cliente: PoolClient) {
         from inscripciones_curso where curso_id=$1 and usuario_id=$2 and estado='TERMINADO' on conflict do nothing`, [curso.id, maria.id, archivo]);
     }
   }
-  const clases = (await cliente.query<{ id: string }>('select id from classes where organization_id=1 and clave_historial_demo is not null')).rows.map(s => s.id);
+  const clases = (await cliente.query<{ id: string }>('select id from classes where clave_historial_demo is not null')).rows.map(s => s.id);
   const totales = (await cliente.query<{ sesionesHistorial: number; inscripcionesHistorial: number; asistenciasHistorial: number; inscripcionesCurso: number; certificados: number }>(`select
     cardinality($1::bigint[]) as "sesionesHistorial",
     (select count(*)::int from enrollments where class_id=any($1::bigint[])) as "inscripcionesHistorial",
     (select count(*)::int from attendances where class_id=any($1::bigint[])) as "asistenciasHistorial",
-    (select count(*)::int from inscripciones_curso where usuario_id=any($2::bigint[]) and curso_id in (select id from cursos where organization_id=1 and clave_demo is not null)) as "inscripcionesCurso",
+    (select count(*)::int from inscripciones_curso where usuario_id=any($2::bigint[]) and curso_id in (select id from cursos where clave_demo is not null)) as "inscripcionesCurso",
     (select count(*)::int from certificados_curso where codigo='DEMO-HU18-MARIA-SEGURIDAD') as certificados`, [clases, usuarios.map(u => u.id)])).rows[0]!;
   return totales;
 }

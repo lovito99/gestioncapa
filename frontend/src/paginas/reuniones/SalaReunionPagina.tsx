@@ -45,7 +45,7 @@ function ContenidoSalaReunion({ identificador }: { identificador: string }) {
   const [reacciones, cambiarReacciones] = useState<ReaccionSala[]>([])
   const [copiado, cambiarCopiado] = useState(false)
   const [dispositivos, cambiarDispositivos] = useState<MediaDeviceInfo[]>([])
-  const puedeConsultarInscritos = !!usuario && usuario.rol !== 'PARTICIPANTE'
+  const puedeConsultarInscritos = !!usuario && usuario.rol !== 'AGREMIADO'
   const reunion = useQuery({ queryKey: ['reunion', identificador], queryFn: () => reuniones.obtener(identificador) })
   const inscritos = useQuery({ queryKey: ['participantesReunion', identificador], queryFn: () => reuniones.participantes(identificador), enabled: puedeConsultarInscritos, refetchInterval: 30000 })
 

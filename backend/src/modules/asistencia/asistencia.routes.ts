@@ -33,11 +33,13 @@ export async function asistenciaRoutes(app: FastifyInstance) {
     return reply.code(resultado.status).send(resultado.cuerpo);
   });
 
-  // HU-09: lista de asistencia del coordinador.
+  // HU-09: lista de asistencia del administrador o instructor asignado.
   app.get("/api/clases/:id/asistencia", async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
     const id = leerId(request);
-    if (!id || !(await obtenerClase(id))) return enviarError(reply, 404, "CLASE_NO_EXISTE", "La clase no existe.");
-    return listaDeAsistencia(id);
+    const clase = id ? await obtenerClase(id) : null;
+    if (!clase) return enviarError(reply, 404, "CLASE_NO_EXISTE", "La clase no existe.");
+    if (request.usuario!.role === 'instructor' && clase.instructor.id !== String(request.usuario!.id)) return enviarError(reply,403,'SIN_PERMISO','Esta sesión no está asignada a ti.');
+    return listaDeAsistencia(id!);
   });
 
   app.get("/api/participante/clases", async (request) => clasesDeParticipante(request.usuario!.id));

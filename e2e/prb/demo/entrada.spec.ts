@@ -20,7 +20,8 @@ test('ENT-02: rechaza una contraseña incorrecta y permite corregirla', async ({
   await expect(page.getByRole('alert')).toContainText('Correo o contraseña incorrectos')
   await expect(page).toHaveURL(rutas.login)
   await completarAcceso(page, cuentas.coord)
-  await expect(page).toHaveURL(rutas.clases)
+  await expect(page).toHaveURL(cuentas.coord.inicio)
+  await expect(page.getByRole('heading', { name: cuentas.coord.titulo, exact: true })).toBeVisible()
 })
 
 for (const rol of ['coord', 'instr', 'part', 'admin'] as const) {
@@ -46,7 +47,7 @@ test('ENT-04: muestra y oculta la contraseña sin cambiar su contenido', async (
 })
 
 test('ENT-05: cerrar sesión impide volver a una página protegida', async ({ page }) => {
-  await entrar(page, cuentas.coord)
+  await entrar(page, cuentas.coord); await page.goto('/admin/clases')
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
   await expect(page).toHaveURL(rutas.login)
   await page.goto(rutas.clases)

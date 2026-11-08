@@ -29,9 +29,9 @@ export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
     const datos = datosReunion.parse(solicitud.body);
     const reunion = await conTransaccion(async cliente => {
       const clase = (await cliente.query(`select clase.id, clase.instructor_id from classes clase
-        join users creador on creador.organization_id = clase.organization_id and creador.id = $2
+        join users creador on creador.id = $2
         where clase.id = $1 and clase.estado = 'PROGRAMADA' and creador.active
-        and creador.role in ('admin','coordinador') for update of clase`, [datos.claseIdentificador, solicitud.usuario!.id])).rows[0];
+        and creador.role in ('admin') for update of clase`, [datos.claseIdentificador, solicitud.usuario!.id])).rows[0];
       if (!clase) throw aplicacion.httpErrors.forbidden();
       const identificador = randomUUID();
       const nombreSala = `reunion${randomBytes(24).toString("hex")}`;
@@ -82,7 +82,7 @@ export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
     (await cliente.query(`select persona.id as identificador, persona.name as nombre, persona.email as correo,
       case when persona.id = clase.instructor_id then 'anfitrion' else 'participante' end as rol,
       coalesce(participante.estado, 'autorizado') as estado
-      from classes clase join users persona on persona.organization_id = clase.organization_id and persona.active
+      from classes clase join users persona on persona.active
       left join "participantesReunion" participante on participante."reunionIdentificador"=$1 and participante."usuarioIdentificador"=persona.id
       where clase.id=$2 and (persona.id=clase.instructor_id or exists(select 1 from enrollments where class_id=clase.id and user_id=persona.id))`,
       [reunion.identificador, reunion.claseIdentificador])).rows));
@@ -91,7 +91,7 @@ export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
     return conReunion(solicitud, true, async (cliente, reunion) => {
       // Revoca futuras credenciales. La desconexión audiovisual requiere el moderador Jitsi.
       const participante = (await cliente.query(`select persona.id from users persona join classes clase
-        on clase.organization_id=persona.organization_id where clase.id=$1 and persona.id=$2
+        on true where clase.id=$1 and persona.id=$2
         and persona.id <> clase.instructor_id and exists(select 1 from enrollments where class_id=clase.id and user_id=persona.id)`,
         [reunion.claseIdentificador, usuarioIdentificador])).rows[0];
       if (!participante) throw aplicacion.httpErrors.notFound();

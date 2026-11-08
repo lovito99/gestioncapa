@@ -4,6 +4,7 @@ import { sesion } from '@/lib/sesion'
 import { cerrarSesionEnServidor, useVerificarSesion } from '@/servicios/auth'
 import type { LoginRespuesta, Usuario } from '@/types/api'
 import { contextoAuth } from './contexto'
+import { Cargando } from '@/components/ui/Estados'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
@@ -15,7 +16,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     return guardado
   })
-  useVerificarSesion(usuario !== null)
+  const verificacion = useVerificarSesion(usuario !== null)
+  const usuarioActual = usuario ? verificacion.data ?? usuario : null
 
   const iniciar = useCallback(({ token, usuario }: LoginRespuesta) => {
     sesion.guardar(token, usuario)
@@ -35,6 +37,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(null)
   }, [queryClient])
 
-  const valor = useMemo(() => ({ usuario, iniciar, cerrar, expirar }), [usuario, iniciar, cerrar, expirar])
+  const valor = useMemo(() => ({ usuario: usuarioActual, iniciar, cerrar, expirar }), [usuarioActual, iniciar, cerrar, expirar])
+  if (usuario && verificacion.isPending) return <Cargando texto="Verificando sesión…" />
   return <contextoAuth.Provider value={valor}>{children}</contextoAuth.Provider>
 }

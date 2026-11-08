@@ -14,7 +14,7 @@ La portada `/` ofrece el catálogo sin sesión; los datos demo no son registros 
 Desde la raíz, `npm run dev:demo` abre la aplicación con datos demo en
 `http://localhost:5173/login`, sin requerir Postgres ni Redis. Si aún no instalaste
 las dependencias, ejecuta `npm install --include=dev --include=optional` primero.
-Cuenta de coordinador: `ana.torres@organizacion.pe` / `demo123`.
+Cuenta de administrador de demostración: `ana.torres@cpppregion-cusco.com` / `demo123`.
 
 - [Rutas, cuentas y acceso demo o real](docs/rutas.md).
 - [Playwright, carpetas y comandos E2E](docs/e2e.md).
@@ -135,25 +135,25 @@ npm run dev
 - `npm run env:init` muestra la clave del administrador generada. No sobrescribe un
   `backend/.env` existente.
 - `frontend/.env.example` ya trae `VITE_USE_MOCKS=false`: todas
-  las pantallas (coordinador, instructor, participante y admin) funcionan contra la API real.
+  las pantallas (agremiado, instructor y administrador) funcionan contra la API real.
 
 Usuarios que crea `npm run bd:seed` (fuera de producción):
 
 | Rol | Correo | Contraseña |
 |---|---|---|
 | Administrador | `ADMIN_EMAIL` de `backend/.env` | `ADMIN_PASSWORD` de `backend/.env` |
-| Coordinador | `ana.torres@organizacion.pe` | `demo123` |
-| Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
-| Instructora | `lucia.paredes@organizacion.pe` | `demo123` |
-| Agremiado | `maria.quispe@demo.pe` | `demo123` |
-| Agremiado | `luz.apaza@demo.pe` | `demo123` |
+| Administradora demo | `ana.torres@cpppregion-cusco.com` | `demo123` |
+| Instructor | `carlos.mendoza@cpppregion-cusco.com` | `demo123` |
+| Instructora | `lucia.paredes@cpppregion-cusco.com` | `demo123` |
+| Agremiado | `maria.quispe@demo.cpppregion-cusco.com` | `demo123` |
+| Agremiado | `luz.apaza@demo.cpppregion-cusco.com` | `demo123` |
 
 Con `NODE_ENV=production` el seed solo crea el administrador. El seed es idempotente:
 no duplica usuarios ni cambia la clave de los que ya existen.
 
 Fuera de producción también carga cinco clases con el prefijo `Demo ·`, asignadas
 a Carlos y Lucía, nueve inscripciones de María y Luz y una asistencia de ejemplo.
-Así, administrador y coordinador tienen datos en sus tablas, ambos instructores
+Así, los administradores tienen datos en sus tablas, ambos instructores
 ven clases asignadas y ambos participantes ven sus inscripciones. Incluye una
 clase cancelada y una clase pasada con un presente y un ausente.
 Las fechas se calculan desde el día de la primera ejecución en Lima; repetir el
@@ -285,17 +285,17 @@ Sin backend, `npm run dev:demo` usa datos simulados con MSW (`VITE_USE_MOCKS=tru
 
 | Rol | Correo | Contrasena |
 |---|---|---|
-| Coordinadora | `ana.torres@organizacion.pe` | `demo123` |
-| Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
-| Agremiado (inscrita en 2 clases) | `maria.quispe@demo.pe` | `demo123` |
-| Agremiado (inscrita en 1 clase) | `luz.apaza@demo.pe` | `demo123` |
+| Administradora demo | `ana.torres@cpppregion-cusco.com` | `demo123` |
+| Instructor | `carlos.mendoza@cpppregion-cusco.com` | `demo123` |
+| Agremiado (inscrita en 2 clases) | `maria.quispe@demo.cpppregion-cusco.com` | `demo123` |
+| Agremiado (inscrita en 1 clase) | `luz.apaza@demo.cpppregion-cusco.com` | `demo123` |
 | Administrador | `admin@gestioncapa.local` | `demo123` |
 
 Prueba del flujo de asistencia (Sprint 1) en un mismo computador:
 
 1. En una ventana normal entra como **instructor**, abre «Primeros auxilios básicos», pulsa **Mostrar QR** y luego **Copiar enlace del QR (solo desarrollo)**.
 2. En una ventana de incógnito entra como **Luz** y pega el enlace en la barra de direcciones antes de que venza (30 s): aparece «¡Asistencia registrada!». Con una webcam también puedes usar **Registrar asistencia** y apuntar al QR.
-3. En **la misma ventana de incógnito** cierra sesión, entra como **coordinadora** y abre la asistencia de la clase: Luz aparece como Presente con hora de Lima.
+3. En **la misma ventana de incógnito** cierra sesión, entra como **administradora** y abre la asistencia de la clase: Luz aparece como Presente con hora de Lima.
 
 Los datos simulados viven en la memoria de cada ventana, por eso el paso 3 se hace en la ventana de Luz. La cámara del navegador solo funciona con `https` o en `localhost`; para probar desde un celular real hace falta `https` y el backend real.
 
@@ -566,3 +566,5 @@ Infraestructura local/test:
 - Volumen Redis: `gestioncapa_redis_data`
 
 En produccion se deben cambiar las credenciales de Postgres, Redis, JWT y administrador por valores privados y fuertes.
+
+HU-35: [roles, migración al CPPP y gestión de usuarios](docs/esp/rolesCppp.md).

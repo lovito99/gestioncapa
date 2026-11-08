@@ -23,13 +23,13 @@ before(async () => {
   env.jitsiDominio = 'meet.prueba.local';
   env.jitsiAplicacion = 'gestioncapa';
   env.jitsiSecreto = 'secretoDePruebaJitsiDistintoDelResto123';
-  for (const [nombre, rol] of [['gestor','coordinador'],['docente','instructor'],['inscrito','participante'],['ajeno','participante']]) {
+  for (const [nombre, rol] of [['gestor','admin'],['docente','instructor'],['inscrito','agremiado'],['ajeno','agremiado']]) {
     const persona = (await pool.query('insert into users (name,email,password_hash,role) values ($1,$2,$3,$4) returning id', [nombre, `${prefijo}${nombre}@prueba.local`, 'sinAccesoPorClave', rol])).rows[0];
     usuarios.set(nombre!, { identificador: persona.id, token: aplicacion.jwt.sign({ sub: String(persona.id) }) });
   }
-  await pool.query('insert into organizations(id,name) values ($1,$2)', [organizacionAjena, prefijo]);
-  const administradorAjeno = (await pool.query('insert into users(name,email,password_hash,role,organization_id) values ($1,$2,$3,$4,$5) returning id',
-    ['Administrador ajeno', `${prefijo}administradorAjeno@prueba.local`, 'sinAccesoPorClave', 'admin', organizacionAjena])).rows[0];
+
+  const administradorAjeno = (await pool.query("insert into users(name,email,password_hash,role) values ($1,$2,$3,$4) returning id",
+    ['Administrador ajeno', `${prefijo}administradorAjeno@prueba.local`, 'sinAccesoPorClave', 'admin'])).rows[0];
   usuarios.set('administradorAjeno', { identificador: administradorAjeno.id, token: aplicacion.jwt.sign({ sub: String(administradorAjeno.id) }) });
   claseIdentificador = (await pool.query(`insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar) values ($1,$2,'2032-01-01','10:00','11:00','Virtual') returning id`, [prefijo, usuarios.get('docente')!.identificador])).rows[0].id;
   await pool.query('insert into enrollments(class_id,user_id) values ($1,$2)', [claseIdentificador, usuarios.get('inscrito')!.identificador]);
@@ -42,7 +42,7 @@ after(async () => {
   }
   if (claseIdentificador) await pool.query('delete from classes where id=$1', [claseIdentificador]);
   await pool.query('delete from users where email like $1', [`${prefijo}%`]);
-  await pool.query('delete from organizations where id=$1', [organizacionAjena]);
+
   env.jitsiHabilitado = configuracionAnterior.habilitado;
   env.jitsiDominio = configuracionAnterior.dominio;
   env.jitsiAplicacion = configuracionAnterior.aplicacion;
@@ -60,15 +60,15 @@ test('Flujo autorizado: crear, iniciar, emitir, retirar y finalizar', async () =
   const ruta = `/api/reuniones/${reunionIdentificador}`;
   assert.equal((await pool.query('select * from "notificacionesReunion" where "reunionIdentificador"=$1',[reunionIdentificador])).rowCount,2);
   assert.equal((await llamar('ajeno','GET',ruta)).statusCode,403);
-  assert.equal((await llamar('administradorAjeno','GET',ruta)).statusCode,403);
-  assert.equal((await llamar('administradorAjeno','POST',`${ruta}/iniciar`)).statusCode,403);
-  assert.deepEqual((await llamar('administradorAjeno','GET','/api/reuniones')).json(), []);
+  assert.equal((await llamar('administradorAjeno','GET',ruta)).statusCode,200);
+  assert.ok((await llamar('administradorAjeno','GET','/api/reuniones')).json().some((r: { identificador: string }) => r.identificador === reunionIdentificador));
   assert.equal((await llamar('ajeno','POST',`${ruta}/credencial`)).statusCode,403);
   assert.equal((await llamar('inscrito','POST',`${ruta}/iniciar`)).statusCode,403);
   const edicion = { titulo: datos.titulo, inicioProgramado: datos.inicioProgramado, finProgramado: datos.finProgramado };
   assert.equal((await llamar('docente','PATCH',ruta,edicion)).statusCode,200);
   assert.equal((await llamar('docente','PATCH',ruta,{ ...edicion, finProgramado: edicion.inicioProgramado })).statusCode,422);
   assert.equal((await llamar('inscrito','POST',`${ruta}/credencial`)).statusCode,409);
+  assert.equal((await llamar('administradorAjeno','POST',`${ruta}/iniciar`)).statusCode,200);
   assert.equal((await llamar('docente','POST',`${ruta}/iniciar`)).statusCode,200);
   assert.equal((await llamar('docente','POST',`${ruta}/iniciar`)).statusCode,200);
   const credencial = await llamar('inscrito','POST',`${ruta}/credencial`);

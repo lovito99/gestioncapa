@@ -3,9 +3,9 @@ import type { PoolClient } from "pg";
 
 // Identidades reservadas para estas tres reuniones demo: repetir el seed no las duplica.
 export const reunionesPrueba = [
-  { identificador: "79d4a3c1-7d3a-4a3c-8b92-a9c0134ac001", clase: "Demo · Atención al cliente", titulo: "Demo · Reunión de atención al cliente" },
+  { identificador: "79d4a3c1-7d3a-4a3c-8b92-a9c0134ac001", clase: "Demo · Atención a la diversidad", titulo: "Demo · Reunión de atención al cliente" },
   { identificador: "79d4a3c1-7d3a-4a3c-8b92-a9c0134ac002", clase: "Demo · Primeros auxilios básicos", titulo: "Demo · Reunión de primeros auxilios" },
-  { identificador: "79d4a3c1-7d3a-4a3c-8b92-a9c0134ac003", clase: "Demo · Manejo de extintores", titulo: "Demo · Reunión de manejo de extintores" }
+  { identificador: "79d4a3c1-7d3a-4a3c-8b92-a9c0134ac003", clase: "Demo · Estrategias de evaluación docente", titulo: "Demo · Reunión de evaluación docente" }
 ];
 
 /** Se ejecuta dentro de la transacción y del bloqueo del seed general. */
@@ -19,7 +19,7 @@ export async function sembrarReuniones(cliente: PoolClient, iniciar = false) {
       select id, instructor_id as instructor,
         (fecha + hora_inicio) at time zone 'America/Lima' as inicio,
         (fecha + hora_fin) at time zone 'America/Lima' as fin
-      from classes where nombre = $1 and organization_id = 1 and estado = 'PROGRAMADA'
+      from classes where nombre = $1 and estado = 'PROGRAMADA'
       order by id limit 1 for update`, [datos.clase])).rows[0];
     if (!clase) continue;
 
@@ -38,8 +38,7 @@ export async function sembrarReuniones(cliente: PoolClient, iniciar = false) {
   }
   if (iniciar) {
     await cliente.query(`update reuniones reunion set estado = 'iniciada'
-      from classes clase where clase.id = reunion."claseIdentificador"
-      and clase.organization_id = 1 and clase.estado = 'PROGRAMADA'
+      from classes clase where clase.id = reunion."claseIdentificador" and clase.estado = 'PROGRAMADA'
       and reunion.identificador = any($1::uuid[]) and reunion.estado = 'programada'`,
       [reunionesPrueba.map(reunion => reunion.identificador)]);
   }

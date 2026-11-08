@@ -12,13 +12,13 @@ import { migrar } from "../../src/shared/migraciones.js";
 import { redis } from "../../src/shared/redis.js";
 
 // Requiere Postgres y Redis activos (docker compose up -d --wait) y backend/.env.
-const MARIA = "maria.quispe@demo.pe";
+const MARIA = "maria.quispe@demo.cpppregion-cusco.com";
 const INACTIVO = "inactivo@prueba-inscripcion.local";
 const tokens = new Map<Rol, string>();
 let app: FastifyInstance;
 let claseId: string;
 
-const inscribir = (email: unknown, rol: Rol = "COORDINADOR", id = claseId) =>
+const inscribir = (email: unknown, rol: Rol = "ADMIN", id = claseId) =>
   app.inject({
     method: "POST",
     url: `/api/clases/${id}/inscritos`,
@@ -30,7 +30,7 @@ async function inscritos() {
   const respuesta = await app.inject({
     method: "GET",
     url: `/api/clases/${claseId}/inscritos`,
-    headers: { authorization: `Bearer ${tokens.get("COORDINADOR")}` }
+    headers: { authorization: `Bearer ${tokens.get("ADMIN")}` }
   });
   assert.equal(respuesta.statusCode, 200);
   return respuesta.json() as { id: string; nombre: string; email: string }[];
@@ -41,8 +41,8 @@ describe("Característica: Inscribir participante en clase", () => {
     await migrar(pool);
     await sembrarUsuarios();
     await pool.query(
-      `insert into users (name, email, password_hash, role, active) values ('Inactivo', $1, $2, 'participante', false)
-       on conflict (email) do update set active = false, role = 'participante'`,
+      `insert into users (name, email, password_hash, role, active) values ('Inactivo', $1, $2, 'agremiado', false)
+       on conflict (email) do update set active = false, role = 'agremiado'`,
       [INACTIVO, await bcrypt.hash("ClaveInactiva123!", 4)]
     );
     app = await buildApp();
@@ -62,11 +62,11 @@ describe("Característica: Inscribir participante en clase", () => {
   // Antecedentes: una clase activa sin inscritos.
   beforeEach(async () => {
     await pool.query("delete from classes where nombre like 'INS %'");
-    const instructor = await pool.query<{ id: string }>("select id::text as id from users where email = 'carlos.mendoza@organizacion.pe'");
+    const instructor = await pool.query<{ id: string }>("select id::text as id from users where email = 'carlos.mendoza@cpppregion-cusco.com'");
     const respuesta = await app.inject({
       method: "POST",
       url: "/api/clases",
-      headers: { authorization: `Bearer ${tokens.get("COORDINADOR")}` },
+      headers: { authorization: `Bearer ${tokens.get("ADMIN")}` },
       payload: {
         nombre: "INS Clase de inscripción",
         instructorId: instructor.rows[0]!.id,
@@ -102,7 +102,7 @@ describe("Característica: Inscribir participante en clase", () => {
     const clase = await app.inject({
       method: "GET",
       url: `/api/clases/${claseId}`,
-      headers: { authorization: `Bearer ${tokens.get("COORDINADOR")}` }
+      headers: { authorization: `Bearer ${tokens.get("ADMIN")}` }
     });
     assert.equal(clase.json().inscritos, 1);
   });
@@ -130,7 +130,7 @@ describe("Característica: Inscribir participante en clase", () => {
     assert.equal((await inscritos()).length, 1);
   });
 
-  for (const rol of ["PARTICIPANTE", "INSTRUCTOR"] as Rol[]) {
+  for (const rol of ["AGREMIADO", "INSTRUCTOR"] as Rol[]) {
     test(`INS-04: Dado ${rol} que llama directamente al endpoint, entonces 403 y no se inscribe`, async () => {
       const respuesta = await inscribir(MARIA, rol);
 
@@ -142,7 +142,7 @@ describe("Característica: Inscribir participante en clase", () => {
 
   for (const [caso, email] of [
     ["una persona que no existe", "nadie@prueba-inscripcion.local"],
-    ["un instructor", "carlos.mendoza@organizacion.pe"],
+    ["un instructor", "carlos.mendoza@cpppregion-cusco.com"],
     ["un participante inactivo", INACTIVO]
   ] as const) {
     test(`INS-05: Dado el correo de ${caso}, entonces 404 PARTICIPANTE_NO_EXISTE`, async () => {
@@ -166,7 +166,7 @@ describe("Característica: Inscribir participante en clase", () => {
   }
 
   test("INS-06: Dado un correo con mayúsculas y espacios, entonces inscribe a la persona", async () => {
-    const respuesta = await inscribir("  Maria.Quispe@Demo.PE ");
+    const respuesta = await inscribir("  Maria.Quispe@Demo.CPPPRegion-Cusco.COM ");
 
     assert.equal(respuesta.statusCode, 201, respuesta.body);
     assert.equal((await inscritos())[0]?.email, MARIA);

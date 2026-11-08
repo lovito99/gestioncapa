@@ -11,7 +11,7 @@ export function ReunionesPagina() {
   const consulta = useQuery({ queryKey: ['reuniones'], queryFn: reuniones.listar })
   const cliente = useQueryClient()
   const [mensaje, cambiarMensaje] = useState('')
-  const gestionar = usuario?.rol === 'ADMIN' || usuario?.rol === 'COORDINADOR'
+  const gestionar = usuario?.rol === 'ADMIN'
   const creacion = useMutation({ mutationFn: reuniones.crear, onSuccess: () => { void cliente.invalidateQueries({ queryKey: ['reuniones'] }); cambiarMensaje('Reunión creada.') }, onError: error => cambiarMensaje(error.message) })
   const cambio = useMutation({ mutationFn: ({ identificador, accion }: { identificador: string; accion: string }) => reuniones.cambiarEstado(identificador, accion), onSuccess: () => { void cliente.invalidateQueries({ queryKey: ['reuniones'] }) }, onError: error => cambiarMensaje(error.message) })
   const enviar = (evento: FormEvent<HTMLFormElement>) => {

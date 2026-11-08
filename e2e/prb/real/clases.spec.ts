@@ -6,7 +6,7 @@ import { entrar } from '../../ayud/sesion'
 
 // gestioncapa_e2e reinicia sus clases y carga datos demo en cada ejecución.
 test('PRG-10: la coordinadora crea, edita y cancela una clase con el backend real', async ({ page }) => {
-  await entrar(page, cuentas.coord)
+  await entrar(page, cuentas.coord); await page.goto('/admin/clases')
   await page.getByRole('link', { name: 'Nueva clase' }).click()
   await completarClase(page)
   await page.getByRole('button', { name: 'Guardar clase' }).click()

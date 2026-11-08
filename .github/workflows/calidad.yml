@@ -2,6 +2,7 @@ name: Calidad
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
   workflow_dispatch:
@@ -14,6 +15,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  trazabilidad:
+    name: Clave Jira
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Validar clave en la rama o el título
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BRANCH: ${{ github.head_ref }}
+        run: |
+          node --input-type=module <<'JS'
+          const { PR_TITLE: prTitle, PR_BRANCH: prBranch } = process.env;
+          const jiraKey = /\b[A-Z][A-Z0-9]*-[1-9][0-9]*\b/;
+          if (![prTitle, prBranch].some(value => jiraKey.test(value ?? ''))) {
+            console.error('El título o la rama debe incluir una clave Jira, por ejemplo SCRUM-123.');
+            process.exitCode = 1;
+          }
+          JS
+
   # CAL-01: tipos, build y pruebas unitarias. Verificación obligatoria para integrar.
   calidad:
     name: Tipos, build y pruebas

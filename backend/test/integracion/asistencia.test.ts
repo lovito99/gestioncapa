@@ -11,10 +11,10 @@ import { redis } from "../../src/shared/redis.js";
 
 // Requiere Postgres y Redis activos (docker compose up -d --wait) y backend/.env.
 const CUENTAS = {
-  coordinadora: "ana.torres@organizacion.pe",
-  carlos: "carlos.mendoza@organizacion.pe",
-  maria: "maria.quispe@demo.pe",
-  luz: "luz.apaza@demo.pe"
+  coordinadora: "ana.torres@cpppregion-cusco.com",
+  carlos: "carlos.mendoza@cpppregion-cusco.com",
+  maria: "maria.quispe@demo.cpppregion-cusco.com",
+  luz: "luz.apaza@demo.cpppregion-cusco.com"
 } as const;
 type Cuenta = keyof typeof CUENTAS;
 
@@ -245,8 +245,8 @@ describe("Característica: Registrar y consultar asistencia", () => {
     assert.deepEqual(Object.keys(lista.registros[0].participante).sort(), ["email", "id", "nombre"]);
   });
 
-  test("LIS-02: Dado instructor o participante, entonces 403; clase inexistente 404", async () => {
-    assert.equal((await llamar("carlos", "GET", `/api/clases/${clases.lista}/asistencia`)).statusCode, 403);
+  test("LIS-02: Dado instructor asignado, entonces 200; otro agremiado recibe 403; clase inexistente 404", async () => {
+    assert.equal((await llamar("carlos", "GET", `/api/clases/${clases.lista}/asistencia`)).statusCode, 200);
     assert.equal((await llamar("maria", "GET", `/api/clases/${clases.lista}/asistencia`)).statusCode, 403);
     const inexistente = await llamar("coordinadora", "GET", "/api/clases/999999/asistencia");
     assert.equal(inexistente.statusCode, 404);

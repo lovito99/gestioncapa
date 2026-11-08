@@ -8,8 +8,8 @@ import { crearGuard } from "../src/plugins/autorizacion.js";
 const SECRETO = "secreto-de-prueba-del-guard-con-32-caracteres";
 
 const usuarios = new Map([
-  [1, { id: 1, name: "Ana Torres", email: "ana.torres@organizacion.pe", role: "coordinador" }],
-  [2, { id: 2, name: "María Quispe", email: "maria.quispe@demo.pe", role: "participante" }]
+  [1, { id: 1, name: "Ana Torres", email: "ana.torres@cpppregion-cusco.com", role: "admin" }],
+  [2, { id: 2, name: "María Quispe", email: "maria.quispe@demo.cpppregion-cusco.com", role: "agremiado" }]
 ]);
 
 // Firma HS256 manual para fabricar tokens expirados o con otro secreto.
@@ -37,7 +37,7 @@ describe("Característica: Autorización en el servidor", () => {
     app = Fastify();
     await app.register(jwt, { secret: SECRETO });
     const requerirRol = crearGuard(async (id) => usuarios.get(id) ?? null);
-    app.get("/solo-coordinador", { preHandler: requerirRol("COORDINADOR") }, async (request) => ({
+    app.get("/solo-coordinador", { preHandler: requerirRol("ADMIN") }, async (request) => ({
       email: request.usuario?.email
     }));
     await app.ready();
@@ -84,6 +84,6 @@ describe("Característica: Autorización en el servidor", () => {
     const respuesta = await pedir(tokenDe(1));
 
     assert.equal(respuesta.statusCode, 200);
-    assert.equal(respuesta.json().email, "ana.torres@organizacion.pe");
+    assert.equal(respuesta.json().email, "ana.torres@cpppregion-cusco.com");
   });
 });

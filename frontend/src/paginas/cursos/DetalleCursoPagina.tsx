@@ -47,14 +47,14 @@ export function DetalleCursoPagina() {
         <div><dt className="font-semibold">Nota mínima</dt><dd>{curso.notaMinima}</dd></div>
       </dl>
       {usuario?.rol === 'ADMIN' && curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
-      {usuario?.rol === 'PARTICIPANTE' && curso.estado === 'PUBLICADO' && <div className="space-y-2">
+      {usuario?.rol === 'AGREMIADO' && curso.estado === 'PUBLICADO' && <div className="space-y-2">
         <Boton disabled={curso.inscrito || curso.cuposDisponibles === 0} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? pendiente ? 'Pendiente de pago' : 'Ya estás inscrito(a)' : curso.cuposDisponibles === 0 ? 'Sin cupos' : 'Inscribirme'}</Boton>
         {pendiente ? <p role="status">Tu vacante está reservada. La inscripción está pendiente de pago y aún no está confirmada.</p> : inscripcion.isSuccess && <p role="status">Inscripción registrada y confirmada.</p>}
         {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.')}</Alerta>}
       </div>}
       {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
     </header>
-    <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO' && curso.modalidad !== 'VIRTUAL'} participante={usuario?.rol === 'PARTICIPANTE'} />
+    <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO' && curso.modalidad !== 'VIRTUAL'} participante={usuario?.rol === 'AGREMIADO'} />
     <h2 className="text-xl font-semibold">Módulos y material</h2>
     <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
   </div>
