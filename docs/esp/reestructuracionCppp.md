@@ -55,7 +55,8 @@ las pruebas y no representan cuentas oficiales del colegio.
 | Padrón de afiliados | RF-05 y RNF-20 | Contrato de acceso y validación de habilitación sin convertir datos demo en afiliados reales |
 | Servidor propio bajo subdominio | RNF-01 y RNF-26 | Servidor, DNS, HTTPS y entorno aprobados; la URL sugerida no equivale a un despliegue |
 
-Las reglas de HU-20 están pendientes de validación institucional. Los valores
+T-23 registró la validación de HU-20 como pendiente. Posteriormente se recibieron
+las reglas v2, delegadas al equipo; su alcance vigente está en [HU-20](certificados.md). Los valores
 actuales de demostración o las reglas de asistencia ya implementadas no
 sustituyen esa aprobación. No se inventan certificados oficiales, firma del
 Decano, pagos confirmados ni afiliaciones habilitadas.

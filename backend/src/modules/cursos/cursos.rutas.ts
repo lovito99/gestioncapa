@@ -76,6 +76,7 @@ export async function registrarCursos(app: FastifyInstance) {
   app.post('/api/cursos/:id/sesiones', async (request: ConId, reply) => {
     const curso = await cursoAutorizado(request, reply);
     if (!curso) return reply;
+    if (curso.estado === 'CERRADO') return error(reply, 409, 'CURSO_CERRADO', 'El curso está cerrado y no admite nuevas sesiones.');
     if (curso.modalidad === 'VIRTUAL') return error(reply, 409, 'MODALIDAD_NO_PRESENCIAL', 'Las sesiones presenciales requieren un curso presencial o híbrido.');
     const cuerpo = typeof request.body === 'object' && request.body !== null && !Array.isArray(request.body) ? request.body : {};
     const validacion = validarClase({ ...cuerpo, instructorId: curso.instructorId });
@@ -89,6 +90,7 @@ export async function registrarCursos(app: FastifyInstance) {
   app.post('/api/cursos/:id/publicar', async (request: ConId, reply) => {
     const curso = await cursoAutorizado(request, reply);
     if (!curso) return reply;
+    if (curso.estado === 'CERRADO') return error(reply, 409, 'CURSO_CERRADO', 'Un curso cerrado no se vuelve a publicar.');
     if (!await publicarCurso(curso.id, curso.organizacionId)) return error(reply, 409, 'CURSO_INCOMPLETO', 'Agrega horas lectivas y módulos antes de publicar.');
     return obtenerCurso(curso.id);
   });

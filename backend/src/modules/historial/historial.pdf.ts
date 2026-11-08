@@ -15,7 +15,7 @@ export function pdfHistorial(historial: Historial) {
       `Inscripción: ${fecha(c.inscritoEn)}${c.terminadoEn ? ` | Finalización: ${fecha(c.terminadoEn)}` : ''}`,
       `Asistencia: ${c.asistencia.presentes} de ${c.asistencia.realizadas} sesiones realizadas (${porcentaje(c.asistencia.porcentaje)})`,
       ...(c.sesiones.length ? c.sesiones.map(sesion) : ['Sin sesiones registradas.']),
-      ...(c.certificados.length ? c.certificados.map(cert => `Certificado: ${cert.codigo} | ${cert.tipo === 'APROBACION' ? 'Aprobación' : 'Participación'} | Emitido: ${fecha(cert.emitidoEn)}`) : ['Sin certificados emitidos.']), '',
+      ...(c.certificados.length ? c.certificados.map(cert => `Certificado: ${cert.codigo} | ${cert.estado} | ${cert.tipo === 'APROBACION' ? 'Aprobación' : 'Participación'} | Emitido: ${fecha(cert.emitidoEn)}`) : ['Sin certificados emitidos.']), '',
     ]) : ['No hay cursos inscritos.']),
     '', 'SESIONES INDEPENDIENTES',
     ...(historial.sesionesIndependientes.length ? historial.sesionesIndependientes.map(sesion) : ['No hay sesiones independientes.']),

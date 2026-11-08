@@ -54,11 +54,11 @@ brecha, incluso cuando ya existe una parte de una etapa posterior.
 | RF-23 | Pendiente | Falta carga privada de voucher BCP, revisión, motivo y auditoría | 5 |
 | RF-24 | Pendiente | Falta registro real de efectivo con permisos y auditoría | 5 |
 | RF-25 | Pendiente | HU-16 mantiene cursos con costo pendientes. Faltan confirmación real por pago, notificación y comprobante | 5 |
-| RF-26 | Demo | Cierre/reglas simulados no acreditan emisión real con asistencia, nota y pago | 6 |
-| RF-27 | Demo | Excepción necesita persistencia, motivo obligatorio y auditoría de administrador | 6 |
+| RF-26 | Parcial | HU-20 emite constancias presenciales gratuitas con 80 %; faltan nota, pago y otras modalidades | 6 |
+| RF-27 | Implementado | HU-20: excepción persistente con motivo, actor y fecha; documento de demostración | 6 |
 | RF-28 | Parcial | Historial descarga archivos almacenados con permisos; falta emisor oficial PDF/QR y firma autorizada del Decano | 6 |
-| RF-29 | Demo | Pantalla pública simulada; falta verificación contra certificados persistentes y anulaciones | 6 |
-| RF-30 | Demo | Falta anulación persistente con motivo y auditoría | 6 |
+| RF-29 | Implementado | HU-20: verificación pública persistente de válido, anulado o reemplazado, sin DNI ni nota | 6 |
+| RF-30 | Implementado | HU-20: anulación persistente con motivo y auditoría | 6 |
 | RF-31 | Parcial | Historial real de cursos, sesiones y archivos en `backend/src/modules/historial`; pagos requieren módulo real | 8 |
 | RF-32 | Pendiente | Falta definir y persistir cómputo de horas acumuladas válidas HU-34 | 8 |
 | RF-33 | Parcial | Listado restringido de colegiados en historial; faltan búsqueda por nombre/DNI y paginación en servidor | 8 |
@@ -87,7 +87,7 @@ brecha, incluso cuando ya existe una parte de una etapa posterior.
 | RNF-14 | Parcial | Zod, secretos externos y CORS limitado a FRONTEND_URL también en desarrollo; mantener validaciones en futuras entradas | Todas |
 | RNF-15 | Parcial | Historial/PDF ocultan DNI y restringen acceso; falta política del tratamiento y revisión institucional. No se declara cumplimiento legal integral | 2/6/8 |
 | RNF-16 | Implementado | QR firmado vence a los 30 s; una persona no registra dos asistencias a la misma sesión. El QR compartido sirve a distintos inscritos | 3 |
-| RNF-17 | Pendiente | La demostración no acredita un emisor de códigos aleatorios únicos persistentes | 6 |
+| RNF-17 | Implementado | HU-20: códigos criptográficos de 128 bits y unicidad en base | 6 |
 | RNF-18 | Pendiente | No hay integración real de pasarela; implementar sin recibir ni guardar datos de tarjeta | 5 |
 | RNF-19 | Parcial | Preparación Jitsi existente; servidor propio pendiente | 7 |
 | RNF-20 | Pendiente | Falta contrato de padrón y referencia externa; no copiar su información como otra fuente de verdad | 2 |
@@ -169,3 +169,12 @@ La recuperación automática por correo (RF-02), el padrón (HU-33) y cuentas ex
 La inscripción en línea distingue confirmación gratuita y reserva pendiente de
 pago, sin modificar estados históricos. Véase [HU-16](esp/inscripcionCurso.md).
 El padrón (HU-33) y el procesamiento/confirmación de pagos (HU-32) siguen pendientes.
+
+
+## HU-20
+
+El alcance Sprint 2 se implementa con [constancias de demostración persistentes](esp/certificados.md),
+QR verificable, privacidad, excepciones, anulación y corrección auditadas. El
+usuario autorizó firmas genéricas por el momento; no se emiten documentos oficiales.
+Se mantienen fuera del alcance los pagos, modalidades avanzadas y exámenes de
+los sprints posteriores.

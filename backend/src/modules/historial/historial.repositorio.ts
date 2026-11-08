@@ -41,8 +41,8 @@ export async function obtenerHistorial(actor: UsuarioAutenticado, usuarioId: str
       left join attendances a on a.class_id=s.id and a.user_id=u.id
       where (s.curso_id=any($2::bigint[]) or exists(select 1 from enrollments e where e.class_id=s.id and e.user_id=u.id))
       order by s.fecha,s.hora_inicio,s.id`, [usuarioId, cursos.map(c => c.id)])).rows;
-    const certificados = (await cliente.query<CertificadoHistorial>(`select id::text,curso_id::text as "cursoId",codigo,tipo,to_char(emitido_en at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') as "emitidoEn"
-      from certificados_curso where usuario_id=$1 and curso_id=any($2::bigint[]) order by emitido_en desc,id desc`, [usuarioId, cursos.map(c => c.id)])).rows;
+    const certificados = (await cliente.query<CertificadoHistorial>(`select id::text,curso_id::text as "cursoId",codigo,tipo,estado,to_char(emitido_en at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') as "emitidoEn"
+      from certificados_curso where usuario_id=$1 and curso_id=any($2::bigint[]) and estado<>'REEMPLAZADO' order by emitido_en desc,id desc`, [usuarioId, cursos.map(c => c.id)])).rows;
     const historial: Historial = { colegiado, generadoEn: new Date().toISOString(),
       cursos: cursos.map(curso => {
         const propias = sesiones.filter(s => s.cursoId === curso.id);
@@ -58,7 +58,7 @@ export async function descargarCertificado(actor: UsuarioAutenticado, usuarioId:
   const certificado = (await pool.query<{ archivo: Buffer }>(`select cert.archivo from certificados_curso cert
     join cursos c on c.id=cert.curso_id join users u on u.id=cert.usuario_id and u.organization_id=c.organization_id
     join users a on a.id=$3 and a.organization_id=u.organization_id
-    where cert.id=$1 and cert.usuario_id=$2 and (a.id=u.id or a.role='admin')`, [certificadoId, usuarioId, actor.id])).rows[0];
+    where cert.id=$1 and cert.usuario_id=$2 and cert.estado='VALIDO' and (a.id=u.id or a.role='admin')`, [certificadoId, usuarioId, actor.id])).rows[0];
   if (!certificado) throw new ErrorHistorial(404, 'El certificado no existe en este historial.');
   return certificado.archivo;
 }

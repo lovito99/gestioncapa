@@ -28,5 +28,6 @@ No se inventan credenciales, pagos, afiliados habilitados ni firmas.
 La URL sugerida capacitacion.cpppregion-cusco.com y el presupuesto de 5 USD
 son requisitos del documento, no un despliegue o una capacidad ya contratados.
 El documento no especifica API/esquema del padrón, pasarela, SMTP, acceso al
-servidor, firma autorizada ni reglas definitivas de HU-20. Estas dependencias
+servidor ni firma autorizada. Las reglas HU-20 v2 se recibieron y se documentan
+en [certificados](../docs/esp/certificados.md). Las integraciones y firmas
 se deben aportar antes de dar por completadas las etapas correspondientes.

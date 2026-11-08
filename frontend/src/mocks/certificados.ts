@@ -1,11 +1,12 @@
+import { pdfTextoDemo } from './pdfTexto'
 import { http, HttpResponse } from 'msw'
-import type { CertificadoPublico } from '@/servicios/certificados'
+import type { CertificadoDocumento } from '@/servicios/certificados'
 import { usuarios } from './datos'
 
 const API = import.meta.env.VITE_API_URL ?? '/api'
 
 /** Lo que guarda el backend además de los datos públicos: a qué curso y agremiado pertenece. */
-export type CertificadoGuardado = CertificadoPublico & {
+export type CertificadoGuardado = CertificadoDocumento & {
   cursoId?: string
   agremiadoId?: string
   porExcepcion?: boolean
@@ -97,10 +98,23 @@ export const handlersCertificados = [
     if (!certificado) {
       return error(404, 'CERTIFICADO_NO_EXISTE', 'No encontramos un certificado con ese código. Revisa que esté bien escrito.')
     }
-    // Solo los datos públicos: el motivo y los ids internos no salen en la verificación
-    const { cursoId: _c, agremiadoId: _a, porExcepcion: _p, motivo: _m, ...publico } = certificado
-    return HttpResponse.json(publico)
+    const { codigo: clave, estado, reemplazadoPor, tipo, nombre, curso, horasLectivas, emitidoEn } = certificado
+    return HttpResponse.json({ codigo: clave, estado, reemplazadoPor, tipo, nombre, curso, horasLectivas, emitidoEn, demo: true })
   }),
+
+  ...['documento', 'archivo'].map(accion => http.get(`${API}/certificados/:codigo/${accion}`, ({ request, params }) => {
+    const usuario = usuarios.find(u => request.headers.get('Authorization') === `Bearer demo-${u.id}`)
+    if (!usuario) return error(401, 'NO_AUTENTICADO', 'Inicia sesión para descargar tu certificado.')
+    const certificado = certificados.find(c => c.codigo === String(params.codigo).toUpperCase())
+    if (!certificado) return error(404, 'CERTIFICADO_NO_EXISTE', 'No encontramos ese certificado.')
+    const titular = certificado.agremiadoId ?? (certificado.codigo === 'DEMO-HU18-MARIA-SEGURIDAD' ? 'p-1' : null)
+    if (usuario.rol !== 'ADMIN' && usuario.id !== titular) return error(403, 'SIN_PERMISO', 'No tienes permiso para descargar este certificado.')
+    if (certificado.estado !== 'VALIDO') return error(409, 'CERTIFICADO_NO_VIGENTE', 'El certificado fue anulado o reemplazado.')
+    if (accion === 'documento') return HttpResponse.json({ ...certificado, demo: true })
+    return new HttpResponse(pdfTextoDemo('Constancia de demostración', ['DEMO - SIN VALIDEZ OFICIAL', certificado.nombre, certificado.curso, certificado.codigo]) as Uint8Array<ArrayBuffer>, {
+      headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="constancia-${certificado.codigo}.pdf"` },
+    })
+  })),
 
   // 2.5a · Anular: la verificación pública lo mostrará «Anulado»
   http.post(`${API}/certificados/:codigo/anular`, async ({ request, params }) => {
