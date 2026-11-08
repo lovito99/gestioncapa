@@ -41,9 +41,13 @@ export async function obtenerHistorial(actor: UsuarioAutenticado, usuarioId: str
       left join attendances a on a.class_id=s.id and a.user_id=u.id
       where (s.curso_id=any($2::bigint[]) or exists(select 1 from enrollments e where e.class_id=s.id and e.user_id=u.id))
       order by s.fecha,s.hora_inicio,s.id`, [usuarioId, cursos.map(c => c.id)])).rows;
-    const certificados = (await cliente.query<CertificadoHistorial>(`select id::text,curso_id::text as "cursoId",codigo,tipo,to_char(emitido_en at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') as "emitidoEn"
-      from certificados_curso where usuario_id=$1 and curso_id=any($2::bigint[]) order by emitido_en desc,id desc`, [usuarioId, cursos.map(c => c.id)])).rows;
-    const historial: Historial = { colegiado, generadoEn: new Date().toISOString(),
+    const certificados = (await cliente.query<CertificadoHistorial>(`select cert.id::text,cert.curso_id::text as "cursoId",cert.codigo,cert.tipo,cert.estado,
+      coalesce((cert.datos->>'horasLectivas')::integer,c.horas_lectivas) as "horasLectivas",
+      to_char(cert.emitido_en at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') as "emitidoEn"
+      from certificados_curso cert join cursos c on c.id=cert.curso_id
+      join users u on u.id=cert.usuario_id and u.organization_id=c.organization_id
+      where cert.usuario_id=$1 and cert.estado<>'REEMPLAZADO' order by cert.emitido_en desc,cert.id desc`, [usuarioId])).rows;
+    const historial: Historial = { colegiado, horasAcumuladas: resumirHoras(certificados), generadoEn: new Date().toISOString(),
       cursos: cursos.map(curso => {
         const propias = sesiones.filter(s => s.cursoId === curso.id);
         return { ...curso, sesiones: propias, asistencia: resumirAsistencia(propias), certificados: certificados.filter(c => c.cursoId === curso.id) };
