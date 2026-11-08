@@ -27,14 +27,14 @@ function historialDe(id: string): Historial {
     const indice = curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 0 : curso.titulo === 'Demo · Didáctica y evaluación' ? 1 : 2
     // Al cerrar un curso (2.4) sus certificados aparecen aquí con su estado real
     const emitidos = certificadosEmitidos.filter(c => c.cursoId === curso.id && c.agremiadoId === id && c.estado !== 'REEMPLAZADO')
-      .map(c => ({ id: `cert-${c.codigo}`, cursoId: curso.id, codigo: c.codigo, tipo: c.tipo, emitidoEn: c.emitidoEn, estado: c.estado }))
+      .map(c => ({ id: `cert-${c.codigo}`, cursoId: curso.id, codigo: c.codigo, tipo: c.tipo, emitidoEn: c.emitidoEn, horasLectivas: c.horasLectivas, estado: c.estado }))
     const terminado = curso.estado === 'CERRADO' || (id === 'p-1' && indice === 0)
     const sesiones: SesionHistorial[] = (indice > 1 ? [] : [0, 1]).map(n => ({ id: `hist-${curso.id}-${n}`, cursoId: curso.id,
       titulo: `Sesión ${n + 1} de ${curso.titulo}`, fecha: fecha(indice === 0 ? -15 + n : n === 0 ? -3 : 10).slice(0, 10), horaInicio: '08:00', horaFin: '09:00',
       estado: indice === 1 && n === 1 ? 'PENDIENTE' : (id === 'p-1' ? n === 0 : n === 1) ? 'PRESENTE' : 'AUSENTE', contabiliza: !(indice === 1 && n === 1), horaRegistro: null }))
     const guardado = estadosInscripcionDemo.get(`${curso.id}:${id}`)
     return { id: curso.id, titulo: curso.titulo, estado: terminado ? 'TERMINADO' as const : guardado ?? 'EN_CURSO' as const, horasLectivas: curso.horasLectivas, requisitoAsistencia: curso.requisitoAsistencia, pagoPendiente: guardado ? guardado === 'PENDIENTE_PAGO' : curso.costo > 0 && !terminado, modalidad: curso.modalidad, inscritoEn: fecha(-30), terminadoEn: terminado ? fecha(-10) : null,
-      sesiones, asistencia: resumen(sesiones), certificados: id === 'p-1' && indice === 0 ? [{ id: 'cert-demo-maria', cursoId: curso.id, codigo: 'DEMO-HU18-MARIA-SEGURIDAD', tipo: 'APROBACION' as const, emitidoEn: fecha(-9), estado: certificadosEmitidos.find(c => c.codigo === 'DEMO-HU18-MARIA-SEGURIDAD')?.estado ?? 'VALIDO' }] : emitidos }
+      sesiones, asistencia: resumen(sesiones), certificados: id === 'p-1' && indice === 0 ? [{ id: 'cert-demo-maria', cursoId: curso.id, codigo: 'DEMO-HU18-MARIA-SEGURIDAD', tipo: 'APROBACION' as const, emitidoEn: fecha(-9), horasLectivas: 24, estado: certificadosEmitidos.find(c => c.codigo === 'DEMO-HU18-MARIA-SEGURIDAD')?.estado ?? 'VALIDO' }] : emitidos }
   })
   const independientes: SesionHistorial[] = clases.filter(c => inscripciones[c.id]?.includes(id)).map(c => {
     const hora = asistencias[c.id]?.[id] ?? null
@@ -42,7 +42,16 @@ function historialDe(id: string): Historial {
     return { id: c.id, cursoId: null, titulo: c.nombre, fecha: c.fecha, horaInicio: c.horaInicio, horaFin: c.horaFin,
       estado: c.estado === 'CANCELADA' ? 'CANCELADA' : hora ? 'PRESENTE' : iniciada ? 'AUSENTE' : 'PENDIENTE', contabiliza: iniciada && c.estado !== 'CANCELADA', horaRegistro: hora }
   })
-  return { colegiado: { id, nombre: persona.nombre, dniEnmascarado: dni(id) }, generadoEn: fecha(0), cursos, sesionesIndependientes: independientes, asistenciaGeneral: resumen([...cursos.flatMap(c => c.sesiones), ...independientes]) }
+  const porAnio = new Map<string, number>()
+  const formatoAnio = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima', year: 'numeric' })
+  let total = 0
+  for (const cert of cursos.flatMap(c => c.certificados).filter(c => c.estado === 'VALIDO')) {
+    const anio = formatoAnio.format(new Date(cert.emitidoEn))
+    total += cert.horasLectivas
+    porAnio.set(anio, (porAnio.get(anio) ?? 0) + cert.horasLectivas)
+  }
+  const horasAcumuladas = { total, porAnio: [...porAnio].sort(([a], [b]) => b.localeCompare(a)).map(([anio, horas]) => ({ anio, horas })) }
+  return { horasAcumuladas, colegiado: { id, nombre: persona.nombre, dniEnmascarado: dni(id) }, generadoEn: fecha(0), cursos, sesionesIndependientes: independientes, asistenciaGeneral: resumen([...cursos.flatMap(c => c.sesiones), ...independientes]) }
 }
 const pdf = (bytes: Uint8Array, nombre: string) => new HttpResponse(bytes as Uint8Array<ArrayBuffer>, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${nombre}"`, 'Cache-Control': 'private, no-store' } })
 export const handlersHistorial = [
@@ -57,7 +66,7 @@ export const handlersHistorial = [
   http.get(`${API}/colegiados/:usuarioId/historial/pdf`, ({ request, params }) => {
     const auth = acceso(request, String(params.usuarioId)); if (auth.error) return auth.error
     const h = historialDe(auth.persona!.id)
-    const lineas = [`Colegiado: ${h.colegiado.nombre}`, `DNI: ${h.colegiado.dniEnmascarado ?? 'No registrado'}`, 'Resumen de demostración',
+    const lineas = [`Colegiado: ${h.colegiado.nombre}`, `DNI: ${h.colegiado.dniEnmascarado ?? 'No registrado'}`, 'Resumen de demostración', `Horas acumuladas: ${h.horasAcumuladas.total} horas (solo certificados válidos).`, ...h.horasAcumuladas.porAnio.map(a => `Año ${a.anio}: ${a.horas} horas`),
       ...h.cursos.flatMap(c => [c.titulo, { EN_CURSO: 'En curso', TERMINADO: 'Terminado', PENDIENTE_PAGO: 'Pendiente de pago' }[c.estado], `Asistencia: ${c.asistencia.porcentaje ?? '-'}%`, ...c.sesiones.map(s => `${s.fecha} | ${s.titulo} | ${s.estado}`), ...c.certificados.map(cert => `Certificado: ${cert.codigo}`)]),
       'Otras sesiones', ...h.sesionesIndependientes.map(s => `${s.fecha} | ${s.titulo} | ${s.estado}`)]
     return pdf(pdfTextoDemo('Historial de capacitación', lineas), 'historial-capacitacion.pdf')

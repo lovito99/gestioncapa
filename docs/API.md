@@ -162,3 +162,12 @@ los errores por campo usan `422 VALIDACION`. Consulta [el contrato completo](esp
 y `PENDIENTE_PAGO` para nuevas con costo; `TERMINADO` se conserva en las históricas.
 El detalle incluye `estadoInscripcion` y el historial `pagoPendiente`.
 Véase [HU-16](esp/inscripcionCurso.md) para cupos, concurrencia y compatibilidad.
+
+### HU-34 · Horas acumuladas
+
+El historial añade `horasAcumuladas: { total, porAnio: [{ anio, horas }] }` y
+`horasLectivas` por certificado. Solo suman los válidos, con las horas guardadas
+en el documento (o las del curso para certificados históricos sin instantánea).
+El año de emisión corresponde a `America/Lima`. El filtro anual se aplica en la
+interfaz; el PDF incluye el total y todos los años. Requiere HU-20.
+Ver [HU-34](esp/horasAcumuladas.md).

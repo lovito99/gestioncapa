@@ -130,3 +130,22 @@ test('HU-18: HEAD autorizado conserva los encabezados de descarga sin enviar el 
     }
   }
 });
+
+test('HU-34: horas del documento, año en Lima, anulación y total vacío', async () => {
+  assert.deepEqual((await pedir('vacio', ruta('vacio'))).json().horasAcumuladas, { total: 0, porAnio: [] });
+  const original = (await pool.query('select datos,emitido_en as "emitidoEn",estado from certificados_curso where id=$1', [certificadoId])).rows[0]!;
+  try {
+    await pool.query(`update certificados_curso set datos=$2,emitido_en='2026-01-01T04:59:59Z' where id=$1`, [certificadoId, { horasLectivas: 18 }]);
+    const h = (await pedir('maria', ruta())).json();
+    assert.deepEqual(h.horasAcumuladas, { total: 18, porAnio: [{ anio: '2025', horas: 18 }] });
+    const curso = h.cursos.find((c: { certificados: unknown[] }) => c.certificados.length);
+    assert.equal(curso.horasLectivas, 24);
+    assert.equal(curso.certificados[0].horasLectivas, 18);
+    assert.deepEqual((await pedir('admin', ruta())).json().horasAcumuladas, h.horasAcumuladas);
+    assert.match(extraerTexto((await pedir('maria', `${ruta()}/pdf`)).rawPayload), /Horas acumuladas: 18 horas/);
+    await pool.query("update certificados_curso set estado='ANULADO' where id=$1", [certificadoId]);
+    assert.deepEqual((await pedir('maria', ruta())).json().horasAcumuladas, { total: 0, porAnio: [] });
+  } finally {
+    await pool.query('update certificados_curso set datos=$2,emitido_en=$3,estado=$4 where id=$1', [certificadoId, original.datos, original.emitidoEn, original.estado]);
+  }
+});

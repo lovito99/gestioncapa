@@ -69,3 +69,12 @@ de esta entrega.
 - [ ] Migración 0012 y build en el entorno de entrega: ejecución manual.
 
 HU-33 y HU-32 quedan fuera de esta entrega.
+
+## HU-34 · Horas acumuladas
+
+- [x] Total y desglose anual de certificados válidos con horas de su documento.
+- [x] Exclusión de anulados/reemplazados, compatibilidad histórica y año en Lima.
+- [x] Todos los años por defecto, selector anual, cero horas y resumen PDF.
+- [x] Tipos, pruebas unitarias, integración y navegador verificados sobre HU-20.
+- [ ] Integrar sobre la rama con HU-20 y su migración 0013 en el entorno de entrega.
+- [ ] Build y entrega Git/PR manual del usuario.
