@@ -168,6 +168,7 @@ Roles del contrato: `ADMIN`, `INSTRUCTOR`, `AGREMIADO`; en la base: `admin`,
 `pagina`, `tamanoPagina` (máximo 50) y `buscar` por nombre/correo. Devuelve
 `{ items: [{ id, nombre, email, rol, activo }], total, pagina, tamanoPagina }`.
 
+<<<<<<< Updated upstream
 `POST /usuarios` crea una cuenta con `{ nombre, email, rol, activo, password,
 motivo }`; `PUT /usuarios/:id` actualiza los mismos campos sin `password`. El rol
 se envía en minúsculas. Ambos requieren motivo y registran actor y fecha en
@@ -177,3 +178,17 @@ administrativo ni desactivarla. Agremiados e instructores reciben 403.
 
 La lista de asistencia de sesión admite al administrador y al instructor
 asignado. El instructor ajeno recibe 403, incluso en sesiones sin curso.
+=======
+La emisión de constancias presenciales gratuitas, el PDF privado y la verificación
+pública tienen backend persistente. Véase [HU-20](esp/certificados.md).
+La consulta pública del código excluye DNI, nota y motivos. El documento completo
+y el archivo exigen titular o administrador de su organización.
+
+### HU-34 · Horas acumuladas
+
+El historial devuelve `horasAcumuladas: { total, porAnio: [{ anio, horas }] }` y
+`horasLectivas` por certificado. Solo suman los válidos, usando la instantánea del
+documento (o las horas del curso para certificados históricos sin instantánea).
+El año de emisión corresponde a `America/Lima`. El filtro anual se aplica en la
+interfaz; el PDF contiene el total y todos los años. Ver [HU-34](esp/horasAcumuladas.md).
+>>>>>>> Stashed changes

@@ -72,6 +72,7 @@ HU-33 y HU-32 quedan fuera de esta entrega.
 
 ## HU-35 · Roles y entidad única del CPPP
 
+<<<<<<< Updated upstream
 - [x] Roles administrador, instructor y agremiado en API, interfaz y demo.
 - [x] Migraciones nuevas de roles y retirada de multiorganización conservando relaciones.
 - [x] Instructor asignado consulta asistencia; otros instructores reciben 403.
@@ -79,3 +80,22 @@ HU-33 y HU-32 quedan fuera de esta entrega.
 - [x] Correos CPPP y sustitución de sesión/reunión de extintores.
 - [x] Tipos, 329 pruebas unitarias, 239 integraciones y recorridos reales de roles/usuarios verificados.
 - [ ] Respaldo/restauración, build, migración y Git/PR manuales en el entorno de entrega.
+=======
+## HU-20 (Sprint 2, demostración)
+
+- [x] Emisión presencial por 80 %, cierre transaccional y código estable.
+- [x] PDF con logo, DNI oculto, QR, fuentes locales y firmas genéricas identificadas.
+- [x] Verificación pública mínima; documento/archivo solo para titular o administrador.
+- [x] Excepción, anulación y corrección con actor, fecha y motivo auditados.
+- [x] Recorrido real a 360 px y contraste del QR renderizado en PDF.
+- [ ] Migración 0013 y build del entorno de entrega: ejecución manual.
+- [ ] Firmas auténticas y plantilla oficial; reglas de los sprints 3–5.
+
+## HU-34 · Horas acumuladas
+
+- [x] Total de certificados válidos con horas de la instantánea y compatibilidad histórica.
+- [x] Exclusión de anulados/reemplazados y desglose por año de emisión en Lima.
+- [x] Historial con todos los años por defecto, filtro anual y mensaje de cero horas.
+- [x] Resumen PDF con total y desglose anual; pruebas unitarias, API y navegador.
+- [ ] Build y entrega Git/PR manual del usuario.
+>>>>>>> Stashed changes
