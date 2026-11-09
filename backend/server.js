@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
@@ -7,6 +8,17 @@ try {
   const servidor = new URL("./dist/server.js", import.meta.url);
   if (!existsSync(servidor)) {
     throw new Error("Falta compilar el backend. Ejecuta npm run build -w backend desde la raíz antes de npm start.");
+  }
+
+  // Evita servir un dist antiguo que consulte columnas ya eliminadas por migraciones.
+  const fuentes = new URL("./src/", import.meta.url);
+  if (existsSync(fuentes)) {
+    const ultimaFecha = (carpeta, extension) => readdirSync(carpeta, { recursive: true, withFileTypes: true })
+      .filter((entrada) => entrada.isFile() && entrada.name.endsWith(extension))
+      .reduce((maxima, entrada) => Math.max(maxima, statSync(join(entrada.parentPath, entrada.name)).mtimeMs), 0);
+    if (ultimaFecha(fileURLToPath(fuentes), ".ts") > ultimaFecha(fileURLToPath(new URL("./dist/", import.meta.url)), ".js")) {
+      throw new Error("El backend compilado está desactualizado. Ejecuta npm run build -w backend desde la raíz antes de npm start.");
+    }
   }
 
   // Valida la configuración antes de arrancar Docker o abrir el puerto de la API.
