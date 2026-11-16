@@ -18,6 +18,8 @@ import { esApiError, mensajeDeError } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { fechaCorta, rangoHorario } from '@/lib/formato'
 import { CobroCursoFormulario, EditarCobroCurso } from './CobroCursoFormulario'
+import { ETIQUETA_MODALIDAD_SESION } from './formatoCurso'
+import { modalidadesCurso } from '@/servicios/modalidadCurso'
 import {
   CATEGORIAS_CURSO,
   CERTIFICADOS_CURSO,
@@ -37,7 +39,7 @@ const esquema = z
     titulo: z.string().trim().min(1, 'Ingresa el nombre del curso.').max(160),
     descripcion: z.string().trim().min(1, 'Ingresa la descripción del curso.').max(5000),
     categoria: z.string().min(1, 'Selecciona una categoría.'),
-    modalidad: z.enum(['PRESENCIAL', 'VIRTUAL', 'HIBRIDA'], { error: 'Selecciona la modalidad.' }),
+    modalidad: z.enum(modalidadesCurso, { error: 'Selecciona la modalidad.' }),
     instructorId: z.string().min(1, 'Selecciona un instructor.'),
     fechaInicio: z.string().min(1, 'Ingresa la fecha de inicio.'),
     fechaFin: z.string().min(1, 'Ingresa la fecha de fin.'),
@@ -121,6 +123,7 @@ function SesionesCurso({ curso }: { curso: DetalleCurso }) {
               <tr>
                 <th className="px-4 py-3 font-medium">Fecha</th>
                 <th className="px-4 py-3 font-medium">Horario</th>
+                <th className="px-4 py-3 font-medium">Modalidad</th>
                 <th className="px-4 py-3 font-medium">Lugar</th>
               </tr>
             </thead>
@@ -129,7 +132,8 @@ function SesionesCurso({ curso }: { curso: DetalleCurso }) {
                 <tr key={s.id}>
                   <td className="px-4 py-3 font-medium text-ink">{fechaSesion(s.fecha)}</td>
                   <td className="px-4 py-3 text-ink">{rangoHorario(s.horaInicio, s.horaFin)}</td>
-                  <td className="px-4 py-3 text-ink">{s.lugar}</td>
+                  <td className="px-4 py-3 text-ink">{ETIQUETA_MODALIDAD_SESION[s.modalidad]}</td>
+                  <td className="px-4 py-3 text-ink">{s.modalidad === 'VIRTUAL' ? 'Sala virtual' : s.lugar}</td>
                 </tr>
               ))}
             </tbody>
@@ -167,6 +171,8 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
     formState: { errors },
   } = useForm<Formulario>({ resolver: zodResolver(esquema), defaultValues: valoresDe(curso) })
   const [modalidadCobro, costo, plazoPagoMinutos] = useWatch({ control, name: ['modalidadCobro', 'costo', 'plazoPagoMinutos'] })
+  // HU-36: con sesiones programadas, la modalidad se calcula y no se elige a mano.
+  const modalidadCalculada = curso?.sesiones.some(sesion => sesion.estado === 'PROGRAMADA') ? curso.modalidad : null
 
   const guardar = useMutation({
     mutationFn: async ({ datos, publicar }: { datos: Formulario; publicar: boolean }) => {
@@ -278,6 +284,11 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
                 ))}
               </Selector>
             </Campo>
+            {modalidadCalculada ? (
+              <Campo etiqueta="Modalidad" ayuda="Se calcula por las sesiones programadas del curso.">
+                <p className="flex min-h-11 items-center font-medium text-ink">{MODALIDADES_CURSO[modalidadCalculada]}</p>
+              </Campo>
+            ) : (
             <Campo etiqueta="Modalidad" obligatorio error={errors.modalidad?.message}>
               <Selector estado={estado('modalidad')} {...register('modalidad')}>
                 <option value="" disabled>
@@ -290,6 +301,7 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
                 ))}
               </Selector>
             </Campo>
+            )}
           </div>
           <Campo etiqueta="Instructor asignado" obligatorio error={errors.instructorId?.message}>
             <Selector estado={estado('instructorId')} disabled={instructores.isPending || instructores.isError} {...register('instructorId')}>

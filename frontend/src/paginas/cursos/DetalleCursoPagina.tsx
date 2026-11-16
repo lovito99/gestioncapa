@@ -1,6 +1,6 @@
 import { SesionesCurso } from './SesionesCurso'
 import { FechasCurso } from './CursosPagina'
-import { condicionesCobro } from './formatoCurso'
+import { condicionesCobro, ETIQUETA_MODALIDAD } from './formatoCurso'
 import { PagoCurso } from './PagoCurso'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -41,7 +41,7 @@ export function DetalleCursoPagina() {
       <dl className="grid gap-3 py-3 text-sm sm:grid-cols-2">
         <div><dt className="font-semibold">Instructor</dt><dd>{curso.instructorNombre}</dd></div>
         <div><dt className="font-semibold">Horas lectivas</dt><dd>{curso.horasLectivas}</dd></div>
-        <div><dt className="font-semibold">Modalidad</dt><dd>{{ PRESENCIAL: 'Presencial', VIRTUAL: 'Virtual', HIBRIDA: 'Híbrida' }[curso.modalidad]}</dd></div>
+        <div><dt className="font-semibold">Modalidad</dt><dd>{ETIQUETA_MODALIDAD[curso.modalidad]}</dd></div>
         <div><dt className="font-semibold">Cobro</dt><dd>{condicionesCobro(curso)}</dd></div>
         <div><dt className="font-semibold">Cupos disponibles</dt><dd>{curso.cuposDisponibles === 0 ? 'Sin cupos' : curso.cuposDisponibles}</dd></div>
         <div><dt className="font-semibold">Categoría</dt><dd>{curso.categoria}</dd></div>

@@ -7,8 +7,11 @@ Las firmas son genéricas de demostración, por indicación expresa del usuario.
 
 ## Alcance y reglas
 
-- Solo se emiten automáticamente constancias de cursos **presenciales gratuitos**
-  de participación. Aprobación, grabados y programas siguen en sus sprints.
+- Solo se emiten automáticamente constancias de participación. Desde HU-36 valen los
+  cursos **presenciales, virtuales e híbridos**: la asistencia por QR en el aula y la
+  asistencia virtual de HU-26 cuentan igual para el 80 %. Los cursos **grabados** responden
+  409 `CURSO_GRABADO` hasta que existan sus lecciones en video (HU-37). Aprobación y
+  programas siguen en sus sprints.
 - El administrador cierra un curso publicado después del fin de todas sus sesiones
   no canceladas y dentro de los siete días siguientes a la última sesión.
 - Se requiere al menos el 80 % real: `presentes * 100 >= sesiones * 80`. No se

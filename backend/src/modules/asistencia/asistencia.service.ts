@@ -40,6 +40,8 @@ export async function marcarAsistencia(entrada: EntradaAsistencia, usuarioId: nu
     const clase = await obtenerClase(claseId, cliente);
     if (!clase) return rechazar(404, "CLASE_NO_EXISTE", "La clase no existe.");
     if (clase.estado === "CANCELADA") return rechazar(409, "CLASE_CANCELADA", "La clase está cancelada.");
+    // HU-36: en una sesión solo virtual la asistencia se toma en la sala, no con QR.
+    if (clase.modalidad === "VIRTUAL") return rechazar(409, "SESION_VIRTUAL", "Esta sesión es solo virtual: tu asistencia se registra al conectarte a la sala.");
     const cursoCerrado = await cliente.query(`select 1 from classes s join cursos c on c.id=s.curso_id where s.id=$1 and c.estado='CERRADO'`, [claseId]);
     if (cursoCerrado.rowCount) return rechazar(409, 'CURSO_CERRADO', 'El curso ya está cerrado y no admite nuevas asistencias.');
     if (!(await estaInscrito(claseId, usuarioId, cliente))) {

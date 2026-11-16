@@ -117,7 +117,11 @@ Si falla `POST /api/reuniones/:identificador/credencial`, distingue la respuesta
 
 Abre `/reuniones` con cualquier usuario autenticado. El administrador, o el
 instructor asignado a la sesión, crea la reunión indicando el identificador de la
-sesión, título y horario, y la configura con **Configurar sala** (HU-26). HTTP se admite únicamente para localhost en desarrollo; NODE_ENV=production exige HTTPS.
+sesión, título y horario, y la configura con **Configurar sala** (HU-26).
+Desde HU-36, programar una sesión virtual o «ambas» crea su reunión con el mismo
+horario; cambiarla a presencial o cancelarla cancela la reunión aún programada (una
+iniciada no se toca). Una sesión presencial no admite reunión: `POST /api/reuniones` → 409
+`SESION_PRESENCIAL`. El detalle del curso muestra el acceso a la sala a los inscritos. HTTP se admite únicamente para localhost en desarrollo; NODE_ENV=production exige HTTPS.
 Las fechas del formulario usan la zona de tu dispositivo y se
 envían con zona explícita. El instructor asignado o el gestor puede iniciarla.
 El participante inscrito entra mediante `/reuniones/:identificador`.

@@ -12,21 +12,22 @@ const LUZ = "luz.apaza@demo.cpppregion-cusco.com";
 const CARLOS = "carlos.mendoza@cpppregion-cusco.com";
 const LUCIA = "lucia.paredes@cpppregion-cusco.com";
 
+// Las clases con reunión demo se dictan en el aula y en la sala virtual (HU-36).
 const clasesDemo = [
   { nombre: "Demo · Seguridad y salud en el trabajo", instructor: CARLOS, dias: -1,
-    inicio: "10:00", fin: "11:00", lugar: "Auditorio principal, piso 2", cancelada: false,
+    inicio: "10:00", fin: "11:00", lugar: "Auditorio principal, piso 2", cancelada: false, modalidad: "PRESENCIAL",
     inscritos: [MARIA, LUZ], presentes: [MARIA] },
   { nombre: "Demo · Atención a la diversidad", instructor: LUCIA, dias: 1,
-    inicio: "15:00", fin: "16:30", lugar: "Sala de capacitación B", cancelada: false,
+    inicio: "15:00", fin: "16:30", lugar: "Sala de capacitación B", cancelada: false, modalidad: "AMBAS",
     inscritos: [MARIA, LUZ], presentes: [] },
   { nombre: "Demo · Primeros auxilios básicos", instructor: CARLOS, dias: 2,
-    inicio: "09:00", fin: "10:00", lugar: "Laboratorio 3", cancelada: false,
+    inicio: "09:00", fin: "10:00", lugar: "Laboratorio 3", cancelada: false, modalidad: "AMBAS",
     inscritos: [MARIA, LUZ], presentes: [] },
   { nombre: "Demo · Liderazgo pedagógico", instructor: LUCIA, dias: 3,
-    inicio: "16:00", fin: "17:00", lugar: "Sala de capacitación A", cancelada: true,
+    inicio: "16:00", fin: "17:00", lugar: "Sala de capacitación A", cancelada: true, modalidad: "PRESENCIAL",
     inscritos: [LUZ], presentes: [] },
   { nombre: "Demo · Estrategias de evaluación docente", instructor: CARLOS, dias: 4,
-    inicio: "15:00", fin: "16:30", lugar: "Patio central", cancelada: false,
+    inicio: "15:00", fin: "16:30", lugar: "Patio central", cancelada: false, modalidad: "AMBAS",
     inscritos: [MARIA, LUZ], presentes: [] }
 ];
 
@@ -79,11 +80,11 @@ export async function sembrarDatos(conexion: Pool = pool, configuracion: EnvSeed
             throw new Error(`No se puede sembrar «${datos.nombre}»: el instructor ya tiene una clase en ese horario.`);
           }
           const nueva = await cliente.query<{ id: string }>(
-            `insert into classes (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar, estado)
-             values ($1, $2, (now() at time zone 'America/Lima')::date + $3::int, $4, $5, $6, $7)
+            `insert into classes (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar, estado, modalidad)
+             values ($1, $2, (now() at time zone 'America/Lima')::date + $3::int, $4, $5, $6, $7, $8)
              returning id`,
             [datos.nombre, instructorId, datos.dias, datos.inicio, datos.fin, datos.lugar,
-              datos.cancelada ? "CANCELADA" : "PROGRAMADA"]
+              datos.cancelada ? "CANCELADA" : "PROGRAMADA", datos.modalidad]
           );
           claseId = nueva.rows[0]!.id;
         }

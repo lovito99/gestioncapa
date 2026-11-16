@@ -21,8 +21,12 @@ export async function cursoAdministrable(cliente: PoolClient, id: string, actor:
   return curso;
 }
 export function validarAlcance(curso: CursoEmision) {
-  if (curso.modalidad!=='PRESENCIAL' || curso.tipoCertificado!=='PARTICIPACION' || (curso.costo>0 && !curso.modalidadCobro)) {
-    throw new ErrorCertificado(409,'CERTIFICACION_FUERA_ALCANCE','La emisión requiere participación presencial sin examen y condiciones de cobro configuradas para los cursos con costo.');
+  // HU-36: la asistencia en aula (QR) y en la sala virtual (HU-26) cuentan igual para el 80 %.
+  if (curso.modalidad==='GRABADO') {
+    throw new ErrorCertificado(409,'CURSO_GRABADO','Los cursos grabados emitirán constancia cuando existan sus lecciones en video (HU-37).');
+  }
+  if (curso.tipoCertificado!=='PARTICIPACION' || (curso.costo>0 && !curso.modalidadCobro)) {
+    throw new ErrorCertificado(409,'CERTIFICACION_FUERA_ALCANCE','La emisión requiere participación sin examen y condiciones de cobro configuradas para los cursos con costo.');
   }
 }
 export async function filasCierre(cliente: PoolClient, cursoId: string): Promise<FilaCierre[]> {

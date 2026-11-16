@@ -23,7 +23,7 @@ describe("Característica: Programar clase presencial", () => {
 
     assert.deepEqual(resultado, {
       ok: true,
-      datos: { ...valida, nombre: "Primeros auxilios", lugar: "Sala A", instructorId: 3 }
+      datos: { ...valida, nombre: "Primeros auxilios", lugar: "Sala A", instructorId: 3, modalidad: "PRESENCIAL" }
     });
   });
 

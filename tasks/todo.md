@@ -786,3 +786,108 @@ en [SPEC.md](../SPEC.md); orden y riesgos en [plan.md](plan.md). Build y Git: ma
   Planning Poker; despliegue en el servidor del CPPP (HTTPS, UDP 10000/TURN, `--api=`);
   retención de `conexionesReunion` según Ley 29733; prueba de carga; confirmar si existe otro prototipo.
 - Commits: los prepara el usuario (AGENTS.md). Versión recomendada: `v3.1.0.0.0`.
+
+---
+
+# Tareas HU-36: Modalidad por sesión y cursos híbridos
+
+Estado: **implementado en local (16/11/2026); pendiente de revisión humana y build manual.** Criterios HU36-xx en
+[SPEC.md](../SPEC.md); orden y riesgos en [plan.md](plan.md). Build y Git: manuales.
+
+## Fase A: backend
+
+- [x] **T36-01 Migración y derivación** — HU36-03, 06
+  - Aceptación: `classes.modalidad` con check; relleno desde el curso; `GRABADO` y
+    `"modalidadPlanificada"` en cursos; ningún curso cambia de modalidad al migrar.
+  - Verificación: `backend/test/modalidadCurso.test.ts` (derivación) e integración de migración.
+  - Archivos: `migraciones/0033-modalidadSesion.sql`, `cursos/modalidadCurso.ts`, pruebas.
+- [x] **T36-02 Sesión desde el curso** — HU36-01, 02, 03
+  - Aceptación: modalidad obligatoria y validada; lugar según modalidad; el curso se recalcula.
+  - Verificación: `test/integracion/sesionesCurso.test.ts`.
+  - Archivos: `clases/clases.validacion.ts`, `cursos/sesiones.repositorio.ts`, `cursos/cursos.rutas.ts`, prueba.
+- [x] **T36-03 Sesión desde clases** — HU36-01, 02, 03
+  - Aceptación: `POST/PUT /api/clases` validan y guardan la modalidad; editar y cancelar recalculan el curso.
+  - Verificación: `test/integracion/clases.test.ts`.
+  - Archivos: `clases/clases.routes.ts`, `clases/clases.repositorio.ts`, prueba.
+- [x] **T36-04 Curso calculado y grabado** — HU36-04, 13
+  - Aceptación: con sesiones, la modalidad no se cambia a mano (422); `GRABADO` sin sesiones;
+    sesiones en grabado → 409 `CURSO_GRABADO`; pasar a grabado con sesiones → 409.
+  - Verificación: `test/integracion/cursos.test.ts`.
+  - Archivos: `cursos/cursos.validacion.ts`, `cursos/cursos.repositorio.ts`, `cursos/cursos.rutas.ts`, prueba.
+- [x] **T36-05 Detalle con modalidad y sala** — HU36-05, 08
+  - Aceptación: cada sesión trae `modalidad`; `reunion` solo para gestión, instructor o inscrito con acceso.
+  - Verificación: integración de cursos con tres actores.
+  - Archivos: `cursos/sesiones.repositorio.ts`, `cursos/cursos.repositorio.ts`, prueba.
+- [x] **T36-06 Sala automática** (pregunta 3) — HU36-07, 09
+  - Aceptación: sesión virtual o «ambas» crea su reunión con el mismo horario (una activa);
+    cancelar o pasar a presencial cancela la programada; reunión manual en presencial → 409.
+  - Verificación: `test/integracion/sesionesVirtuales.test.ts` o archivo nuevo de HU-36.
+  - Archivos: `reuniones/reuniones.repositorio.ts`, `reuniones/reuniones.rutas.ts`, rutas de sesiones, prueba.
+- [x] **T36-07 Asistencia por modalidad** (pregunta 4) — HU36-10, 11
+  - Aceptación: QR y marcado → 409 `SESION_VIRTUAL` en virtuales; en «ambas», QR y virtual; una asistencia.
+  - Verificación: `test/integracion/asistencia.test.ts` y `qr.test.ts`.
+  - Archivos: `asistencia/asistencia.service.ts`, `clases/clases.routes.ts`, pruebas.
+- [x] **T36-08 Certificados** (pregunta 5) — HU36-12, 15
+  - Aceptación: constancias en `VIRTUAL` e `HIBRIDA` con el 80 % de ambas vías; `GRABADO` → 409.
+  - Verificación: `test/integracion/certificados.test.ts`.
+  - Archivos: `certificados/certificados.repositorio.ts`, prueba.
+
+### Checkpoint A
+- [x] Unitarias, integración en base vacía y tipos del backend aprobados.
+- [ ] Revisión humana antes de la interfaz.
+
+## Fase B: interfaz y demo
+
+- [x] **T36-09 Sesiones en el detalle** — HU36-01, 02, 05, 08
+  - Aceptación: selector de modalidad; lugar oculto en virtual; lista con etiqueta, lugar o
+    acceso a la sala («Entrar a la sala» / «La sala se habilita al iniciar»).
+  - Verificación: `SesionesCurso.test.tsx` (nuevo).
+  - Archivos: `servicios/cursos.ts`, `paginas/cursos/SesionesCurso.tsx`, prueba.
+- [x] **T36-10 Formulario de clases** — HU36-01, 02
+  - Aceptación: modalidad en alta y edición; lugar condicional; errores del backend visibles.
+  - Verificación: Vitest del esquema del formulario.
+  - Archivos: `paginas/coordinador/ClaseFormPagina.tsx`, `servicios/clases.ts`, prueba.
+- [x] **T36-11 Curso, etiquetas y filtros** — HU36-04, 13, 14
+  - Aceptación: opción «Grabado»; modalidad calculada en lectura cuando hay sesiones; etiqueta
+    «Grabado» en catálogo, detalle, historial, certificados y filtros.
+  - Verificación: `formatoCurso.test.ts` y Vitest del formulario.
+  - Archivos: `CursoFormPagina.tsx`, `formatoCurso.ts`, `CursosPagina.tsx`, pruebas.
+- [x] **T36-12 Demo alineada** — HU36-01 a 15
+  - Aceptación: los mocks aplican las mismas reglas y derivación.
+  - Verificación: `mocks/sesionesCurso.test.ts`, `mocks/cursosDemo.test.ts`.
+  - Archivos: `mocks/cursos.ts`, `mocks/handlers.ts`, pruebas.
+
+### Checkpoint B
+- [x] Vitest, lint y tipos aprobados.
+- [ ] Revisión humana.
+
+## Cierre
+
+- [x] **T36-13 E2E**: curso con cuatro sesiones virtuales y una presencial → «Híbrido»; el colegiado
+  ve lugar en la presencial y acceso a sala en las virtuales (demo y real).
+- [x] **T36-14 Documentación**: `docs/API.md`, `docs/esp/cursos.md`, `docs/esp/certificados.md`,
+  `docs/reuniones.md`, matriz en `docs/enfoqueCppp.md`.
+- [x] **T36-15 Revisión y entrega**: simplificación, calidad, seguridad, DoD, lista de publicación,
+  Summary/Description por tarea y versión.
+- [ ] Build: ejecución manual por el usuario.
+
+## Fuera de alcance, registrado
+
+- [ ] HU-37: lecciones en video y certificado del curso grabado.
+- [ ] HU-39: cambios a la asistencia en aula más allá de la modalidad.
+- [ ] Confirmar con el CPPP el formato del híbrido (no bloquea el diseño).
+
+## Evidencia HU-36 (16/11/2026)
+
+- Pruebas: 346 unitarias backend (4 nuevas de modalidad), 342 de integración en base vacía
+  (8 nuevas en `modalidadSesion.test.ts`), 121 frontend (6 nuevas + 1 de la demo), 3 del
+  servidor web, 136 E2E demo y 37 E2E reales (1 nueva: curso híbrido 4 virtuales + 1 presencial).
+  Tipos backend/frontend/E2E aprobados; lint sin errores (2 avisos anteriores).
+- Cambios de contrato verificados en pruebas existentes: PRG-01 recibe `modalidad`; HU-20 ya no
+  rechaza cursos virtuales y rechaza el grabado; los fixtures de HU-26 y HU53-10 que abren sala
+  usan sesiones virtuales o «ambas».
+- Desviación de alcance: la E2E se hizo solo con backend real; la demo se cubrió con Vitest/MSW.
+- Pendientes: build manual; revisión humana; `PUT /api/cursos/:id` en el backend; `ClaseFormPagina`
+  con curso crea una clase suelta en el backend real (previo a HU-36); HU-37 (lecciones y
+  certificado del grabado); confirmar con el CPPP el híbrido y el cambio de la regla de constancias.
+- Versión recomendada: `v3.2.0.0.0` si HU-26 se publica antes como `v3.1.0.0.0`; si van juntas, `v3.1.0.0.0`.

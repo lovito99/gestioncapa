@@ -31,6 +31,8 @@ export interface RegistroEntrada {
 }
 
 export type EstadoClase = 'PROGRAMADA' | 'CANCELADA'
+/** HU-36: dónde se dicta la sesión. */
+export type ModalidadSesion = 'PRESENCIAL' | 'VIRTUAL' | 'AMBAS'
 
 export interface InstructorResumen {
   id: string
@@ -58,6 +60,8 @@ export interface Clase {
   /** `HH:mm`, hora de Lima */
   horaFin: string
   lugar: string
+  /** Ausente en respuestas anteriores a HU-36: se interpreta como presencial. */
+  modalidad?: ModalidadSesion
   inscritos: number
   estado: EstadoClase
 }
@@ -71,6 +75,7 @@ export interface ClaseEntrada {
   horaInicio: string
   horaFin: string
   lugar: string
+  modalidad: ModalidadSesion
 }
 
 export interface Participante {

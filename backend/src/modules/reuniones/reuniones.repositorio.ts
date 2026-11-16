@@ -1,3 +1,4 @@
+import { randomBytes, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { pool } from "../../shared/database.js";
 import type { UsuarioAutenticado } from "../../plugins/autorizacion.js";
@@ -110,4 +111,44 @@ export async function listarReuniones(usuario: UsuarioAutenticado) {
       where participante."reunionIdentificador" = reunion.identificador
       and participante."usuarioIdentificador" = persona.id and participante.estado = 'retirado')
     order by reunion."inicioProgramado" desc`, [usuario.id])).rows;
+}
+
+type DatosNuevaReunion = { claseIdentificador: string; titulo: string; inicioProgramado: Date | string; finProgramado: Date | string; creadorIdentificador: number | string };
+
+/** Crea la reunión con su anfitrión, los inscritos de la sesión y sus invitaciones pendientes. */
+export async function crearReunionDeClase(cliente: PoolClient, datos: DatosNuevaReunion) {
+  const identificador = randomUUID();
+  const reunion = (await cliente.query<Reunion>(`insert into reuniones
+    (identificador, "claseIdentificador", "nombreSala", titulo, "inicioProgramado", "finProgramado", "creadorIdentificador")
+    values ($1,$2,$3,$4,$5,$6,$7) returning *`, [identificador, datos.claseIdentificador, `reunion${randomBytes(24).toString("hex")}`,
+    datos.titulo, datos.inicioProgramado, datos.finProgramado, datos.creadorIdentificador])).rows[0]!;
+  await cliente.query(`insert into "participantesReunion" ("reunionIdentificador", "usuarioIdentificador", rol)
+    select $1, instructor_id, 'anfitrion' from classes where id = $2`, [identificador, datos.claseIdentificador]);
+  await cliente.query(`insert into "participantesReunion" ("reunionIdentificador", "usuarioIdentificador", rol)
+    select $1, user_id, 'participante' from enrollments where class_id = $2 on conflict do nothing`, [identificador, datos.claseIdentificador]);
+  await cliente.query(`insert into "notificacionesReunion" ("reunionIdentificador", "usuarioIdentificador", tipo)
+    select $1, "usuarioIdentificador", 'invitacion' from "participantesReunion" where "reunionIdentificador" = $1`, [identificador]);
+  return reunion;
+}
+
+/**
+ * HU-36: una sesión virtual o «ambas» tiene una sala programada con su mismo horario; si pasa a
+ * presencial o se cancela, la sala aún no iniciada se cancela. Una sala iniciada no se toca.
+ */
+export async function sincronizarSalaSesion(cliente: PoolClient, claseIdentificador: number | string, actorIdentificador: number) {
+  const clase = (await cliente.query<{ nombre: string; modalidad: string; estado: string; inicio: Date; fin: Date }>(`select nombre, modalidad, estado,
+      (fecha + hora_inicio) at time zone 'America/Lima' as inicio, (fecha + hora_fin) at time zone 'America/Lima' as fin
+    from classes where id = $1 for update`, [claseIdentificador])).rows[0];
+  if (!clase) return;
+  const activa = (await cliente.query<{ identificador: string; estado: string }>(`select identificador, estado from reuniones
+    where "claseIdentificador" = $1 and estado in ('programada','iniciada') order by "fechaCreacion" desc limit 1 for update`, [claseIdentificador])).rows[0];
+  const conSala = clase.estado === 'PROGRAMADA' && clase.modalidad !== 'PRESENCIAL';
+  if (conSala && !activa) {
+    await crearReunionDeClase(cliente, { claseIdentificador: String(claseIdentificador), titulo: clase.nombre, inicioProgramado: clase.inicio, finProgramado: clase.fin, creadorIdentificador: actorIdentificador });
+  } else if (conSala && activa?.estado === 'programada') {
+    await cliente.query(`update reuniones set titulo = $2, "inicioProgramado" = $3, "finProgramado" = $4 where identificador = $1`,
+      [activa.identificador, clase.nombre, clase.inicio, clase.fin]);
+  } else if (!conSala && activa?.estado === 'programada') {
+    await cliente.query(`update reuniones set estado = 'cancelada' where identificador = $1`, [activa.identificador]);
+  }
 }

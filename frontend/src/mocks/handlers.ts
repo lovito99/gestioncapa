@@ -100,7 +100,9 @@ function validar(entrada: Partial<ClaseEntrada>) {
   if (!entrada.fecha) fields.fecha = 'Ingresa la fecha de la clase'
   if (!entrada.horaInicio) fields.horaInicio = 'Ingresa la hora de inicio'
   if (!entrada.horaFin) fields.horaFin = 'Ingresa la hora de fin'
-  if (!entrada.lugar?.trim()) fields.lugar = 'Ingresa el lugar'
+  if (entrada.modalidad !== undefined && !['PRESENCIAL', 'VIRTUAL', 'AMBAS'].includes(entrada.modalidad)) fields.modalidad = 'Elige si la sesión es presencial, virtual o ambas'
+  // HU-36: solo la sesión virtual prescinde de un lugar físico.
+  if (entrada.modalidad !== 'VIRTUAL' && !entrada.lugar?.trim()) fields.lugar = 'Ingresa el lugar'
   return fields
 }
 
@@ -142,7 +144,8 @@ function guardar(entrada: ClaseEntrada, id?: string) {
     fecha: entrada.fecha,
     horaInicio: entrada.horaInicio,
     horaFin: entrada.horaFin,
-    lugar: entrada.lugar.trim(),
+    lugar: entrada.modalidad === 'VIRTUAL' && !entrada.lugar?.trim() ? 'Aula virtual' : entrada.lugar.trim(),
+    modalidad: entrada.modalidad ?? 'PRESENCIAL',
   }
   if (id) {
     const clase = clases.find((c) => c.id === id)
@@ -352,6 +355,7 @@ export const handlers = [
     if (!clase) return claseNoExiste()
     if (usuario.rol !== 'ADMIN' && clase.instructor.id !== usuario.id) return sinPermiso('Esta clase no está asignada a ti.')
     if (clase.estado === 'CANCELADA') return claseCancelada()
+    if (clase.modalidad === 'VIRTUAL') return error(409, { code: 'SESION_VIRTUAL', message: 'Esta sesión es solo virtual: la asistencia se registra en la sala virtual, no con QR.' })
     // El token cambia en cada "ventana" de 30 s, igual que lo haría el servidor real
     const ahora = Date.now()
     const ventana = Math.floor(ahora / (DURACION_QR * 1000))
@@ -414,6 +418,7 @@ export const handlers = [
     const clase = clases.find((c) => c.id === datos.claseId)
     if (!clase) return claseNoExiste()
     if (clase.estado === 'CANCELADA') return claseCancelada()
+    if (clase.modalidad === 'VIRTUAL') return error(409, { code: 'SESION_VIRTUAL', message: 'Esta sesión es solo virtual: tu asistencia se registra al conectarte a la sala.' })
     if (!inscripciones[clase.id]?.includes(usuario.id)) {
       return error(403, {
         code: 'NO_INSCRITO',

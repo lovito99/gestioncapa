@@ -1,9 +1,8 @@
-import { randomBytes, randomUUID } from "node:crypto";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { env } from "../../config/env.js";
 import { emitirCredencialJitsi } from "../jitsi/jitsi.servicio.js";
-import { comprobarAcceso, consultarAsistenciaVirtual, conTransaccion, listarReuniones, obtenerReunion, registrarAsistenciaVirtual, type Reunion } from "./reuniones.repositorio.js";
+import { comprobarAcceso, consultarAsistenciaVirtual, conTransaccion, crearReunionDeClase, listarReuniones, obtenerReunion, registrarAsistenciaVirtual, type Reunion } from "./reuniones.repositorio.js";
 import { datosReunion, editarReunion, identificadorReunion, politicasReunion, solicitudCredencial } from "./reuniones.validacion.js";
 import type { PoolClient } from "pg";
 
@@ -11,6 +10,7 @@ type SolicitudReunion = FastifyRequest<{ Params: { identificador: string; usuari
 type Acceso = NonNullable<Awaited<ReturnType<typeof comprobarAcceso>>>;
 const rutaBase = "/api/reuniones";
 const avisoPendiente = Symbol("avisoGrabacionPendiente");
+const sesionPresencial = Symbol("sesionPresencial");
 
 export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
   async function conReunion<T>(solicitud: SolicitudReunion, gestion: boolean,
@@ -31,25 +31,19 @@ export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
     const datos = datosReunion.parse(solicitud.body);
     const reunion = await conTransaccion(async cliente => {
       // El administrador crea para cualquier sesión; el instructor, solo para las que dicta.
-      const clase = (await cliente.query(`select clase.id, clase.instructor_id from classes clase
+      const clase = (await cliente.query(`select clase.id, clase.instructor_id, clase.modalidad from classes clase
         join users creador on creador.id = $2
         where clase.id = $1 and clase.estado = 'PROGRAMADA' and creador.active
         and (creador.role = 'admin' or (creador.role = 'instructor' and clase.instructor_id = creador.id)) for update of clase`, [datos.claseIdentificador, solicitud.usuario!.id])).rows[0];
       if (!clase) throw aplicacion.httpErrors.forbidden();
-      const identificador = randomUUID();
-      const nombreSala = `reunion${randomBytes(24).toString("hex")}`;
-      const resultado = await cliente.query<Reunion>(`insert into reuniones
-        (identificador, "claseIdentificador", "nombreSala", titulo, "inicioProgramado", "finProgramado", "creadorIdentificador")
-        values ($1,$2,$3,$4,$5,$6,$7) returning *`,
-        [identificador, datos.claseIdentificador, nombreSala, datos.titulo, datos.inicioProgramado, datos.finProgramado, solicitud.usuario!.id]);
-      await cliente.query(`insert into "participantesReunion" ("reunionIdentificador", "usuarioIdentificador", rol)
-        values ($1,$2,'anfitrion')`, [identificador, clase.instructor_id]);
-      await cliente.query(`insert into "participantesReunion" ("reunionIdentificador", "usuarioIdentificador", rol)
-        select $1, user_id, 'participante' from enrollments where class_id = $2 on conflict do nothing`, [identificador, datos.claseIdentificador]);
-      await cliente.query(`insert into "notificacionesReunion" ("reunionIdentificador", "usuarioIdentificador", tipo)
-        select $1, "usuarioIdentificador", 'invitacion' from "participantesReunion" where "reunionIdentificador" = $1`, [identificador]);
-      return resultado.rows[0];
+      // HU-36: la sala virtual corresponde a sesiones virtuales o «ambas».
+      if (clase.modalidad === 'PRESENCIAL') return sesionPresencial;
+      return crearReunionDeClase(cliente, { claseIdentificador: String(datos.claseIdentificador), titulo: datos.titulo,
+        inicioProgramado: datos.inicioProgramado, finProgramado: datos.finProgramado, creadorIdentificador: solicitud.usuario!.id });
     });
+    if (reunion === sesionPresencial) {
+      return respuesta.code(409).send({ code: "SESION_PRESENCIAL", message: "La sesión es presencial. Cámbiala a virtual o «ambas» para abrir su sala." });
+    }
     return respuesta.code(201).send(reunion);
   });
   aplicacion.get(`${rutaBase}/:identificador`, async (solicitud: SolicitudReunion) => conReunion(solicitud, false, async (cliente, reunion) => reunion));

@@ -84,7 +84,8 @@ test('HU-20: excepción auditada; corrección reemplaza y anulación conserva ve
 
 
 test('HU-20: no certifica modalidades/exámenes/pagos futuros ni cierra antes de acabar o fuera de siete días', async () => {
-  for (const [modalidad,tipo,costo,dias,esperado] of [['VIRTUAL','PARTICIPACION',0,-1,'CERTIFICACION_FUERA_ALCANCE'],['PRESENCIAL','APROBACION',0,-1,'CERTIFICACION_FUERA_ALCANCE'],['PRESENCIAL','PARTICIPACION',20,-1,'CERTIFICACION_FUERA_ALCANCE'],['PRESENCIAL','PARTICIPACION',0,1,'SESIONES_PENDIENTES'],['PRESENCIAL','PARTICIPACION',0,-9,'CIERRE_FUERA_PLAZO']] as const) {
+  // HU-36: los cursos virtuales e híbridos certifican; el grabado espera a HU-37.
+  for (const [modalidad,tipo,costo,dias,esperado] of [['GRABADO','PARTICIPACION',0,-1,'CURSO_GRABADO'],['PRESENCIAL','APROBACION',0,-1,'CERTIFICACION_FUERA_ALCANCE'],['PRESENCIAL','PARTICIPACION',20,-1,'CERTIFICACION_FUERA_ALCANCE'],['PRESENCIAL','PARTICIPACION',0,1,'SESIONES_PENDIENTES'],['PRESENCIAL','PARTICIPACION',0,-9,'CIERRE_FUERA_PLAZO']] as const) {
     const id=(await pool.query<{id:string}>("insert into cursos(creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado,estado)\n      values($1,$2,'Alcance HU20',8,$3,$4,5,$5,'PUBLICADO') returning id::text",[usuarios.get('admin')!.id, usuarios.get('docente')!.id, modalidad, costo, tipo])).rows[0]!.id;
     await pool.query("insert into classes(curso_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar) values($1,'Sesión límite',$2,(now() at time zone 'America/Lima')::date+$3::int,'01:00','02:00','Sala')",[id, usuarios.get('docente')!.id, dias]);
     const resultado=await pedir('admin','POST',`/api/cursos/${id}/cerrar`,{excepciones:[]});
