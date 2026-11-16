@@ -1,11 +1,15 @@
 import { z } from "zod";
 
+/** Políticas que el instructor guarda y la sala aplica al conectarse el moderador (HU-26). */
 export const politicasReunion = z.object({
   camaraPermitida: z.boolean(),
   microfonoPermitido: z.boolean(),
   pantallaPermitida: z.boolean(),
-  salaEsperaHabilitada: z.boolean()
+  manoPermitida: z.boolean(),
+  porcentajeMinimo: z.number().int().min(1).max(100),
+  grabacionPrevista: z.boolean()
 }).strict();
+export const solicitudCredencial = z.object({ aceptaGrabacion: z.boolean().optional() }).strict();
 const camposReunion = z.object({
   claseIdentificador: z.coerce.number().int().positive().safe(),
   titulo: z.string().trim().min(3).max(160),

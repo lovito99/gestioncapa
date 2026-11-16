@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { pool } from "../../shared/database.js";
 import type { UsuarioAutenticado } from "../../plugins/autorizacion.js";
+import { calcularAsistenciaVirtual } from "./asistenciaVirtual.js";
 
 export type Reunion = {
   identificador: string;
@@ -14,8 +15,53 @@ export type Reunion = {
   camaraPermitida: boolean;
   microfonoPermitido: boolean;
   pantallaPermitida: boolean;
+  /** En desuso desde HU-26: la sala de espera siempre está activa. */
   salaEsperaHabilitada: boolean;
+  manoPermitida: boolean;
+  porcentajeMinimo: number;
+  grabacionPrevista: boolean;
+  iniciadaEn: Date | null;
+  finalizadaEn: Date | null;
 };
+
+/**
+ * Cierra las conexiones abiertas y guarda la asistencia virtual de cada inscrito.
+ * Debe ejecutarse en la transacción que marca la reunión como finalizada.
+ */
+export async function registrarAsistenciaVirtual(cliente: PoolClient, reunion: Reunion, registradoPor: number) {
+  await cliente.query(`update "conexionesReunion" set "salidaEn" = greatest("entradaEn", $2::timestamptz)
+    where "reunionIdentificador" = $1 and "salidaEn" is null`, [reunion.identificador, reunion.finalizadaEn]);
+  const referencia = { inicio: (reunion.iniciadaEn ?? reunion.inicioProgramado).getTime() / 1000, fin: reunion.finalizadaEn!.getTime() / 1000 };
+  const inscritos = (await cliente.query<{ usuario: string; expulsado: boolean }>(`select inscripcion.user_id::text as usuario,
+      exists(select 1 from "participantesReunion" participante where participante."reunionIdentificador" = $1
+        and participante."usuarioIdentificador" = inscripcion.user_id and participante.estado = 'retirado') as expulsado
+    from enrollments inscripcion join classes clase on clase.id = inscripcion.class_id
+    where inscripcion.class_id = $2 and inscripcion.user_id <> clase.instructor_id`, [reunion.identificador, reunion.claseIdentificador])).rows;
+  const conexiones = (await cliente.query<{ usuario: string; inicio: number; fin: number }>(`select "usuarioIdentificador"::text as usuario,
+      extract(epoch from "entradaEn")::float8 as inicio, extract(epoch from "salidaEn")::float8 as fin
+    from "conexionesReunion" where "reunionIdentificador" = $1`, [reunion.identificador])).rows;
+  for (const { usuario, expulsado } of inscritos) {
+    const resultado = calcularAsistenciaVirtual(conexiones.filter(conexion => conexion.usuario === usuario), referencia, reunion.porcentajeMinimo);
+    // Quien fue expulsado no acredita asistencia de esa sesión aunque estuviera conectado.
+    const cuenta = resultado.cuenta && !expulsado;
+    await cliente.query(`insert into "asistenciaReunion" ("reunionIdentificador", "usuarioIdentificador", "segundosConectados", porcentaje, cuenta, expulsado)
+      values ($1,$2,$3,$4,$5,$6) on conflict do nothing`,
+    [reunion.identificador, usuario, Math.round(resultado.segundosConectados), resultado.porcentaje, cuenta, expulsado]);
+    if (!cuenta) continue;
+    // Una asistencia QR previa se conserva; los cursos cerrados no admiten asistencias nuevas.
+    await cliente.query(`insert into attendances (class_id, user_id, created_by, origen)
+      select clase.id, $2, $3, 'VIRTUAL' from classes clase left join cursos curso on curso.id = clase.curso_id
+      where clase.id = $1 and clase.estado = 'PROGRAMADA' and (curso.id is null or curso.estado <> 'CERRADO')
+      on conflict (class_id, user_id) do nothing`, [reunion.claseIdentificador, usuario, registradoPor]);
+  }
+}
+
+export async function consultarAsistenciaVirtual(cliente: PoolClient, reunionIdentificador: string) {
+  return (await cliente.query(`select resultado."usuarioIdentificador"::text as "usuarioIdentificador", persona.name as nombre,
+      resultado."segundosConectados", resultado.porcentaje::float8 as porcentaje, resultado.cuenta, resultado.expulsado
+    from "asistenciaReunion" resultado join users persona on persona.id = resultado."usuarioIdentificador"
+    where resultado."reunionIdentificador" = $1 order by persona.name, persona.id`, [reunionIdentificador])).rows;
+}
 
 export async function conTransaccion<T>(operacion: (cliente: PoolClient) => Promise<T>) {
   const cliente = await pool.connect();

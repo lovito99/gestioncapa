@@ -198,3 +198,109 @@ comercial y carga del procesador en despliegue, regularización histórica y gat
 manual de entrega. La terminación real, dos procesadores e intentos antiguos
 se verificaron localmente después de la primera regresión completa.
 No se marcan los checkpoints de revisión humana como si hubieran ocurrido.
+
+---
+
+# Plan HU-26: Sesiones virtuales seguras
+
+Estado: **aprobado e implementado en local el 16/11/2026**; la espiga cambió la aplicación
+de la pantalla al plan B (vigilante) y se usó una sola migración (0032). Especificación: sección HU-26 de
+[SPEC.md](../SPEC.md). Tareas y evidencia: sección HU-26 de [todo.md](todo.md).
+
+## Resumen
+
+Se completa el prototipo existente (`0f1aaef`: sala propia con lib-jitsi-meet) en tres
+módulos: `sala-segura`, `control-sala` y `asistencia-virtual`. Primero una espiga
+demuestra en el Jitsi local lo que el diseño da por supuesto; después, cortes verticales
+de backend, interfaz y verificación real. `difusion-masiva` y `sesion-ambas` quedan
+fuera y se registran como historias aparte.
+
+## Decisiones de arquitectura
+
+- **El servidor decide; la interfaz acompaña.** La pantalla y el micrófono se restringen
+  con la moderación audiovisual de Jitsi (`desktop`, `audio`), que valida Prosody/Jicofo.
+  Ocultar botones solo mejora la experiencia. La mano es la única restricción solo de UI.
+- **Sala de espera obligatoria** mediante `token_lobby_ondemand`: el token de colegiado
+  lleva `lobby: true`. También contiene el reingreso con un token ya emitido tras expulsar.
+- **Asistencia por eventos del servidor** (`event_sync` de Prosody hacia un webhook con
+  secreto propio), nunca por eventos del navegador. El cálculo es una función pura
+  y se ejecuta dentro de la transacción de finalizar.
+- **Migraciones nuevas por corte** (0032 sala segura, 0033 políticas y expulsión,
+  0034 asistencia); no se modifican las aplicadas. `attendances.origen` permite que la
+  asistencia virtual cuente para el 80 % sin cambiar `asistenciaCurso`.
+- **Sin dependencias nuevas** y sin modificar Jitsi: solo configuración en `preparar.mjs`.
+- **Git y build manuales** (AGENTS.md): el paso «haz un commit» de la solicitud se
+  cumple preparando Summary y Description por tarea para que el usuario confirme.
+
+## Grafo de dependencias
+
+```
+T26-01 espiga (puerta) ──┬── T26-03 config Jitsi ──┬── T26-05 credencial ── T26-06/07 sala de espera ── Checkpoint A
+T26-02 licencias         │                          │
+T26-04 cursos virtuales ─┘                          ├── T26-08 políticas ── T26-09 aplicar ── T26-10 expulsión ── Checkpoint B
+                                                    └── T26-11 cálculo ── T26-12 webhook ── T26-13 cierre ── T26-14 UI ── Checkpoint C
+                                                                                       T26-15 docs ── T26-16 revisión y entrega
+```
+
+Las fases B y C dependen de A pero no entre sí: pueden ir en paralelo, salvo las
+migraciones, que se numeran y aplican en orden.
+
+## Tareas ordenadas
+
+| Id | Tarea | Criterios | Tamaño |
+|---|---|---|---|
+| T26-01 | Espiga en Jitsi local: moderación `desktop` frente a un cliente manipulado, carga de módulos contrib en Docker, sala de espera por token, `event_sync` con `id` del JWT, expulsión por moderador y rechazo a no moderadores | Puerta de 07, 09, 10, 12 | M (solo docs) |
+| T26-02 | Registro de licencias de terceros y origen del prototipo | 05 | XS |
+| T26-03 | `preparar.mjs` idempotente (sala de espera, `event_sync`, sin Jibri) y `jitsiEventosSecreto` en el esquema de entorno | Base de 03, 12 | S |
+| T26-04 | Sesiones en cursos `VIRTUAL` y creación de reunión por el instructor asignado (si se aprueba la pregunta 6) | Habilitador | S |
+| T26-05 | Credencial con `lobby`, aviso de grabación aceptado y pruebas de acceso denegado | 01, 02, 04 | M |
+| T26-06 | Servicio de sala de espera: unirse, recibir solicitudes, admitir, rechazar, «Admitir inscritos» | 03 | S |
+| T26-07 | Interfaz: pantalla previa con aviso, estado en espera y panel del anfitrión | 03, 04 | M |
+| — | **Checkpoint A**: evidencia real con 2 Chromium + revisión humana | 01–05 | — |
+| T26-08 | Políticas persistentes y validadas (pantalla, micrófono, mano, porcentaje, grabación) | 06, 10 | S |
+| T26-09 | Aplicar políticas al conectar el moderador y antes de admitir; botones según permiso | 07, 08, 11 | M |
+| T26-10 | Expulsión: cerrar todas las conexiones, `retiradoEn`, «Expulsado» en la espera sin admitir | 09 | M |
+| — | **Checkpoint B**: evidencia real con cliente manipulado + revisión humana | 06–11 | — |
+| T26-11 | Función pura de unión de intervalos y porcentaje | 13 | XS |
+| T26-12 | Webhook `occupant/joined|left`: secreto, validación, idempotencia, `iniciadaEn` | 12 | M |
+| T26-13 | Finalizar: cerrar intervalos, calcular, registrar `VIRTUAL`, `GET .../asistencia` | 13, 14, 15 | M |
+| T26-14 | Interfaz: porcentaje mínimo en configuración y resultado de asistencia | 14, 15 | S |
+| — | **Checkpoint C**: evidencia real de eventos → asistencia → 80 % + revisión humana | 12–15 | — |
+| T26-15 | Documentación: `docs/reuniones.md`, `docs/API.md`, matriz RF-17/RF-18 | Todos | S |
+| T26-16 | Simplificación, revisión de calidad y seguridad, DoD y lista de publicación | Todos | S |
+
+## Forma de trabajo por tarea (después de aprobar)
+
+1. Escribir la prueba del criterio y comprobar que falla por la razón esperada.
+2. Implementar lo mínimo; ejecutar la prueba focalizada y luego la suite del workspace.
+3. `npm run typecheck`; `npm run lint -w frontend` si se tocó el frontend.
+4. Refactorizar solo lo tocado; anotar evidencia en `todo.md`.
+5. Entregar Summary y Description para que el usuario haga el commit. El build queda pendiente.
+
+Ante un fallo: reproducir, aislar y corregir la causa raíz antes de seguir (sin
+desactivar pruebas ni rebajar criterios).
+
+## Riesgos y mitigaciones
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Jicofo/JVB no impide publicar pantalla a quien se salta la UI | Alto | T26-01 lo comprueba primero; plan B: silenciado automático por el moderador (pregunta 7) y aviso al equipo |
+| Los módulos contrib no cargan en Docker sin montar archivos | Medio | Espiga; montarlos desde `prosody-plugins-custom` mediante `preparar.mjs`, sin modificarlos |
+| La identidad en la sala de espera no llega con el JWT | Medio | Espiga; si falta, se cruza con el `id` de la presencia y la lista de inscritos de la API, sin confiar en nombres |
+| Se pierden eventos y la asistencia queda incompleta | Medio | Reintentos de `event_sync`, cierre de intervalos al finalizar y resultado visible para revisión |
+| El webhook queda expuesto en Internet | Alto | Secreto propio, comparación en tiempo constante, solo red interna de Docker; documentar el proxy |
+| Sala de espera lenta con muchos inscritos | Medio | «Admitir inscritos» en bloque; ~1000 personas pertenece a `difusion-masiva` |
+| La historia creció y no cabe en el sprint | Alto | Dividir en HU-26a/b/c y re-estimar en Planning Poker; cada fase es publicable |
+| Instalaciones Jitsi previas sin los nuevos módulos | Medio | Modo de actualización explícito en `preparar.mjs` que conserva secretos y avisa del reinicio |
+
+## Versionado propuesto
+
+Base verificada: `v3.0.0.0.0` (ancestro de HEAD). Todas las fases añaden funcionalidad
+(nivel Función). Una sola entrega: `v3.1.0.0.0`. Si se publica por historias:
+HU-26a `v3.1.0.0.0`, HU-26b `v3.2.0.0.0`, HU-26c `v3.3.0.0.0`. Los commits intermedios
+no llevan etiqueta. El usuario crea commits, etiquetas y PR.
+
+## Preguntas abiertas
+
+Las siete de la sección «Preguntas abiertas» de HU-26 en [SPEC.md](../SPEC.md).
+T26-04 depende de la pregunta 6 y el plan B de T26-09 de la pregunta 7.

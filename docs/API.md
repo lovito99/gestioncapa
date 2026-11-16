@@ -308,3 +308,24 @@ repetido conserva los datos originales y rechaza cambios en importe/fecha.
 
 Operación, configuración, retención y publicación manual:
 [Pago por transferencia y efectivo](esp/pagosTransferenciaEfectivo.md).
+
+## HU-26 — Sesiones virtuales seguras
+
+Las rutas de reuniones existentes se describen en [reuniones.md](reuniones.md).
+Cambios y rutas nuevas:
+
+| Método/ruta | Actor | Resultado |
+| --- | --- | --- |
+| POST /api/reuniones | ADMIN o INSTRUCTOR asignado a la sesión | 201. Otro instructor o colegiado: 403. La pantalla queda restringida por defecto y el mínimo de asistencia en 70 % |
+| PATCH /api/reuniones/:id/politicas | ADMIN o INSTRUCTOR asignado | `{camaraPermitida,microfonoPermitido,pantallaPermitida,manoPermitida,porcentajeMinimo:1..100,grabacionPrevista}` estricto; 200 con la reunión. 409 si está cancelada o finalizada, o si cambia `grabacionPrevista` después de iniciar. Deja de responder 422 a las restricciones |
+| POST /api/reuniones/:id/credencial | Instructor, ADMIN o inscrito con acceso | Cuerpo opcional `{aceptaGrabacion?:boolean}`. El token del colegiado lleva `context.user.lobby=true` (sala de espera). Con grabación prevista, 422 `AVISO_GRABACION_PENDIENTE` hasta aceptar; la aceptación se registra con fecha |
+| POST /api/reuniones/:id/participantes/:usuario/retirar | ADMIN o INSTRUCTOR asignado | 200 `{accesoRevocado:true}`; registra `retiradoEn`. La sala del moderador cierra las conexiones activas |
+| POST /api/reuniones/:id/finalizar | ADMIN o INSTRUCTOR asignado | Fija `finalizadaEn`, cierra conexiones abiertas y registra la asistencia virtual en la misma transacción |
+| GET /api/reuniones/:id/asistencia | ADMIN o INSTRUCTOR asignado | 409 antes de finalizar. 200 `{porcentajeMinimo,iniciadaEn,finalizadaEn,resultados:[{usuarioIdentificador,nombre,segundosConectados,porcentaje,cuenta,expulsado}]}` |
+| POST /api/jitsi/events/occupant/joined, /occupant/left, /room/created, /room/destroyed | Prosody (`event_sync`), sin sesión de usuario | `Authorization: Bearer <jitsiEventosSecreto>`; 401 si no coincide, 503 sin secreto configurado, 422 con cuerpo inválido. Cuerpo máximo 16 KiB. Idempotente por reunión y `occupant_jid`; ignora salas desconocidas o no iniciadas |
+
+`GET /api/reuniones/:id` añade `manoPermitida`, `porcentajeMinimo`,
+`grabacionPrevista`, `iniciadaEn` y `finalizadaEn`. Una asistencia virtual que alcanza
+el mínimo se guarda en `attendances` con `origen='VIRTUAL'` y cuenta para el 80 %
+del certificado; una asistencia QR previa se conserva. Detalle y evidencia:
+[sesiones virtuales seguras](esp/sesionesVirtuales.md).

@@ -95,8 +95,19 @@ describe("Característica: Configuración validada al arrancar", () => {
   });
 });
 
+test('HU-26: Jitsi habilitado exige un secreto de eventos propio y distinto', () => {
+  const configuracion = { ...entornoValido, jitsiHabilitado: 'true', jitsiDominio: 'localhost', jitsiDireccion: 'http://localhost:8000', jitsiAplicacion: 'gestioncapa', jitsiSecreto: 'secretoExclusivoJitsiMasDe32Caracteres123', jitsiEventosSecreto: 'secretoEventosJitsiDistintoMasDe32Caracteres' };
+  assert.equal(parseEnv(configuracion).jitsiEventosSecreto, configuracion.jitsiEventosSecreto);
+  assert.match(errorDe({ ...configuracion, jitsiEventosSecreto: undefined }).message, /jitsiEventosSecreto/);
+  assert.match(errorDe({ ...configuracion, jitsiEventosSecreto: 'corto' }).message, /jitsiEventosSecreto/);
+  for (const repetido of [configuracion.jitsiSecreto, entornoValido.JWT_SECRET, entornoValido.QR_SECRET]) {
+    assert.match(errorDe({ ...configuracion, jitsiEventosSecreto: repetido }).message, /jitsiEventosSecreto.*distinto/);
+  }
+  assert.equal(parseEnv({ ...entornoValido, jitsiHabilitado: 'false' }).jitsiEventosSecreto, undefined);
+});
+
 test('Jitsi admite HTTP local en desarrollo y exige HTTPS en producción', () => {
-  const configuracion = { ...entornoValido, jitsiHabilitado: 'true', jitsiDominio: 'localhost', jitsiDireccion: 'http://localhost:8000', jitsiAplicacion: 'gestioncapa', jitsiSecreto: 'secretoExclusivoJitsiMasDe32Caracteres123' };
+  const configuracion = { ...entornoValido, jitsiHabilitado: 'true', jitsiDominio: 'localhost', jitsiDireccion: 'http://localhost:8000', jitsiAplicacion: 'gestioncapa', jitsiSecreto: 'secretoExclusivoJitsiMasDe32Caracteres123', jitsiEventosSecreto: 'secretoEventosJitsiDistintoMasDe32Caracteres' };
   assert.equal(parseEnv(configuracion).jitsiDireccion, 'http://localhost:8000');
   assert.match(errorDe({ ...configuracion, NODE_ENV: 'production' }).message, /producción requiere HTTPS/);
   assert.match(errorDe({ ...configuracion, jitsiDominio: 'meet.empresa.pe', jitsiDireccion: 'http://meet.empresa.pe' }).message, /debe usar HTTPS/);

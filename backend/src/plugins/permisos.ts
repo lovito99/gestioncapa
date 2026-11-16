@@ -55,7 +55,11 @@ export const permisos: Permiso[] = [
   { metodo: "POST", ruta: "/api/cursos/:id/modulos/:moduloId/materiales", acceso: ["INSTRUCTOR"], critica: true },
   { metodo: "GET", ruta: "/api/cursos/:id/modulos/:moduloId/materiales/:materialId/archivo", acceso: "autenticado" },
   { metodo: "GET", ruta: "/api/reuniones", acceso: "autenticado" },
-  { metodo: "POST", ruta: "/api/reuniones", acceso: rolesGestionClases, critica: true },
+  // HU-26: el instructor crea la reunión de las sesiones que dicta; la ruta comprueba la asignación.
+  { metodo: "POST", ruta: "/api/reuniones", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
+  { metodo: "GET", ruta: "/api/reuniones/:identificador/asistencia", acceso: ["ADMIN", "INSTRUCTOR"] },
+  // Webhook de Prosody: sin sesión de usuario, autenticado con jitsiEventosSecreto en la ruta.
+  ...["occupant/joined", "occupant/left", "room/created", "room/destroyed"].map(evento => ({ metodo: "POST" as const, ruta: `/api/jitsi/events/${evento}`, acceso: "publico" as const, critica: true })),
   { metodo: "GET", ruta: "/api/reuniones/:identificador", acceso: "autenticado" },
   { metodo: "PATCH", ruta: "/api/reuniones/:identificador", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
   ...["iniciar", "cancelar", "finalizar", "credencial"].map(accion => ({ metodo: "POST" as const, ruta: `/api/reuniones/:identificador/${accion}`, acceso: (accion === "credencial" ? "autenticado" : ["ADMIN", "INSTRUCTOR"]) as Permiso["acceso"], critica: true })),

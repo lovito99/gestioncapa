@@ -272,7 +272,6 @@ export const handlersCursos = [
     const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
     const curso = auth.curso!
     if (curso.estado === 'CERRADO') return error(409, 'El curso ya está cerrado.', 'CURSO_CERRADO')
-    if (curso.modalidad === 'VIRTUAL') return error(409, 'Las sesiones presenciales requieren un curso presencial o híbrido.', 'MODALIDAD_NO_PRESENCIAL')
     const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
       const d = new Date(`${v}T00:00:00Z`)
       return !v.startsWith('0000-') && Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === v

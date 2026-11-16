@@ -30,11 +30,11 @@ export function SesionesCurso({ curso, administrador, participante }: { curso: D
   }
   return <section aria-labelledby="sesiones-titulo" className="space-y-4 rounded-xl border border-line bg-white p-4 sm:p-5">
     <h2 id="sesiones-titulo" className="text-xl font-semibold">Sesiones del curso</h2>
-    {curso.modalidad !== 'VIRTUAL' && <div className="space-y-1 rounded-lg bg-brand-soft p-3">
+    <div className="space-y-1 rounded-lg bg-brand-soft p-3">
       <p className="font-semibold">Requisito para obtener la constancia</p>
-      <p>Asistencia mínima del {curso.requisitoAsistencia} % de las sesiones presenciales. Las sesiones canceladas no cuentan.</p>
+      <p>Asistencia mínima del {curso.requisitoAsistencia} % de las sesiones. En el aula virtual, la asistencia cuenta si estuviste conectado el tiempo mínimo que fija el instructor. Las sesiones canceladas no cuentan.</p>
       {curso.tipoCertificado === 'APROBACION' && <p>Para obtener el certificado de aprobación también necesitas una nota mínima de {curso.notaMinima}.</p>}
-    </div>}
+    </div>
     {curso.sesiones.length === 0 ? <p>Aún no hay sesiones programadas.</p> : <ul className="space-y-3">{curso.sesiones.map(sesion => <li key={sesion.id} className="rounded-lg border border-line p-3">
       <p className="font-semibold">{sesion.nombre}</p>
       <p><time dateTime={sesion.fecha}>{sesion.fecha.split('-').reverse().join('/')}</time> · {sesion.horaInicio}–{sesion.horaFin} (hora de Lima)</p>

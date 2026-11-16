@@ -3,16 +3,18 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { env } from "../../config/env.js";
 import { emitirCredencialJitsi } from "../jitsi/jitsi.servicio.js";
-import { comprobarAcceso, conTransaccion, listarReuniones, obtenerReunion, type Reunion } from "./reuniones.repositorio.js";
-import { datosReunion, editarReunion, identificadorReunion, politicasReunion } from "./reuniones.validacion.js";
+import { comprobarAcceso, consultarAsistenciaVirtual, conTransaccion, listarReuniones, obtenerReunion, registrarAsistenciaVirtual, type Reunion } from "./reuniones.repositorio.js";
+import { datosReunion, editarReunion, identificadorReunion, politicasReunion, solicitudCredencial } from "./reuniones.validacion.js";
 import type { PoolClient } from "pg";
 
 type SolicitudReunion = FastifyRequest<{ Params: { identificador: string; usuarioIdentificador?: string } }>;
+type Acceso = NonNullable<Awaited<ReturnType<typeof comprobarAcceso>>>;
 const rutaBase = "/api/reuniones";
+const avisoPendiente = Symbol("avisoGrabacionPendiente");
 
 export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
-  async function conReunion(solicitud: SolicitudReunion, gestion: boolean,
-    operacion: (cliente: PoolClient, reunion: Reunion) => Promise<unknown>) {
+  async function conReunion<T>(solicitud: SolicitudReunion, gestion: boolean,
+    operacion: (cliente: PoolClient, reunion: Reunion, acceso: Acceso) => Promise<T>) {
     const identificador = identificadorReunion.parse(solicitud.params.identificador);
     return conTransaccion(async cliente => {
       const reunion = await obtenerReunion(cliente, identificador);
@@ -20,7 +22,7 @@ export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
       const acceso = await comprobarAcceso(cliente, reunion, solicitud.usuario!);
       if (!acceso || acceso.retirado || !(acceso.gestion || acceso.instructor || acceso.inscrito)) throw aplicacion.httpErrors.forbidden();
       if (gestion && !(acceso.gestion || acceso.instructor)) throw aplicacion.httpErrors.forbidden();
-      return operacion(cliente, reunion);
+      return operacion(cliente, reunion, acceso);
     });
   }
 
@@ -28,10 +30,11 @@ export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
   aplicacion.post(rutaBase, async (solicitud, respuesta) => {
     const datos = datosReunion.parse(solicitud.body);
     const reunion = await conTransaccion(async cliente => {
+      // El administrador crea para cualquier sesión; el instructor, solo para las que dicta.
       const clase = (await cliente.query(`select clase.id, clase.instructor_id from classes clase
         join users creador on creador.id = $2
         where clase.id = $1 and clase.estado = 'PROGRAMADA' and creador.active
-        and creador.role in ('admin') for update of clase`, [datos.claseIdentificador, solicitud.usuario!.id])).rows[0];
+        and (creador.role = 'admin' or (creador.role = 'instructor' and clase.instructor_id = creador.id)) for update of clase`, [datos.claseIdentificador, solicitud.usuario!.id])).rows[0];
       if (!clase) throw aplicacion.httpErrors.forbidden();
       const identificador = randomUUID();
       const nombreSala = `reunion${randomBytes(24).toString("hex")}`;
@@ -65,18 +68,26 @@ export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
         if (reunion.estado === 'cancelada' || reunion.estado === 'finalizada' || (destino === 'finalizada' && reunion.estado !== 'iniciada')) {
           throw aplicacion.httpErrors.conflict();
         }
-        return (await cliente.query('update reuniones set estado=$2 where identificador=$1 returning *', [reunion.identificador, destino])).rows[0];
+        // iniciadaEn y finalizadaEn delimitan la duración de referencia de la asistencia virtual.
+        const actualizada = (await cliente.query<Reunion>(`update reuniones set estado=$2,
+          "iniciadaEn" = case when $2 = 'iniciada' then coalesce("iniciadaEn", now()) else "iniciadaEn" end,
+          "finalizadaEn" = case when $2 = 'finalizada' then now() else "finalizadaEn" end
+          where identificador=$1 returning *`, [reunion.identificador, destino])).rows[0]!;
+        if (destino === 'finalizada') await registrarAsistenciaVirtual(cliente, actualizada, solicitud.usuario!.id);
+        return actualizada;
       }));
   }
   aplicacion.patch(`${rutaBase}/:identificador/politicas`, async (solicitud: SolicitudReunion) => {
     const politicas = politicasReunion.parse(solicitud.body);
-    // No prometemos restricciones audiovisuales que el servidor aún no aplica.
-    if (!politicas.camaraPermitida || !politicas.microfonoPermitido || !politicas.pantallaPermitida || politicas.salaEsperaHabilitada) {
-      throw aplicacion.httpErrors.unprocessableEntity("Estas restricciones requieren una integración de moderación verificada en Jitsi.");
-    }
-    return conReunion(solicitud, true, async (cliente, reunion) => (await cliente.query(`update reuniones set
-      "camaraPermitida"=$2, "microfonoPermitido"=$3, "pantallaPermitida"=$4, "salaEsperaHabilitada"=$5 where identificador=$1 returning *`,
-      [reunion.identificador, politicas.camaraPermitida, politicas.microfonoPermitido, politicas.pantallaPermitida, politicas.salaEsperaHabilitada])).rows[0]);
+    return conReunion(solicitud, true, async (cliente, reunion) => {
+      if (reunion.estado === 'cancelada' || reunion.estado === 'finalizada') throw aplicacion.httpErrors.conflict();
+      // Quien ya entró no vio un aviso de grabación: solo se decide antes de iniciar.
+      if (politicas.grabacionPrevista !== reunion.grabacionPrevista && reunion.estado !== 'programada') throw aplicacion.httpErrors.conflict();
+      return (await cliente.query(`update reuniones set "camaraPermitida"=$2, "microfonoPermitido"=$3, "pantallaPermitida"=$4,
+        "manoPermitida"=$5, "porcentajeMinimo"=$6, "grabacionPrevista"=$7 where identificador=$1 returning *`,
+      [reunion.identificador, politicas.camaraPermitida, politicas.microfonoPermitido, politicas.pantallaPermitida,
+        politicas.manoPermitida, politicas.porcentajeMinimo, politicas.grabacionPrevista])).rows[0];
+    });
   });
   aplicacion.get(`${rutaBase}/:identificador/participantes`, async (solicitud: SolicitudReunion) => conReunion(solicitud, true, async (cliente, reunion) =>
     (await cliente.query(`select persona.id as identificador, persona.name as nombre, persona.email as correo,
@@ -89,31 +100,51 @@ export async function registrarRutasReuniones(aplicacion: FastifyInstance) {
   aplicacion.post(`${rutaBase}/:identificador/participantes/:usuarioIdentificador/retirar`, async (solicitud: SolicitudReunion) => {
     const usuarioIdentificador = z.coerce.number().int().positive().safe().parse(solicitud.params.usuarioIdentificador);
     return conReunion(solicitud, true, async (cliente, reunion) => {
-      // Revoca futuras credenciales. La desconexión audiovisual requiere el moderador Jitsi.
+      // Revoca credenciales futuras. El moderador expulsa las conexiones activas desde la sala.
       const participante = (await cliente.query(`select persona.id from users persona join classes clase
         on true where clase.id=$1 and persona.id=$2
         and persona.id <> clase.instructor_id and exists(select 1 from enrollments where class_id=clase.id and user_id=persona.id)`,
         [reunion.claseIdentificador, usuarioIdentificador])).rows[0];
       if (!participante) throw aplicacion.httpErrors.notFound();
-      await cliente.query(`insert into "participantesReunion" ("reunionIdentificador", "usuarioIdentificador", rol, estado)
-        values ($1,$2,'participante','retirado') on conflict ("reunionIdentificador", "usuarioIdentificador") do update set estado='retirado'`,
+      await cliente.query(`insert into "participantesReunion" ("reunionIdentificador", "usuarioIdentificador", rol, estado, "retiradoEn")
+        values ($1,$2,'participante','retirado',now()) on conflict ("reunionIdentificador", "usuarioIdentificador")
+        do update set estado='retirado', "retiradoEn"=coalesce("participantesReunion"."retiradoEn", now())`,
         [reunion.identificador, usuarioIdentificador]);
-      return { accesoRevocado: true, desconexionAudiovisual: false };
+      return { accesoRevocado: true };
     });
   });
+  aplicacion.get(`${rutaBase}/:identificador/asistencia`, async (solicitud: SolicitudReunion) => conReunion(solicitud, true, async (cliente, reunion) => {
+    if (reunion.estado !== 'finalizada') throw aplicacion.httpErrors.conflict();
+    return { reunionIdentificador: reunion.identificador, porcentajeMinimo: reunion.porcentajeMinimo,
+      iniciadaEn: reunion.iniciadaEn, finalizadaEn: reunion.finalizadaEn, resultados: await consultarAsistenciaVirtual(cliente, reunion.identificador) };
+  }));
   aplicacion.post(`${rutaBase}/:identificador/credencial`, async (solicitud: SolicitudReunion, respuesta) => {
     respuesta.header("Cache-Control", "no-store");
-    return conReunion(solicitud, false, async (cliente, reunion) => {
-      const acceso = await comprobarAcceso(cliente, reunion, solicitud.usuario!);
+    const { aceptaGrabacion } = solicitudCredencial.parse(solicitud.body ?? {});
+    const resultado = await conReunion(solicitud, false, async (cliente, reunion, acceso) => {
       // El anfitrión cierra el acceso al finalizar; el horario previsto puede superarse.
-      if (!acceso?.activa || reunion.estado !== 'iniciada') {
+      if (!acceso.activa || reunion.estado !== 'iniciada') {
         throw aplicacion.httpErrors.conflict();
       }
       if (!env.jitsiHabilitado) throw aplicacion.httpErrors.serviceUnavailable();
       const usuario = solicitud.usuario!;
+      const moderador = acceso.gestion || acceso.instructor;
+      if (reunion.grabacionPrevista && !moderador) {
+        // Ley 29733: el aviso se acepta antes de entrar y queda registrado con fecha.
+        const aceptado = (await cliente.query(`select "avisoGrabacionAceptadoEn" from "participantesReunion"
+          where "reunionIdentificador"=$1 and "usuarioIdentificador"=$2`, [reunion.identificador, usuario.id])).rows[0]?.avisoGrabacionAceptadoEn;
+        if (!aceptado && aceptaGrabacion !== true) return avisoPendiente;
+        if (!aceptado) await cliente.query(`insert into "participantesReunion" ("reunionIdentificador", "usuarioIdentificador", rol, "avisoGrabacionAceptadoEn")
+          values ($1,$2,'participante',now()) on conflict ("reunionIdentificador", "usuarioIdentificador")
+          do update set "avisoGrabacionAceptadoEn"=coalesce("participantesReunion"."avisoGrabacionAceptadoEn", now())`, [reunion.identificador, usuario.id]);
+      }
       const token = await emitirCredencialJitsi({ jitsiDominio: env.jitsiDominio!, jitsiAplicacion: env.jitsiAplicacion!, jitsiSecreto: env.jitsiSecreto! },
-        { identificador: String(usuario.id), nombre: usuario.name, correo: usuario.email, moderador: !!(acceso.gestion || acceso.instructor) }, reunion.nombreSala);
+        { identificador: String(usuario.id), nombre: usuario.name, correo: usuario.email, moderador }, reunion.nombreSala);
       return { token, dominio: env.jitsiDominio, direccionServidor: env.jitsiDireccion ?? `https://${env.jitsiDominio}`, nombreSala: reunion.nombreSala, nombre: usuario.name, duracionSegundos: 300 };
     });
+    if (resultado === avisoPendiente) {
+      return respuesta.code(422).send({ code: "AVISO_GRABACION_PENDIENTE", message: "Esta sesión se grabará. Acepta el aviso para entrar." });
+    }
+    return resultado;
   });
 }

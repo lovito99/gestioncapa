@@ -94,7 +94,6 @@ export async function registrarCursos(app: FastifyInstance) {
     const curso = await cursoAutorizado(request, reply);
     if (!curso) return reply;
     if (curso.estado === 'CERRADO') return error(reply, 409, 'CURSO_CERRADO', 'El curso está cerrado y no admite nuevas sesiones.');
-    if (curso.modalidad === 'VIRTUAL') return error(reply, 409, 'MODALIDAD_NO_PRESENCIAL', 'Las sesiones presenciales requieren un curso presencial o híbrido.');
     const cuerpo = typeof request.body === 'object' && request.body !== null && !Array.isArray(request.body) ? request.body : {};
     const validacion = validarClase({ ...cuerpo, instructorId: curso.instructorId });
     if (!validacion.ok) return reply.code(422).send({ code: 'VALIDACION', message: 'Completa los datos de la sesión.', fields: validacion.fields });

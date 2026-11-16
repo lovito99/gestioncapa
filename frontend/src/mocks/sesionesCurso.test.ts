@@ -28,7 +28,8 @@ it('demo: valida permisos, modalidad, fecha y horario, y mantiene la asociación
     expect((await llamar('POST', ruta, 'u-admin-1', { ...entrada, ...cambio })).status).toBe(422)
   }
   const virtual = await crear('VIRTUAL')
-  expect((await llamar('POST', `/cursos/${virtual}/sesiones`, 'u-admin-1', entrada)).status).toBe(409)
+  // HU-26: los cursos virtuales también programan sesiones (aula virtual).
+  expect((await llamar('POST', `/cursos/${virtual}/sesiones`, 'u-admin-1', { ...entrada, fecha: '2038-06-11', lugar: 'Aula virtual' })).status).toBe(201)
   const guardada = await llamar('POST', ruta, 'u-admin-1', entrada)
   expect(guardada.status).toBe(201)
   expect(guardada.datos.cursoId).toBe(id)

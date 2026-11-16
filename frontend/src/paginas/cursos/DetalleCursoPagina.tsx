@@ -65,7 +65,7 @@ export function DetalleCursoPagina() {
       {curso.miInscripcion.estadoEntrega==='RETENIDA' && <p role="status">{curso.miInscripcion.estadoFinanciero==='PAGADO'?'Pago confirmado. Estamos preparando tu constancia.':'Constancia retenida: cumples los requisitos académicos y falta confirmar el pago.'}</p>}
     </section>}
     {usuario?.rol==='AGREMIADO' && curso.miInscripcion?.pagoId && <PagoCurso pagoId={curso.miInscripcion.pagoId} />}
-    <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO' && curso.modalidad !== 'VIRTUAL'} participante={usuario?.rol === 'AGREMIADO'} />
+    <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO'} participante={usuario?.rol === 'AGREMIADO'} />
     <h2 className="text-xl font-semibold">Módulos y material</h2>
     {curso.accesoContenido===false && <p>El contenido estará disponible cuando tengas una inscripción confirmada.</p>}
     <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>

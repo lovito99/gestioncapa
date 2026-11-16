@@ -62,8 +62,10 @@ test('HU-13: permisos, modalidad, fechas y horarios se validan sin guardar sesio
   for (const cambio of [{ fecha: '2033-02-30' }, { fecha: '' }, { horaInicio: '25:00' }, { horaFin: '09:00' }, { horaFin: '10:00' }, { lugar: ' ' }, { nombre: '' }]) {
     assert.equal((await llamar('admin', 'POST', ruta, sesion(cambio))).statusCode, 422);
   }
+  // HU-26: un curso virtual programa sesiones para dictarlas en el aula virtual.
   const virtual = await curso('VIRTUAL');
-  assert.equal((await llamar('admin', 'POST', `/api/cursos/${virtual.id}/sesiones`, sesion())).statusCode, 409);
+  const sesionVirtual = await llamar('admin', 'POST', `/api/cursos/${virtual.id}/sesiones`, sesion({ fecha: '2033-02-14', lugar: 'Aula virtual' }));
+  assert.equal(sesionVirtual.statusCode, 201, sesionVirtual.body);
   assert.equal((await llamar('admin', 'POST', '/api/cursos/abc/sesiones', sesion())).statusCode, 404);
   assert.equal((await pool.query('select count(*) from classes where curso_id=$1', [c.id])).rows[0].count, '0');
 });
