@@ -7,6 +7,11 @@ export async function flujoInscripcionPublica(page: Page, administrador: Paramet
   page.on('pageerror', error => errores.push(error.message))
   await entrar(page, administrador)
   const cursos: { id: string; titulo: string; costo: number }[] = []
+  // El cierre espera la API y luego navega a /login: sin esperarlo, un clic posterior puede ser reemplazado.
+  const cerrarSesion = async () => {
+    await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
+    await expect(page).toHaveURL(/\/login(\?.*)?$/)
+  }
   for (const costo of [0, 25]) {
     const titulo = `HU22 elección ${costo} ${Date.now()}`
     await page.getByRole('navigation', { name: 'Navegación principal' }).getByRole('link', { name: 'Cursos', exact: true }).click()
@@ -41,7 +46,7 @@ export async function flujoInscripcionPublica(page: Page, administrador: Paramet
     await expect(page.getByText('Publicado', { exact: true })).toBeVisible()
     cursos.push({ ...curso, costo })
   }
-  await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
+  await cerrarSesion()
   await page.setViewportSize({ width: 360, height: 800 })
   const solicitudes: string[] = []
   page.on('request', solicitud => { if (solicitud.method() === 'POST' && solicitud.url().includes('/inscribirme')) solicitudes.push(solicitud.url()) })
@@ -73,7 +78,7 @@ export async function flujoInscripcionPublica(page: Page, administrador: Paramet
     if (persistente) await page.reload()
     await expect(page.getByRole('button', { name: curso.costo ? 'Pendiente de pago' : 'Ya estás inscrito(a)', exact: true })).toBeDisabled()
     expect(solicitudes).toHaveLength(1)
-    await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
+    await cerrarSesion()
   }
   const lleno = cursos[1]!
   await buscar(lleno.titulo)
