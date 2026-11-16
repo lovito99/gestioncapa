@@ -1,5 +1,10 @@
 # Cobro de cursos — HU-53
 
+> La guía vigente está dividida por responsabilidad en
+> [docs/esp/cobro/](cobro/README.md). Este archivo se conserva como snapshot compatible
+> para enlaces y evidencia de versiones anteriores; no debe recibir documentación nueva
+> salvo que una tarea requiera actualizar expresamente ese historial.
+
 Implementación local del 15/11/2026. Incluye política de cobro, obligaciones y
 operaciones financieras, inscripción/acceso y entrega de constancias. No se ha
 publicado ni habilitado un comercio. Izipay y Culqi están deshabilitados por defecto.

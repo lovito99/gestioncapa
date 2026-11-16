@@ -37,6 +37,8 @@ Los datos demo están en memoria: recargar restaura los datos iniciales.
 |---|---|---|
 | `/` y `/capacitaciones` | Público | Catálogo de cursos publicados vigentes, con búsqueda, filtros y paginación |
 | `/login` | Público | Formulario de acceso |
+| `/login?curso=<id>` | Público | Acceso que conserva un curso seleccionado y vuelve a su detalle |
+| `/registro?curso=<id>` | Público | Alta participante; conserva el curso al alternar con login y al completar el registro |
 | `/coordinador` | Coordinador | Redirige a clases |
 | `/coordinador/clases` | Coordinador | Listado y cancelación |
 | `/coordinador/clases/nueva` | Coordinador | Crear clase |
@@ -60,6 +62,24 @@ Los datos demo están en memoria: recargar restaura los datos iniciales.
 | `/admin/clases/:id/qr` | Administrador | Proyección del QR rotativo |
 | `/sin-permiso` | Público | Mensaje 403 |
 | Cualquier otra | Público | Página 404 |
+
+## HU-22 / SCRUM-67: entrada pública e inscripción
+
+`/` y `/capacitaciones` muestran el catálogo público. «Inscribirme» abre
+`/login?curso=<id>` sin sesión, o `/cursos/<id>` con sesión. El registro y los enlaces
+de acceso del formulario/encabezado conservan la selección. Autenticarse nunca
+registra una inscripción: la persona la confirma en el detalle.
+
+Aquí `id` corresponde al curso: decimal positivo de 1–15 dígitos, sin cero inicial.
+No es el identificador demo de clase `c-1` del mapa histórico. Una selección
+inválida/duplicada se descarta y no acepta destinos externos. Un 401 en curso o
+formularios de acceso conserva la selección válida; el QR conserva su retorno
+interno con query por el guard existente.
+
+El encabezado anónimo incluye «Consultar constancias» → `/verificar`; también
+se conserva `/verificar/:codigo`. Ambas rutas son públicas; el PDF sigue protegido.
+La portada conserva el enlace al sitio institucional, búsqueda, filtros y paginación.
+Uso, pruebas y preparación del subdominio: [catálogo público](esp/catalogoPublico.md).
 
 Una ruta protegida sin sesión lleva al login y conserva el destino, incluida la
 query del QR. Un usuario de otro rol vuelve a su propio inicio. Si el token falta,

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { sesion } from '@/lib/sesion'
+import { loginDelCursoActual } from '@/lib/retornoCurso'
 import type { Rol } from '@/types/api'
 import { useAuth } from './useAuth'
 import { inicioPorRol } from './inicioPorRol'
@@ -20,7 +21,7 @@ export function RutaProtegida({ rol }: { rol?: Rol }) {
   if (expirada) return null
 
   // Se guarda también la query para no perder, p. ej., el token del QR escaneado
-  if (!usuario) return <Navigate to="/login" replace state={{ desde: ubicacion.pathname + ubicacion.search }} />
+  if (!usuario) return <Navigate to={loginDelCursoActual(ubicacion.pathname)} replace state={{ desde: ubicacion.pathname + ubicacion.search }} />
   if (rol && usuario.rol !== rol) return <Navigate to={inicioPorRol(usuario)} replace />
   return <Outlet />
 }

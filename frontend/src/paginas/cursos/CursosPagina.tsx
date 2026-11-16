@@ -8,6 +8,7 @@ import { Campo } from '@/components/ui/Campo'
 import { Entrada, Selector } from '@/components/ui/Entrada'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { mensajeDeError } from '@/lib/api'
+import { accesoConCurso } from '@/lib/retornoCurso'
 import { cursos, type Curso, type CursoPublico } from '@/servicios/cursos'
 import { condicionesCobro, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
 import { DatoCurso, EtiquetasCurso } from './presentacion'
@@ -111,11 +112,14 @@ function EntradaBusqueda(props: InputHTMLAttributes<HTMLInputElement>) {
   </div>
 }
 
-/** 2.1 · Tarjeta del catálogo: toda la tarjeta abre el detalle del curso. */
+/** Conserva el enlace de título y presenta una acción de inscripción independiente. */
 function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?: boolean }; publico: boolean }) {
+  const { usuario } = useAuth()
   // El enlace se anuncia solo con el título, no con todo el texto de la tarjeta
   const idTitulo = `curso-${curso.id}-titulo`
-  return <Link to={publico ? '/login' : `/cursos/${curso.id}`} aria-labelledby={idTitulo} className="flex h-full flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)] hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+  const destino=publico&&!usuario?accesoConCurso('/login',curso.id):`/cursos/${curso.id}`
+  const estilo="flex h-full flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)] hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+  const contenido=<>
     <div className="flex items-center gap-2">
       <h2 id={idTitulo} className="min-w-0 flex-1 text-base font-semibold text-ink">{curso.titulo}</h2>
       <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />
@@ -131,5 +135,12 @@ function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?
         <DatoCurso termino="Cupos" alerta={curso.cuposDisponibles === 0}>{cuposCurso(curso)}</DatoCurso>
       </dl>
     </div>
-  </Link>
+  </>
+  if(!publico) return <Link to={destino} aria-labelledby={idTitulo} className={estilo}>{contenido}</Link>
+  return <article className={estilo}>
+    <Link to={destino} aria-labelledby={idTitulo} className="flex flex-1 flex-col gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">{contenido}</Link>
+    {curso.cuposDisponibles>0
+      ? <Link to={destino} aria-label={`Inscribirme en ${curso.titulo}`} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Inscribirme</Link>
+      : <p className="rounded-lg bg-surface-2 px-4 py-2 text-center text-sm font-semibold text-muted">Sin cupos</p>}
+  </article>
 }

@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Eye, EyeOff } from 'lucide-react'
 import { useState, type InputHTMLAttributes, type Ref } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate,useLocation } from 'react-router-dom'
 import { esquemaRegistro as esquema, type FormularioRegistro as Formulario } from '@/lib/registro'
 import { useAuth } from '@/auth/useAuth'
 import { PaginaPublica } from '@/components/layout/Pagina'
@@ -13,6 +13,7 @@ import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { Entrada } from '@/components/ui/Entrada'
 import { esApiError } from '@/lib/api'
 import { CPPP } from '@/lib/cppp'
+import { accesoConCurso,cursoDeBusqueda,destinoTrasAcceso } from '@/lib/retornoCurso'
 import { useRegistro } from '@/servicios/auth'
 
 /** Entrada con botón para mostrar u ocultar la contraseña; recibe id y aria-* desde Campo. */
@@ -39,6 +40,8 @@ function EntradaContrasena({
 
 export function RegistroPagina() {
   const { usuario, iniciar } = useAuth()
+  const ubicacion=useLocation()
+  const curso=cursoDeBusqueda(ubicacion.search)
   const registro = useRegistro()
   const {
     register,
@@ -47,7 +50,7 @@ export function RegistroPagina() {
     formState: { errors, isSubmitted },
   } = useForm<Formulario>({ resolver: zodResolver(esquema) })
 
-  if (usuario) return <Navigate to="/catalogo" replace />
+  if (usuario) return <Navigate to={destinoTrasAcceso(ubicacion.search,undefined,'/catalogo')} replace />
 
   const enviar = handleSubmit((datos) =>
     registro.mutate(datos, {
@@ -70,7 +73,7 @@ export function RegistroPagina() {
   return (
     <PaginaPublica>
       <div className="mx-auto w-full max-w-140 px-4 py-8 sm:py-10">
-        <EnlaceVolver to="/login">Volver a iniciar sesión</EnlaceVolver>
+        <EnlaceVolver to={accesoConCurso('/login',curso)}>Volver a iniciar sesión</EnlaceVolver>
         <h1 className="mt-4 text-2xl leading-8 font-bold text-ink">Crear cuenta</h1>
         <p className="mt-1 text-sm text-muted">Regístrate con tu DNI para inscribirte en los cursos del CPPP.</p>
 

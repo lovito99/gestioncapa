@@ -16,6 +16,7 @@ import { Boton } from '@/components/ui/Boton'
 import { esApiError } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { sesion } from '@/lib/sesion'
+import { accesoConCurso,cursoDeBusqueda,destinoTrasAcceso } from '@/lib/retornoCurso'
 import { useLogin } from '@/servicios/auth'
 
 const esquema = z.object({
@@ -79,7 +80,8 @@ export function LoginPagina() {
   } = useForm<Formulario>({ resolver: zodResolver(esquema) })
 
   const desde = (ubicacion.state as { desde?: string } | null)?.desde
-  if (usuario) return <Navigate to={desde ?? inicioPorRol(usuario)} replace />
+  const curso = cursoDeBusqueda(ubicacion.search)
+  if (usuario) return <Navigate to={destinoTrasAcceso(ubicacion.search,desde,inicioPorRol(usuario))} replace />
 
   const enviar = handleSubmit((datos) =>
     login.mutate(datos, {
@@ -199,7 +201,7 @@ export function LoginPagina() {
 
               <p className="text-center text-sm text-white">
                 ¿Aún no tienes cuenta?{' '}
-                <Link to="/registro" className="font-semibold text-gold-light underline underline-offset-2 hover:text-gold">
+                <Link to={accesoConCurso('/registro',curso)} className="font-semibold text-gold-light underline underline-offset-2 hover:text-gold">
                   Crear cuenta
                 </Link>
               </p>

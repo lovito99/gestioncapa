@@ -5,6 +5,7 @@ import { buildApp } from '../../src/app.js';
 import { pool } from '../../src/shared/database.js';
 import { redis } from '../../src/shared/redis.js';
 import { migrar } from '../../src/shared/migraciones.js';
+import { reloj } from '../../src/modules/qr/qr.token.js';
 
 let app: FastifyInstance;
 const org = String(Date.now());
@@ -74,6 +75,10 @@ test('HU-13: dos cursos no pueden programar simultáneamente al mismo instructor
   assert.equal(contigua.statusCode, 201, contigua.body);
 });
 test('HU-13/HU-20: QR alimenta el 80 %, excluye otros cursos y sesiones canceladas', async () => {
+  const ahoraOriginal = reloj.ahora;
+  reloj.ahora = () => Date.UTC(2033, 6, 10, 15, 0, 1);
+
+  try {
   const c = await curso(); const ruta = `/api/cursos/${c.id}`;
   assert.equal((await llamar('admin', 'POST', `${ruta}/publicar`)).statusCode, 200);
   assert.equal((await llamar('colegiado','POST',`${ruta}/inscribirme`)).statusCode,201);
@@ -103,6 +108,9 @@ test('HU-13/HU-20: QR alimenta el 80 %, excluye otros cursos y sesiones cancelad
   assert.equal((await llamar('docente', 'GET', `${ruta}/mi-asistencia`)).statusCode, 403);
   const borrador = await curso();
   assert.equal((await llamar('colegiado', 'GET', `/api/cursos/${borrador.id}/mi-asistencia`)).statusCode, 403);
+  } finally {
+    reloj.ahora = ahoraOriginal;
+  }
 });
 
 test('HU-13: las rutas de clases tampoco permiten acceso a sesiones de otro instructor', async () => {

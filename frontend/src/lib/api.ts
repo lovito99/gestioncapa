@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios'
 import type { ErrorApi } from '@/types/api'
 import { sesion } from './sesion'
+import { loginDelCursoActual } from './retornoCurso'
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
@@ -21,7 +22,7 @@ api.interceptors.response.use(
     const esAcceso = url.includes('/auth/login') || url.includes('/auth/logout')
     if (error.response?.status === 401 && !esAcceso) {
       sesion.expirar()
-      window.location.assign('/login')
+      window.location.assign(loginDelCursoActual(window.location.pathname,window.location.search))
     }
     return Promise.reject(ApiError.desde(error))
   },

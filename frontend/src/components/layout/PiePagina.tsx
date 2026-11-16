@@ -33,7 +33,7 @@ export function PiePagina() {
   return (
     <footer className="bg-brand-night px-4 text-sm leading-5 text-brand-soft sm:px-10 print:hidden">
       <div className="mx-auto flex max-w-300 flex-col gap-6 pt-8 pb-6 sm:gap-8 sm:px-6 sm:pt-12">
-        <div className="grid gap-6 sm:grid-cols-2 sm:gap-8 lg:grid-cols-4 lg:gap-10">
+        <div className="grid gap-6 sm:grid-cols-2 sm:gap-8 xl:grid-cols-[240px_300px_300px_240px] xl:gap-10">
           <div className="flex flex-col gap-3">
             <LogoInsignia alto={56} />
             <p className="font-serif text-base font-bold text-white">

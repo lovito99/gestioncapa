@@ -1,9 +1,10 @@
 import { LogOut } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate,useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { inicioPorRol } from '@/auth/inicioPorRol'
 import { cn } from '@/lib/cn'
 import { CPPP } from '@/lib/cppp'
+import { loginDelCursoActual } from '@/lib/retornoCurso'
 import { LogoInsignia } from './Logo'
 import { Navegacion } from './Navegacion'
 
@@ -31,11 +32,12 @@ export function BotonCerrarSesion({ className }: { className?: string }) {
 /** Encabezado institucional del CPPP (HU-49); con sesión suma el menú del rol. */
 export function Encabezado() {
   const { usuario } = useAuth()
+  const ubicacion=useLocation()
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-white print:hidden">
       <div className="px-4 sm:px-10">
-        <div className="mx-auto flex max-w-300 items-center justify-between gap-4 py-2.5 sm:px-6 sm:py-3">
+        <div className="mx-auto flex max-w-300 flex-wrap items-center justify-between gap-3 py-2.5 sm:px-6 sm:py-3">
           {/* En celular el Figma acorta el nombre y pone el enlace a la web debajo */}
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Link to={usuario ? inicioPorRol(usuario) : '/'} className="shrink-0 rounded-lg" aria-label={`${CPPP.nombre} – ${CPPP.region}`}>
@@ -53,7 +55,7 @@ export function Encabezado() {
               </a>
             </span>
           </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-6">
+          <div className={cn('flex shrink-0 items-center gap-2 sm:gap-6',!usuario&&'w-full justify-between sm:w-auto sm:justify-end')}>
             <a
               href={CPPP.web.url}
               target="_blank"
@@ -65,7 +67,10 @@ export function Encabezado() {
             >
               Ir a la web del CPPP ↗
             </a>
-            {!usuario && <Link to="/login" className="text-sm font-semibold text-brand underline">Iniciar sesión</Link>}
+            {!usuario && <>
+              <Link to="/verificar" className="inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-brand underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Consultar constancias</Link>
+              <Link to={loginDelCursoActual(ubicacion.pathname,ubicacion.search)} className="inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-brand underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Iniciar sesión</Link>
+            </>}
             {usuario && (
               <>
                 <span className="hidden text-sm whitespace-nowrap text-muted-2 md:inline">
