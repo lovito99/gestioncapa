@@ -636,3 +636,153 @@ sin errores, dos avisos anteriores; MSW demo avisa de versión previa del worker
 Se conservaron por SHA-256 los prefijos previos de SPEC.md, plan.md y todo.md,
 incluidos los conflictos anteriores. No se ejecutó build ni operación Git de escritura.
 Para comandos, evidencia y pasos de activación: [guía de cobro](../docs/esp/cobroCursos.md).
+
+---
+
+# Tareas HU-26: Sesiones virtuales seguras
+
+Estado: **implementado en local (16/11/2026); pendiente de revisión humana, build manual y despliegue.** Criterios HU26-xx
+en [SPEC.md](../SPEC.md); orden y riesgos en [plan.md](plan.md). Build y Git: manuales.
+
+## Fase 0: espiga y base
+
+- [x] **T26-01 Espiga Jitsi local** (puerta de las fases B y C)
+  - Aceptación: evidencia escrita de que (a) un colegiado que fuerza `addTrack` de
+    pantalla con moderación `desktop` activa no llega a los demás; (b) `token_lobby_ondemand`
+    y `event_sync` cargan en Docker; (c) `event_sync` envía el `id` del JWT;
+    (d) un moderador expulsa y un no moderador no puede admitir, expulsar ni moderar.
+  - Verificación: 2–3 Chromium contra `http://localhost:8000`; resultado y decisión
+    en `docs/esp/sesionesVirtuales.md`. Si (a) falla: detenerse y consultar (pregunta 7).
+  - Archivos: `docs/esp/sesionesVirtuales.md`. Configuración local no versionada.
+- [x] **T26-02 Licencias de terceros** — HU26-05
+  - Aceptación: docker-jitsi-meet, lib-jitsi-meet y jitsi-contrib/prosody-plugins con
+    versión, licencia Apache-2.0, origen y «sin modificaciones de código»; prototipo `0f1aaef`.
+  - Verificación: revisión del documento contra `version.json` y los `LICENSE` de la imagen.
+  - Archivos: `docs/licenciasTerceros.md`, `infraestructura/jitsi/version.json`, `README.md`.
+- [x] **T26-03 Configuración Jitsi y secreto de eventos**
+  - Aceptación: `preparar.mjs` añade sala de espera, `event_sync` y Jibri desactivado;
+    un modo de actualización conserva secretos; `jitsiEventosSecreto` obligatorio con
+    Jitsi habilitado y distinto de los otros tres secretos.
+  - Verificación: casos nuevos en `backend/test/env.test.ts` (rojo → verde); ejecución
+    del preparador en una copia temporal.
+  - Archivos: `infraestructura/jitsi/preparar.mjs`, `backend/src/config/env.schema.ts`,
+    `backend/.env.example`, `backend/test/env.test.ts`.
+- [x] **T26-04 Cursos virtuales y reunión creada por el instructor** (si se aprueba la pregunta 6)
+  - Aceptación: un curso `VIRTUAL` admite sesiones; el instructor asignado crea la reunión
+    de su sesión; otro instructor recibe 403.
+  - Verificación: `test/integracion/sesionesCurso.test.ts` y `reuniones.test.ts`.
+  - Archivos: `cursos/sesiones.repositorio.ts`, `reuniones/reuniones.rutas.ts` y sus pruebas.
+
+## Fase A: `sala-segura`
+
+- [x] **T26-05 Credencial con sala de espera y aviso de grabación** — HU26-01, 02, 04
+  - Aceptación: token de colegiado con `lobby: true` y de moderador sin él; 401 sin sesión;
+    403 a no inscrito, inscripción sin acceso y retirado; con `grabacionPrevista`, 422
+    sin `aceptaGrabacion` y fecha registrada al aceptar.
+  - Verificación: `backend/test/jitsi.test.ts` e integración `reuniones.test.ts`.
+  - Archivos: migración `0032-salaSegura.sql`, `jitsi.servicio.ts`, `reuniones.rutas.ts`,
+    `reuniones.validacion.ts`, pruebas.
+- [x] **T26-06 Servicio de sala de espera** — HU26-03
+  - Aceptación: el colegiado pasa a «en espera» al ser rechazado por sala cerrada; el
+    anfitrión recibe solicitudes con identidad del JWT, admite, rechaza y admite inscritos.
+  - Verificación: `frontend/src/servicios/salaEspera.test.ts` con conferencia simulada.
+  - Archivos: `servicios/salaEspera.ts`, `servicios/salaJitsi.ts`, prueba.
+- [x] **T26-07 Interfaz de espera y aviso** — HU26-03, 04
+  - Aceptación: pantalla previa con aviso solo si hay grabación; estado «En sala de espera»;
+    panel del anfitrión accesible (teclado, `aria-live`), también a 360 px.
+  - Verificación: Vitest; lint; comprobación manual.
+  - Archivos: `SalaReunionPagina.tsx`, `sala.css`, `servicios/reuniones.ts`.
+
+### Checkpoint A
+- [x] Suites backend, integración y frontend aprobadas; tipos y lint sin errores nuevos.
+- [x] Evidencia real: enlace sin sesión, URL de Jitsi sin token, no inscrito, espera y admisión.
+- [ ] Build manual pendiente del usuario. Revisión humana antes de seguir.
+
+## Fase B: `control-sala`
+
+- [x] **T26-08 Políticas persistentes** — HU26-06, 10
+  - Aceptación: PATCH guarda pantalla, micrófono, mano, porcentaje (1–100) y grabación;
+    solo instructor asignado o administrador; 409 con reunión finalizada o cancelada;
+    pantalla deshabilitada por defecto en reuniones nuevas.
+  - Verificación: integración `reuniones.test.ts` (incluye colegiado → 403).
+  - Archivos: migración `0033-politicasReunion.sql`, `reuniones.rutas.ts`,
+    `reuniones.validacion.ts`, `reuniones.repositorio.ts`, prueba.
+- [x] **T26-09 Aplicar políticas en la sala** — HU26-07, 08, 11
+  - Aceptación: al unirse, el moderador activa la moderación de los medios restringidos
+    antes de admitir; botones deshabilitados u ocultos según permiso; autorizar y
+    retirar el permiso de pantalla funciona.
+  - Verificación: `moderacionSala.test.ts` y `salaJitsi.test.ts`.
+  - Archivos: `moderacionSala.ts`, `salaJitsi.ts`, `SalaReunionPagina.tsx`, pruebas.
+- [x] **T26-10 Expulsión sin reingreso** — HU26-09
+  - Aceptación: expulsar cierra todas las conexiones con el mismo `id`, registra
+    `retiradoEn`, la credencial nueva da 403 y en la espera aparece «Expulsado» sin admitir.
+  - Verificación: integración `reuniones.test.ts`; Vitest de la sala.
+  - Archivos: `reuniones.rutas.ts`, `salaJitsi.ts`, `salaEspera.ts`, `SalaReunionPagina.tsx`, pruebas.
+
+### Checkpoint B
+- [x] Suites, tipos y lint aprobados.
+- [x] Evidencia real con un cliente que se salta la UI: pantalla sin permiso, expulsión
+      con reintento usando el token anterior, colegiado intentando moderar.
+- [ ] Revisión humana antes de seguir.
+
+## Fase C: `asistencia-virtual`
+
+- [x] **T26-11 Cálculo de porcentaje** — HU26-13
+  - Aceptación: une intervalos solapados de varias conexiones, recorta a la referencia,
+    trata intervalos vacíos y referencia nula sin dividir por cero.
+  - Verificación: `backend/test/asistenciaVirtual.test.ts`.
+  - Archivos: `reuniones/asistenciaVirtual.ts`, prueba.
+- [x] **T26-12 Webhook de eventos** — HU26-12
+  - Aceptación: 401 sin secreto válido; 400 con cuerpo inválido; ignora sala desconocida
+    y sala de espera; joined/left idempotentes; `iniciar` fija `iniciadaEn`.
+  - Verificación: integración `test/integracion/eventosJitsi.test.ts`.
+  - Archivos: migración `0034-asistenciaVirtual.sql`, `jitsi/jitsi.eventos.ts`, `app.ts`,
+    `reuniones.rutas.ts`, prueba.
+- [x] **T26-13 Cierre con asistencia** — HU26-13, 14, 15
+  - Aceptación: finalizar cierra intervalos, calcula y registra `VIRTUAL` si alcanza el
+    mínimo; conserva QR; excluye al expulsado (pregunta 4); idempotente; cuenta en el 80 %.
+  - Verificación: integración en `eventosJitsi.test.ts` con `asistenciaCurso`.
+  - Archivos: `reuniones.rutas.ts`, `reuniones.repositorio.ts`, `asistenciaVirtual.ts`, prueba.
+- [x] **T26-14 Interfaz de asistencia** — HU26-14, 15
+  - Aceptación: el instructor fija el porcentaje mínimo y ve minutos, porcentaje y si cuenta.
+  - Verificación: Vitest; lint.
+  - Archivos: `SalaReunionPagina.tsx` o `ReunionesPagina.tsx`, `servicios/reuniones.ts`, prueba.
+
+### Checkpoint C
+- [x] Suites, tipos y lint aprobados.
+- [x] Evidencia real: entrar, salir, reconectar, finalizar y ver la asistencia en el historial.
+- [ ] Revisión humana.
+
+## Cierre
+
+- [x] **T26-15 Documentación**: `docs/reuniones.md` (incluye «coordinador» → administrador),
+  `docs/API.md`, matriz RF-17/RF-18 en `docs/enfoqueCppp.md`.
+- [x] **T26-16 Revisión y entrega**: simplificación de lo tocado; revisión de calidad y
+  seguridad; contraste con `definition-of-done.md` y `security-checklist.md`; lista de
+  publicación; Summary/Description por tarea y versión recomendada.
+- [ ] Build: ejecución manual por el usuario.
+
+## Fuera de alcance, registrado
+
+- [ ] HU26-16 `sesion-ambas`: bloqueado por HU-36.
+- [ ] HU26-17 `difusion-masiva`: historia aparte (espiga con `mod_visitors`).
+- [ ] Re-estimar HU-26a/b/c en Planning Poker (equipo).
+
+## Evidencia HU-26 (16/11/2026)
+
+- Espiga en Jitsi local `stable-11248-2`: la moderación `desktop` **no** impide la pantalla de un
+  cliente manipulado (77 cuadros en 3 s) → se aplicó el plan B (vigilante + expulsión + revocación).
+  Sala de espera, identidad JWT en la espera, expulsión y `event_sync` confirmados.
+- Recorrido real (interfaz + backend + Jitsi + base aislada): enlace sin sesión → `/login`; Jitsi sin
+  token rechazado; aviso de grabación obligatorio; espera y admisión; mano oculta y pantalla
+  deshabilitada; expulsión desde la interfaz con 403 posterior; cliente manipulado expulsado en
+  555 ms; reingreso con token anterior marcado «Expulsado» sin admitir; asistencia 89,76 % `VIRTUAL`.
+- Pruebas: 342 unitarias backend, 114 frontend + 3 servidor web, 334 de integración en base vacía,
+  136 E2E demo y 36 E2E reales. Tipos backend/frontend/E2E aprobados. Lint: 0 errores, 2 avisos previos.
+  `git diff --check` aprobado. Mutación comprobada en el preparador (ENABLE_LOBBY=0 hace fallar la prueba).
+- Una desviación de TDD: `configuracionJitsi.mjs` y su prueba se escribieron en el mismo paso;
+  se compensó con la mutación anterior.
+- Pendientes: build manual; revisión humana del PR; dividir y re-estimar HU-26a/b/c en Jira y
+  Planning Poker; despliegue en el servidor del CPPP (HTTPS, UDP 10000/TURN, `--api=`);
+  retención de `conexionesReunion` según Ley 29733; prueba de carga; confirmar si existe otro prototipo.
+- Commits: los prepara el usuario (AGENTS.md). Versión recomendada: `v3.1.0.0.0`.

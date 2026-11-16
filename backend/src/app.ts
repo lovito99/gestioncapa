@@ -6,6 +6,7 @@ import { registrarHistorial } from './modules/historial/historial.rutas.js';
 import { registrarCursos } from "./modules/cursos/cursos.rutas.js";
 import { registrarPagos } from './modules/pagos/pagos.rutas.js';
 import { registrarRutasReuniones } from "./modules/reuniones/reuniones.rutas.js";
+import { registrarEventosJitsi } from "./modules/jitsi/jitsi.eventos.js";
 import Fastify from "fastify";
 import { env } from "./config/env.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
@@ -60,6 +61,7 @@ export async function buildApp() {
   await app.register(asistenciaRoutes);
   // Al final: solo agrega las rutas del contrato que aún no existen (501).
   await app.register(registrarRutasReuniones);
+  await app.register(registrarEventosJitsi);
   await app.register(rutasPendientes);
 
   return app;

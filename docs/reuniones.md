@@ -32,11 +32,19 @@ python3 infraestructura/jitsi/descargar.py
 
 npm install
 npm run bd:migrate
-# Requiere backend/.env existente; genera un secreto exclusivo y claves internas.
+# Requiere backend/.env existente; genera secretos exclusivos y claves internas.
 node infraestructura/jitsi/preparar.mjs --local # desarrollo HTTP en localhost:8000
-# O, para producción:
-node infraestructura/jitsi/preparar.mjs meet.empresa.pe
+# O, para producción (dirección del backend que Prosody puede alcanzar):
+node infraestructura/jitsi/preparar.mjs meet.empresa.pe --api=https://api.empresa.pe/api/jitsi
+# Instalación preparada antes de HU-26: añade sala de espera y eventos sin rotar secretos.
+node infraestructura/jitsi/preparar.mjs --actualizar [--api=URL]
 ```
+
+HU-26 añade al preparador la sala de espera (`persistent_lobby`, `token_lobby_ondemand`),
+el componente `event_sync` en `configuracion/prosody/config/conf.d/gestioncapa.cfg.lua`,
+el secreto `jitsiEventosSecreto` y la desactivación de grabación y transmisión. En
+local, `api_prefix` usa la IP de la puerta de enlace de Docker porque Prosody no resuelve
+`/etc/hosts`. Detalle y evidencia: [sesiones virtuales seguras](esp/sesionesVirtuales.md).
 
 El preparador conserva un `.env` existente de Jitsi y no rota secretos existentes.
 Habilita `jitsiHabilitado`, `jitsiDominio`, `jitsiDireccion`, `jitsiAplicacion` y
@@ -107,9 +115,9 @@ Si falla `POST /api/reuniones/:identificador/credencial`, distingue la respuesta
 
 ## Uso
 
-Abre `/reuniones` con cualquier usuario autenticado. Administrador o coordinador
-crea la reunión indicando el identificador de una clase de su organización,
-título y horario. HTTP se admite únicamente para localhost en desarrollo; NODE_ENV=production exige HTTPS.
+Abre `/reuniones` con cualquier usuario autenticado. El administrador, o el
+instructor asignado a la sesión, crea la reunión indicando el identificador de la
+sesión, título y horario, y la configura con **Configurar sala** (HU-26). HTTP se admite únicamente para localhost en desarrollo; NODE_ENV=production exige HTTPS.
 Las fechas del formulario usan la zona de tu dispositivo y se
 envían con zona explícita. El instructor asignado o el gestor puede iniciarla.
 El participante inscrito entra mediante `/reuniones/:identificador`.
@@ -157,20 +165,23 @@ es una operación nueva por petición: no se debe reintentar sin consultar su re
 
 ## Alcance y conexiones pendientes
 
-- Finalizar y retirar revocan futuras credenciales; no expulsan conexiones activas.
-  La expiración del JWT tampoco termina la llamada existente.
+- Retirar revoca futuras credenciales; la sala del moderador expulsa además las
+  conexiones activas (HU-26). Finalizar cierra el acceso y calcula la asistencia
+  virtual; no desconecta llamadas activas. La expiración del JWT tampoco las termina.
 - Los JWT asignan `context.user.moderator` desde los permisos de negocio:
   gestor de la organización o instructor asignado. Prosody aplica la afiliación
   con `token_affiliation`; Jicofo no promueve asistentes autenticados automáticamente.
-- La moderación de cámara, micrófono y pantalla se configura en Opciones durante
-  la conferencia. El endpoint REST de políticas no aplica estos cambios a Jitsi
-  y mantiene su rechazo de restricciones no implementadas, incluido el lobby.
+- Las políticas de cámara, micrófono, pantalla y mano se guardan con
+  `PATCH /politicas` y la sala del moderador las aplica al conectarse (HU-26).
+  Opciones permite cambiarlas solo para la llamada en curso. La sala de espera es
+  obligatoria para los colegiados.
 - Las invitaciones quedan en una outbox persistente dentro de la transacción de
   creación. No hay worker ni envío de correo/WhatsApp sin proveedores configurados.
-- No se marca asistencia por solicitar una credencial. Falta conectar eventos
-  verificables del servidor para calcular entradas, salidas y reconexiones.
-- Pagos, grabación con Jibri, evaluaciones, certificados y WebSockets de negocio
-  son siguientes etapas de la propuesta; no están implementados por este módulo.
+- No se marca asistencia por solicitar una credencial. Desde HU-26 la asistencia
+  virtual se calcula al finalizar con los eventos `event_sync` de Prosody.
+- La grabación en el servidor (Jibri) está desactivada; solo existe el aviso previo
+  cuando el instructor anuncia que grabará. Evaluaciones y WebSockets de negocio
+  no están implementados por este módulo.
 - El flujo audiovisual entre dos dispositivos requiere validación contra el
   dominio HTTPS desplegado; las pruebas API no sustituyen esa comprobación.
 
@@ -255,7 +266,7 @@ cámara; detener la compartición elimina únicamente la pista de pantalla. La c
 conserva el silencio. Salir libera los dispositivos incluso si falla la red.
 
 El panel **Personas** muestra las conexiones actuales, sus nombres, mano levantada
-y estado audiovisual. Para administrador, coordinador e instructor autorizado,
+y estado audiovisual. Para administrador e instructor autorizado,
 compara las identidades de JWT recibidas desde Jitsi con el instructor e inscritos
 que devuelve la API. **Sin conexión detectada** indica que no se ve esa cuenta
 en la sala en este momento; no significa que nunca entró ni acredita una falta.
@@ -276,7 +287,7 @@ npm test -w frontend
 ```
 
 Los controles propios y la moderación de asistentes se describen abajo. La
-asistencia histórica verificable sigue pendiente de integración de eventos del servidor.
+asistencia virtual se describe en [sesiones virtuales seguras](esp/sesionesVirtuales.md).
 
 ### Identidad de participantes en Jitsi
 
@@ -386,7 +397,18 @@ ENABLE_AV_MODERATION=1
 ENABLE_AUTO_OWNER=0
 JICOFO_ENABLE_AUTH=0
 ENABLE_MODERATOR_CHECKS=1
+# HU-26
+XMPP_MODULES=presence_identity,persistent_lobby
+XMPP_MUC_MODULES=token_affiliation,token_lobby_ondemand
+ENABLE_LOBBY=1
+ENABLE_RECORDING=0
+ENABLE_LIVESTREAMING=0
+DISABLE_LOCAL_RECORDING=1
 ```
+
+La moderación de pantalla de Jitsi no impide en el servidor que un cliente
+manipulado publique su pantalla. La sala del moderador la vigila: la silencia,
+expulsa a la persona y revoca su acceso (comprobado en la espiga de HU-26).
 
 `JICOFO_ENABLE_AUTH=0` deja la asignación de moderadores a la afiliación de
 Prosody derivada del JWT. La autenticación de acceso continúa activa en Prosody;

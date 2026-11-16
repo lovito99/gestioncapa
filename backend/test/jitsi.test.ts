@@ -29,6 +29,16 @@ test('Rechaza fechas locales sin zona horaria', () => {
 });
 
 
+test('HU26-03: el asistente lleva la marca de sala de espera y el moderador no', async () => {
+  const configuracion = { jitsiDominio: 'meet.prueba.local', jitsiAplicacion: 'gestioncapa', jitsiSecreto: 'secretoExclusivoJitsiDistintoDelResto123' };
+  const usuarioDe = async (moderador: boolean) => {
+    const token = await emitirCredencialJitsi(configuracion, { identificador: '7', nombre: 'Prueba', correo: 'prueba@local.test', moderador }, 'sala');
+    return ((await jwtVerify(token, new TextEncoder().encode(configuracion.jitsiSecreto))).payload.context as { user: Record<string, unknown> }).user;
+  };
+  assert.equal((await usuarioDe(false)).lobby, true);
+  assert.equal('lobby' in await usuarioDe(true), false);
+});
+
 test('La credencial firma el rol de moderador explícito para anfitrión y asistente', async () => {
   const configuracion = { jitsiDominio: 'meet.prueba.local', jitsiAplicacion: 'gestioncapa', jitsiSecreto: 'secretoExclusivoJitsiDistintoDelResto123' };
   for (const moderador of [true, false]) {

@@ -18,7 +18,7 @@ export async function programarSesion(cursoId: string, datos: DatosClase) {
   return conInstructorBloqueado(datos.instructorId, async cliente => {
     const curso = await cliente.query(`select c.id from cursos c join users u on u.id=c.instructor_id
       where c.id=$1 and c.estado<>'CERRADO' and c.instructor_id=$2
-      and c.modalidad in ('PRESENCIAL','HIBRIDA') and u.active and u.role='instructor' for share of c`, [cursoId, datos.instructorId]);
+      and u.active and u.role='instructor' for share of c`, [cursoId, datos.instructorId]);
     if (!curso.rowCount) return { noDisponible: true } as const;
     const conflicto = await buscarConflicto(datos, cliente);
     if (conflicto) return { conflicto } as const;

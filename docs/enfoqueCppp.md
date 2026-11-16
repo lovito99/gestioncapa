@@ -45,8 +45,8 @@ brecha, incluso cuando ya existe una parte de una etapa posterior.
 | RF-14 | Implementado | `backend/src/modules/qr`, QR firmado rotatorio de 30 segundos | 3 |
 | RF-15 | Implementado | Registro móvil y persistencia por colegiado/sesión; pruebas de asistencia | 3 |
 | RF-16 | Parcial | Consulta de administración/coordinador; instructor todavía necesita autorización por sesión propia | 3 |
-| RF-17 | Parcial | Rutas y credenciales Jitsi; falta despliegue propio y validar pantalla exclusiva, expulsión y acceso por inscripción en servidor Jitsi | 7 |
-| RF-18 | Pendiente | Falta asistencia virtual persistente y validada por eventos confiables del servidor | 7 |
+| RF-17 | Parcial | HU-26: sala de espera, políticas guardadas, expulsión sin reingreso y vigilancia de pantalla verificadas en Jitsi local ([evidencia](esp/sesionesVirtuales.md)); falta despliegue en el servidor del CPPP con HTTPS | 7 |
+| RF-18 | Implementado | HU-26: eventos `event_sync` de Prosody, porcentaje mínimo por sesión y registro `VIRTUAL` que cuenta para el 80 %; verificado en local, pendiente en producción | 7 |
 | RF-19 | Demo | Avance/estado mostrado no sustituye persistencia y finalización de contenidos | 4 |
 | RF-20 | Pendiente | Faltan evaluaciones, respuestas, intentos y cálculo de notas en servidor | 4 |
 | RF-21 | Pendiente | Falta autorización auditada de intento adicional | 4 |

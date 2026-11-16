@@ -4,7 +4,7 @@ import { adaptarServiciosJitsi } from './compatibilidadJitsi'
 import type { CredencialReunion } from './reuniones'
 
 export type ParticipanteSala = {
-  identificador: string; usuarioIdentificador?: string; nombre: string; local: boolean
+  identificador: string; usuarioIdentificador?: string; nombre: string; local: boolean; moderador?: boolean
   microfonoActivo: boolean; camaraActiva: boolean; manoLevantada: boolean; manoLevantadaEn?: number; turnoMano?: number
 }
 export type EstadoSala = {
@@ -21,7 +21,16 @@ export type ObservadoresSala = {
   reaccion: (reaccion: ReaccionSala) => void
   moderacion: (estado: EstadoModeracion) => void
   nivelMicrofono: (nivel: number) => void
+  /** Colegiado: true mientras espera que el instructor lo admita. */
+  espera?: (enEspera: boolean) => void
+  /** Moderador: solicitudes de la sala de espera con la identidad del JWT. */
+  solicitudesEspera?: (solicitudes: SolicitudEspera[]) => void
+  /** Moderador: el vigilante expulsó a alguien por compartir pantalla sin autorización. */
+  infraccion?: (infraccion: { participanteIdentificador: string; usuarioIdentificador?: string }) => void
 }
+export type SolicitudEspera = { identificador: string; nombre: string; usuarioIdentificador?: string }
+export type PoliticasSala = { camaraPermitida: boolean; microfonoPermitido: boolean; pantallaPermitida: boolean; manoPermitida: boolean }
+type MiembroEspera = { identity?: { user?: { id?: string } } }
 export type PistaJitsi = {
   attach: (elemento: HTMLMediaElement) => void; detach: (elemento: HTMLMediaElement) => void
   dispose: () => Promise<void>; isLocal: () => boolean; getType: () => string; isMuted: () => boolean
@@ -44,6 +53,12 @@ export type ConferenciaJitsi = ConferenciaModeracion & {
   sendMessage: (mensaje: object) => void
   sendTextMessage: (mensaje: string) => void
   setLocalParticipantProperty: (nombre: string, valor: string) => void
+  kickParticipant: (participante: string, motivo?: string) => void
+  joinLobby: (nombre: string) => Promise<void>
+  lobbyApproveAccess: (participante: string) => void
+  lobbyDenyAccess: (participante: string) => void
+  /** API interna de lib-jitsi-meet: única vía para leer la identidad JWT de la sala de espera. */
+  room?: { getLobby?: () => { lobbyRoom?: { members?: Record<string, MiembroEspera> } } | undefined }
 }
 export type ConexionJitsi = {
   addEventListener: (evento: string, funcion: () => void) => void
@@ -55,8 +70,9 @@ export type BibliotecaJitsi = {
   JitsiConnection: new (aplicacion: null, token: string, opciones: object) => ConexionJitsi
   createLocalTracks: (opciones: object) => Promise<PistaJitsi[]>
   events: { connection: Record<'CONNECTION_ESTABLISHED' | 'CONNECTION_FAILED' | 'CONNECTION_DISCONNECTED', string>
-    conference: Record<'TRACK_ADDED' | 'TRACK_REMOVED' | 'TRACK_MUTE_CHANGED' | 'CONFERENCE_JOINED' | 'CONFERENCE_FAILED' | 'CONFERENCE_LEFT' | 'USER_JOINED' | 'USER_LEFT' | 'DISPLAY_NAME_CHANGED' | 'PARTICIPANT_PROPERTY_CHANGED' | 'MESSAGE_RECEIVED' | 'ENDPOINT_MESSAGE_RECEIVED' | 'TRACK_UNMUTE_REJECTED' | 'TRACK_AUDIO_LEVEL_CHANGED', string> & EventosModeracion
+    conference: Record<'TRACK_ADDED' | 'TRACK_REMOVED' | 'TRACK_MUTE_CHANGED' | 'CONFERENCE_JOINED' | 'CONFERENCE_FAILED' | 'CONFERENCE_LEFT' | 'USER_JOINED' | 'USER_LEFT' | 'DISPLAY_NAME_CHANGED' | 'PARTICIPANT_PROPERTY_CHANGED' | 'MESSAGE_RECEIVED' | 'ENDPOINT_MESSAGE_RECEIVED' | 'TRACK_UNMUTE_REJECTED' | 'TRACK_AUDIO_LEVEL_CHANGED' | 'KICKED' | 'LOBBY_USER_JOINED' | 'LOBBY_USER_UPDATED' | 'LOBBY_USER_LEFT', string> & EventosModeracion
     track: { LOCAL_TRACK_STOPPED: string } }
+  errors: { conference: Record<'MEMBERS_ONLY_ERROR' | 'CONFERENCE_ACCESS_DENIED', string> }
 }
 declare global { interface Window { JitsiMeetJS?: BibliotecaJitsi } }
 
@@ -75,7 +91,7 @@ async function cargarBiblioteca(direccionServidor: string) {
   return cargaBiblioteca
 }
 
-export async function conectarSala(credencial: CredencialReunion, contenedor: HTMLElement, informar: (mensaje: string) => void, observadores: ObservadoresSala, opciones: { habilitarMedios?: boolean } = {}) {
+export async function conectarSala(credencial: CredencialReunion, contenedor: HTMLElement, informar: (mensaje: string) => void, observadores: ObservadoresSala, opciones: { habilitarMedios?: boolean; politicas?: PoliticasSala } = {}) {
   const biblioteca = await cargarBiblioteca(credencial.direccionServidor)
   biblioteca.init({ disableAudioLevels: false })
   const conexion = new biblioteca.JitsiConnection(null, credencial.token, {
@@ -101,6 +117,13 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
   let pantalla: PistaJitsi | null = null
   let manoLevantada = false
   let manoLevantadaEn: number | undefined
+  let enEspera = false
+  let expulsado = false
+  let politicasAplicadas = false
+  // Hasta que Jitsi confirme las políticas, la pantalla se considera restringida según lo guardado.
+  let politicasConfirmadas = !opciones.politicas
+  let pantallaRestringida = opciones.politicas?.pantallaPermitida === false
+  const solicitudes = new Map<string, SolicitudEspera>()
   const reaccionesVistas = new Set<string>()
   const ultimaReaccion = new Map<string, number>()
   let ultimoEnvioReaccion = 0
@@ -133,7 +156,7 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
     const remotos = conferencia?.getParticipants() ?? []
     const participantes: ParticipanteSala[] = remotos.map(participante => ({
       identificador: participante.getId(), usuarioIdentificador: participante.getIdentity()?.user?.id,
-      nombre: participante.getDisplayName() || 'Participante', local: false,
+      nombre: participante.getDisplayName() || 'Participante', local: false, moderador: participante.getRole?.() === 'moderator',
       microfonoActivo: !participante.isAudioMuted(), camaraActiva: !participante.isVideoMuted(),
       manoLevantada: participante.getProperty('raisedHand') === 'true' || instanteMano(participante.getProperty('raisedHand')) !== undefined,
       manoLevantadaEn: instanteMano(participante.getProperty('raisedHand')),
@@ -201,7 +224,32 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
   const desconectada = () => {
     conectada = false
     publicarEstado()
-    if (!cerrada) informar('Se perdió la conexión. Sal de la sala y vuelve a entrar.')
+    if (!cerrada && !expulsado) informar('Se perdió la conexión. Sal de la sala y vuelve a entrar.')
+  }
+  const identidadEspera = (identificador: string) => Object.entries(conferencia?.room?.getLobby?.()?.lobbyRoom?.members ?? {})
+    .find(([jid]) => jid.endsWith(`/${identificador}`))?.[1]?.identity?.user?.id
+  const listarSolicitudes = () => [...solicitudes.values()].map(solicitud => ({ ...solicitud, usuarioIdentificador: identidadEspera(solicitud.identificador) }))
+  const publicarSolicitudes = () => { if (!cerrada) observadores.solicitudesEspera?.(listarSolicitudes()) }
+  const exigirModeradorSala = () => { if (!conferencia?.isModerator()) throw new Error('Solo el instructor o un moderador puede gestionar la sala.') }
+  /** Silencia y expulsa a quien publica pantalla sin autorización: Jitsi no lo impide en el servidor. */
+  const vigilar = (pista: PistaJitsi) => {
+    if (cerrada || !conferencia || !moderacion || pista.isLocal() || pista.getType() !== 'video' || pista.getVideoType() !== 'desktop' || pista.isMuted()) return
+    if (!conferencia.isModerator() || !pantallaRestringida) return
+    const participante = pista.getParticipantId()
+    const persona = conferencia.getParticipants().find(candidato => candidato.getId() === participante)
+    if (persona?.getRole?.() === 'moderator' || moderacion.estado().autorizaciones[participante]?.desktop) return
+    conferencia.muteParticipant(participante, 'desktop')
+    conferencia.kickParticipant(participante, 'Compartió pantalla sin autorización del instructor.')
+    observadores.infraccion?.({ participanteIdentificador: participante, usuarioIdentificador: persona?.getIdentity()?.user?.id })
+  }
+  const aplicarPoliticas = () => {
+    const politicas = opciones.politicas
+    if (!politicas || politicasAplicadas || !moderacion || !conferencia?.isModerator()) return
+    politicasAplicadas = true
+    const restringidos = ([['audio', politicas.microfonoPermitido], ['video', politicas.camaraPermitida], ['desktop', politicas.pantallaPermitida]] as const)
+      .filter(([, permitido]) => !permitido).map(([medio]) => moderacion!.configurar(medio, true))
+    void Promise.all(restringidos).then(() => { politicasConfirmadas = true; pantallaRestringida = moderacion!.estado().restringidos.desktop })
+      .catch(() => { if (!cerrada) informar('No se pudieron aplicar los permisos guardados. Revísalos en Opciones.') })
   }
   conexion.addEventListener(biblioteca.events.connection.CONNECTION_FAILED, desconectada)
   conexion.addEventListener(biblioteca.events.connection.CONNECTION_DISCONNECTED, desconectada)
@@ -213,6 +261,8 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
     const eventos = biblioteca.events.conference
     moderacion = crearModeracion(conferencia, eventos, estado => {
       observadores.moderacion(estado)
+      if (politicasConfirmadas) pantallaRestringida = estado.restringidos.desktop
+      aplicarPoliticas()
       if (!conectada || cerrada) return
       void serializar(async () => {
         if (!estado.permitidos.audio && microfono && !microfono.isMuted()) await microfono.mute()
@@ -235,9 +285,10 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
       observadores.nivelMicrofono(valor)
       if (valor > 0) temporizadorNivel = setTimeout(() => { if (!cerrada) observadores.nivelMicrofono(0) }, 400)
     })
-    conferencia.on(eventos.TRACK_ADDED, mostrarPista)
+    conferencia.on(eventos.TRACK_ADDED, (pista: PistaJitsi) => { vigilar(pista); mostrarPista(pista) })
     conferencia.on(eventos.TRACK_REMOVED, quitarPista)
     conferencia.on(eventos.TRACK_MUTE_CHANGED, (pista: PistaJitsi) => {
+      vigilar(pista)
       const medio = pista.getType() === 'audio' ? 'audio' : pista.getVideoType() === 'desktop' ? 'desktop' : 'video'
       if (!cerrada && pista.isLocal() && !pista.isMuted() && moderacion && !moderacion.estado().permitidos[medio]) {
         void pista.mute().then(publicarEstado).catch(() => informar('No se pudo sincronizar el estado del dispositivo. Sal y vuelve a entrar.'))
@@ -249,7 +300,39 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
       void pista.mute().then(publicarEstado).catch(() => informar('El servidor rechazó la activación. Sal y vuelve a entrar.'))
     })
     for (const evento of [eventos.USER_JOINED, eventos.USER_LEFT, eventos.DISPLAY_NAME_CHANGED, eventos.PARTICIPANT_PROPERTY_CHANGED]) conferencia.on(evento, (identificador?: string) => { if (evento === eventos.USER_LEFT && identificador) ultimaReaccion.delete(identificador); publicarParticipantes() })
-    conferencia.on(eventos.CONFERENCE_FAILED, desconectada)
+    conferencia.on(eventos.CONFERENCE_FAILED, (error?: string) => {
+      const errores = biblioteca.errors.conference
+      if (error === errores.MEMBERS_ONLY_ERROR && !enEspera) {
+        enEspera = true
+        observadores.espera?.(true)
+        informar('En sala de espera: el instructor debe admitirte.')
+        void Promise.resolve(conferencia!.joinLobby(credencial.nombre)).catch(() => { if (!cerrada) informar('No se pudo entrar a la sala de espera. Sal y vuelve a intentarlo.') })
+        return
+      }
+      if (error === errores.CONFERENCE_ACCESS_DENIED) {
+        enEspera = false
+        observadores.espera?.(false)
+        expulsado = true
+        conectada = false
+        publicarEstado()
+        if (!cerrada) informar('El instructor no te admitió en esta sesión.')
+        return
+      }
+      desconectada()
+    })
+    conferencia.on(eventos.KICKED, () => {
+      expulsado = true
+      conectada = false
+      publicarEstado()
+      if (!cerrada) informar('El instructor te retiró de la sesión.')
+    })
+    conferencia.on(eventos.LOBBY_USER_JOINED, (identificador: string, nombre?: string) => { solicitudes.set(identificador, { identificador, nombre: nombre || 'Participante' }); publicarSolicitudes() })
+    conferencia.on(eventos.LOBBY_USER_UPDATED, (identificador: string, datos?: { name?: string }) => {
+      const solicitud = solicitudes.get(identificador)
+      if (solicitud && datos?.name) solicitudes.set(identificador, { ...solicitud, nombre: datos.name })
+      publicarSolicitudes()
+    })
+    conferencia.on(eventos.LOBBY_USER_LEFT, (identificador: string) => { solicitudes.delete(identificador); publicarSolicitudes() })
     conferencia.on(eventos.CONFERENCE_LEFT, desconectada)
     conferencia.on(eventos.MESSAGE_RECEIVED, (remitente: string, texto: string, fecha: string | number | undefined, nombre: string, visitante: boolean, identificador: string) => {
       if (cerrada) return
@@ -258,6 +341,7 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
     })
     conferencia.on(eventos.CONFERENCE_JOINED, () => {
       if (cerrada) return
+      if (enEspera) { enEspera = false; observadores.espera?.(false) }
       conectada = true
       informar('Conectado')
       moderacion?.publicar()
@@ -324,6 +408,7 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
       publicarEstado()
     }),
     levantarMano: () => serializar(async () => {
+      if (opciones.politicas?.manoPermitida === false && !manoLevantada && !conferencia!.isModerator()) throw new Error('El instructor no habilitó levantar la mano en esta sesión.')
       manoLevantada = !manoLevantada
       const instantes = conferencia!.getParticipants().map(persona => instanteMano(persona.getProperty('raisedHand')) ?? 0)
       manoLevantadaEn = manoLevantada ? Math.max(Date.now(), ...instantes.map(instante => instante + 1)) : undefined
@@ -338,6 +423,23 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
     autorizarParticipante: (medio: import('./moderacionSala').MedioModerado, identificador: string, permitir: boolean) => {
       if (!moderacion || !conectada) return Promise.reject(new Error('Espera a que se conecte la sala.'))
       return moderacion.autorizar(medio, identificador, permitir)
+    },
+    admitir: (identificador: string) => { exigirModeradorSala(); conferencia!.lobbyApproveAccess(identificador) },
+    rechazar: (identificador: string) => { exigirModeradorSala(); conferencia!.lobbyDenyAccess(identificador) },
+    /** Admite solo solicitudes cuya identidad JWT pertenece a un inscrito vigente. */
+    admitirInscritos: (permitidos: Set<string>) => {
+      exigirModeradorSala()
+      const admitidas = listarSolicitudes().filter(solicitud => solicitud.usuarioIdentificador && permitidos.has(solicitud.usuarioIdentificador))
+      for (const solicitud of admitidas) conferencia!.lobbyApproveAccess(solicitud.identificador)
+      return admitidas.length
+    },
+    /** Expulsa todas las conexiones de la cuenta y rechaza sus solicitudes de reingreso. */
+    expulsar: (usuarioIdentificador: string) => {
+      exigirModeradorSala()
+      const conexiones = conferencia!.getParticipants().filter(persona => persona.getIdentity()?.user?.id === usuarioIdentificador)
+      for (const persona of conexiones) conferencia!.kickParticipant(persona.getId(), 'Retirado por el instructor.')
+      for (const solicitud of listarSolicitudes()) if (solicitud.usuarioIdentificador === usuarioIdentificador) conferencia!.lobbyDenyAccess(solicitud.identificador)
+      return conexiones.length
     },
     enviarReaccion: (emoji: string) => serializar(async () => {
       if (!reaccionesDisponibles.some(reaccion => reaccion.emoji === emoji)) throw new Error('Selecciona una reacción disponible.')

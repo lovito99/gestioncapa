@@ -637,3 +637,284 @@ Consultadas el 15/11/2026; verificar producto y versión exactos antes de implem
   implementados para Izipay Web Core y Culqi Checkout Custom. Los contratos se
   probaron con respuestas simuladas; eso no acredita cobros en ambos sandboxes.
 - Git, build, aprobación de entrega y publicación siguen siendo manuales.
+
+---
+
+# HU-26: Sesiones virtuales seguras
+
+Estado: **aprobada por el usuario el 15/11/2026 («implementa todo») e implementada en local.**
+Las preguntas abiertas se resolvieron con las recomendaciones (ver «Decisiones tomadas»).
+Fecha de revisión: 16/11/2026, America/Lima. Rama `SCRUM-24-hu-26-sesiones-virtuales-seguras`,
+base `95fe541` (contiene la etiqueta `v3.0.0.0.0`). Plan y seguimiento: sección HU-26 de
+[tasks/plan.md](tasks/plan.md) y [tasks/todo.md](tasks/todo.md). Las secciones T-20 y
+HU-53 anteriores se conservan sin cambios.
+
+## Objetivo y caso de uso
+
+Como instructor, quiero dictar sesiones en una videoconferencia propia del subdominio
+donde solo yo controle quién comparte pantalla, para que los colegiados se capaciten
+sin interrupciones y el CPPP no dependa de servicios pagados (AG-C01.1). Origen: la
+entrevista al representante del CPPP (pregunta 4: un intruso compartió contenido
+inapropiado en un evento de ~1000 personas) y la reunión NR-05, NR-06 y NR-07.
+
+Actores: **instructor** asignado a la sesión (anfitrión y moderador), **administrador**
+(gestión y moderador), **colegiado** (rol `agremiado`) inscrito con acceso vigente al
+curso, y **Jitsi** como servidor audiovisual propio que valida el token y la moderación.
+
+Éxito: ningún colegiado puede entrar sin estar inscrito ni pasar la sala de espera,
+publicar pantalla sin permiso aunque manipule su navegador, ni volver tras ser
+expulsado; y su asistencia virtual se calcula con eventos del servidor, no del navegador.
+
+## Mapa de capacidades (Fase 0)
+
+La historia agrupa capacidades que se pueden verificar y entregar por separado. La
+propia historia pide dividirla. Propuesta, con identificadores estables:
+
+| Módulo | Responsabilidad | Depende de |
+|---|---|---|
+| `sala-segura` | Licencias, configuración Jitsi verificada, acceso solo desde la plataforma, sala de espera obligatoria y aviso de grabación | — |
+| `control-sala` | Políticas persistentes de pantalla, micrófono y mano; aplicación en servidor; expulsión sin reingreso | `sala-segura` |
+| `asistencia-virtual` | Eventos de entrada/salida desde Prosody, porcentaje mínimo y registro que cuenta para el 80 % | `sala-segura` |
+| `difusion-masiva` | Modo visitantes/transmisión para ~1000 personas | `control-sala` — **fuera de alcance** |
+| `sesion-ambas` | Transmitir el aula de una sesión «ambas» (HU-36) | HU-36 — **bloqueado** |
+
+Orden: espiga técnica → `sala-segura` → `control-sala` y `asistencia-virtual` (pueden
+ir en paralelo). Se recomienda registrar en Jira tres historias: HU-26a acceso seguro
+y sala de espera, HU-26b control de pantalla y expulsión, HU-26c asistencia virtual, y
+re-estimarlas en Planning Poker. Las dos últimas filas quedan como historias aparte.
+Este documento especifica los tres módulos dentro de alcance en una sola sección
+para no fragmentar el SPEC.md compartido; el usuario puede pedir archivos por módulo.
+
+## Revisión del código actual e inconsistencias
+
+| Hallazgo | Evidencia | Implicación |
+|---|---|---|
+| El prototipo «Aula virtual» **ya está en el repositorio** | Commit `0f1aaef` (28/10/2026): sala propia con lib-jitsi-meet, personas, chat, pantalla, mano, reacciones y comparación de inscritos; [docs/reuniones.md](docs/reuniones.md) | Contradice «aún no está en GitHub». Se asume que ese commit es el prototipo; confirmar si existe otro. |
+| No hay registro de licencias de terceros | `infraestructura/jitsi/servidor/` (docker-jitsi-meet, con `LICENSE` Apache-2.0) está ignorada por Git; `version.json` solo guarda versión y checksum | Falta el aviso exigido por la historia: proyecto, licencia, versión y qué se modificó. |
+| La sala usa lib-jitsi-meet, no la API IFrame | `frontend/src/servicios/salaJitsi.ts` | Las notas técnicas citan `participantJoined`/`participantLeft` de IFrame; los eventos del navegador no son confiables para asistencia. Se usarán eventos del servidor (`event_sync`). |
+| Políticas de sala rechazadas | `PATCH /api/reuniones/:id/politicas` responde 422 ante cualquier restricción | Contradice NR-07. Las columnas existen en `reuniones`, pero `pantallaPermitida` es `true` por defecto. |
+| Moderación solo manual y efímera | `moderacionSala.ts`: el anfitrión activa la moderación de `desktop` en Opciones, durante la llamada | Si el anfitrión no la activa, un colegiado puede compartir pantalla: es el incidente reportado. |
+| Expulsión incompleta | `retirar` responde `desconexionAudiovisual: false`; el token Jitsi dura 300 s | El expulsado sigue conectado y puede reutilizar un token ya emitido durante 5 min. |
+| Sala de espera inexistente | `salaEsperaHabilitada` siempre `false` (422 si se pide) | NR-06 sin implementar. |
+| Sin asistencia virtual | `attendances` solo se llena por QR; `docs/reuniones.md` lo declara pendiente | `asistenciaCurso` ya cuenta cualquier fila de `attendances`: bastará con registrar el origen. |
+| Los cursos `VIRTUAL` no admiten sesiones | `programarSesion` exige `modalidad in ('PRESENCIAL','HIBRIDA')` y las reuniones requieren una sesión (`classes`) | Un curso virtual no puede tener aula virtual. |
+| No existe la sesión «ambas» de HU-36 | Modalidad solo a nivel de curso (`PRESENCIAL`, `VIRTUAL`, `HIBRIDA`) | El criterio de transmitir el aula queda bloqueado por HU-36. |
+| Solo el administrador crea reuniones | `POST /api/reuniones` filtra `creador.role in ('admin')` | El instructor de la historia no puede crear su sala; sí iniciarla y configurarla. |
+| Documentación desactualizada | `docs/reuniones.md` menciona «coordinador»; HU-35 lo migró a `admin` | Corregir al tocar el documento. |
+
+## Hallazgos técnicos sobre Jitsi (imagen local `stable-11248-2`)
+
+Revisados en la imagen y **comprobados en ejecución en la espiga T26-01**
+([evidencia](docs/esp/sesionesVirtuales.md)).
+
+- `mod_av_moderation_component` admite `audio`, `video` y `desktop`, pero **la espiga
+  demostró que la moderación `desktop` no impide que un cliente manipulado publique
+  su pantalla**. La moderación de vídeo bloquea todo el vídeo, incluso el autorizado.
+  Por eso se aplicó el plan B (pregunta 7): vigilante en la sala del moderador.
+- `/prosody-plugins-contrib` (jitsi-contrib, **Apache-2.0**) incluye `event_sync`, que
+  envía `occupant/joined` y `occupant/left` con el `id` del contexto JWT (no el nombre
+  elegido por el cliente) y admite cabecera `Authorization` y reintentos.
+- También incluye `token_lobby_ondemand`: el token con `"lobby": true` envía a la sala
+  de espera; el token del anfitrión sin ese campo entra directo.
+- `mod_muc_auth_ban` solo actúa con inquilinos `vpaas-magic-cookie-`: no sirve aquí.
+- `mod_visitors` existe y es la vía nativa para audiencias grandes (`difusion-masiva`).
+
+## Supuestos (corregir antes de aprobar)
+
+1. Se integra el prototipo existente (`0f1aaef`), sin reescribir la sala ni cambiar a IFrame.
+2. La sala de espera es **obligatoria** para colegiados; no se ofrece como opción
+   desactivable, porque además cierra la ventana de reingreso del expulsado.
+3. Para unas 1000 personas no se promete una sola sala interactiva; se difiere a `difusion-masiva`.
+4. Grabación: el servidor no graba (Jibri desactivado). Se implementa solo el aviso
+   previo obligatorio cuando el instructor declara que grabará por su cuenta.
+5. Duración de referencia de la asistencia: desde que la reunión pasa a `iniciada`
+   hasta que se finaliza. El umbral por defecto es 70 %, configurable de 1 a 100.
+6. Un colegiado expulsado no obtiene asistencia virtual de esa sesión.
+7. Se habilitan sesiones en cursos `VIRTUAL` y el instructor asignado puede crear
+   la reunión de su sesión, además del administrador.
+8. No se añaden dependencias npm. Los módulos de Prosody vienen en la imagen fijada.
+
+## Alcance
+
+Incluye: espiga de verificación con dos navegadores y un cliente manipulado; registro
+de licencias; configuración reproducible de Jitsi (`preparar.mjs`); sala de espera y
+admisión; políticas persistentes aplicadas en servidor; expulsión con desconexión y
+sin reingreso; webhook de eventos; cálculo y registro de asistencia virtual; aviso de
+grabación; documentación y pruebas.
+
+Excluye: transmisión para ~1000 personas, sesión «ambas», grabación en servidor,
+despliegue en el servidor del CPPP, medición de costos y correo de invitaciones.
+
+## Criterios de aceptación
+
+Cada criterio tiene identificador para rastrear su prueba.
+
+**`sala-segura`**
+
+- **HU26-01** Dado un usuario sin inscripción vigente (no inscrito, inscripción
+  pendiente de pago o curso cerrado), cuando pide la credencial, recibe 403 y no se
+  emite token. Dado un usuario sin sesión, recibe 401.
+- **HU26-02** Dado un colegiado, cuando entra, lo hace solo desde `/reuniones/:id`
+  con su sesión iniciada: el enlace no contiene credencial y la URL directa de Jitsi
+  sin token es rechazada por el servidor (`ENABLE_GUESTS=0`, `JWT_ALLOW_EMPTY=0`).
+- **HU26-03** Dado un inscrito, cuando entra, queda en la sala de espera hasta que el
+  instructor lo admite; el instructor ve su identidad del JWT y puede admitir a uno,
+  rechazar o «Admitir inscritos». Antes de que llegue un moderador nadie entra a la sala.
+- **HU26-04** Dada una reunión con `grabacionPrevista`, cuando el colegiado va a entrar,
+  ve el aviso (Ley 29733, AG-C01.2) y el backend no emite credencial sin su aceptación,
+  que queda registrada con fecha. Sin grabación prevista no se muestra el aviso.
+- **HU26-05** Existe un registro de terceros con proyecto, versión, licencia, origen
+  y modificaciones (ninguna en código Jitsi; solo configuración y adaptador propio).
+
+**`control-sala`**
+
+- **HU26-06** Dado el instructor, cuando configura la sala, decide si los colegiados
+  pueden compartir pantalla, activar micrófono o levantar la mano; se guarda en
+  PostgreSQL y se valida (solo instructor asignado o administrador; reunión no cerrada).
+- **HU26-07** Dado un colegiado sin permiso de pantalla, cuando intenta compartirla,
+  el botón está deshabilitado **y**, si fuerza la publicación desde la consola, los
+  demás no reciben su pantalla (moderación `desktop` en servidor, comprobada en T26-01).
+  La política se aplica al conectarse el moderador, antes de admitir a nadie.
+- **HU26-08** Dado un colegiado autorizado por el instructor (tras levantar la mano),
+  puede compartir; al retirarle el permiso, su pantalla se detiene.
+- **HU26-09** Dado el instructor, cuando expulsa a un colegiado, se cierran todas sus
+  conexiones de esa sala, queda `retirado` y no puede volver a entrar a esa sesión:
+  no recibe credencial nueva (403) y un token anterior todavía vigente solo lo deja
+  en la sala de espera, donde aparece como «Expulsado» sin opción de admitirlo.
+- **HU26-10** Ningún colegiado puede admitir, expulsar ni cambiar políticas aunque
+  invoque la API de Jitsi o del backend: Prosody y el backend lo rechazan.
+- **HU26-11** Si la mano no está permitida, el botón no se muestra. Se documenta que
+  esta restricción es de interfaz, no un control de seguridad del servidor.
+
+**`asistencia-virtual`**
+
+- **HU26-12** Dado un colegiado inscrito, cuando entra y sale de la sala principal
+  (no de la espera), el backend registra cada intervalo a partir de eventos firmados
+  de Prosody, identificando al usuario por el `id` del JWT. Eventos duplicados o
+  reintentados no duplican intervalos; eventos sin secreto válido responden 401.
+- **HU26-13** Al finalizar la reunión se cierran los intervalos abiertos y se calcula,
+  por inscrito, el porcentaje conectado (unión de intervalos de todas sus conexiones,
+  sin contar solapamientos) respecto de la duración de referencia.
+- **HU26-14** Si el porcentaje es menor que el mínimo de la reunión (70 % por defecto)
+  no se cuenta la asistencia; si lo alcanza, se registra en `attendances` con origen
+  `VIRTUAL` y cuenta para el 80 % del certificado. Una asistencia QR previa se conserva.
+- **HU26-15** El instructor y el administrador ven el resultado por inscrito (minutos,
+  porcentaje y si cuenta). Finalizar dos veces no cambia el resultado.
+
+**Fuera de alcance, registrados**
+
+- **HU26-16** (`sesion-ambas`) Dada una sesión «ambas», el aula se transmite a la sala
+  virtual: bloqueado hasta que HU-36 defina ese tipo de sesión.
+- **HU26-17** (`difusion-masiva`) Modo visitantes para la mayoría y sala interactiva
+  para pocos: historia aparte con espiga de capacidad.
+
+## Diseño propuesto
+
+**Contrato Jitsi.** El token de colegiado añade `"lobby": true`; el de moderador no lo
+lleva. `preparar.mjs` añade, de forma idempotente y sin rotar secretos existentes,
+`ENABLE_LOBBY=1`, `token_lobby_ondemand`, el componente `event_sync` con
+`api_prefix` hacia el backend y una cabecera `Authorization` con un secreto nuevo
+`jitsiEventosSecreto` (distinto de `jitsiSecreto`, `JWT_SECRET` y `QR_SECRET`), y
+desactiva grabación y transmisión de Jibri. La forma exacta de cargar módulos de
+`/prosody-plugins-contrib` en Docker se decide en T26-01.
+
+**Datos** (migración nueva `0032-sesionesVirtualesSeguras.sql`, sin tocar las aplicadas):
+
+- `reuniones`: `"iniciadaEn"`, `"finalizadaEn"`, `"porcentajeMinimo"` (1–100, 70),
+  `"manoPermitida"` (true), `"grabacionPrevista"` (false); `"pantallaPermitida"` pasa a
+  `false` por defecto para reuniones nuevas. `"salaEsperaHabilitada"` queda en desuso
+  (siempre obligatoria) y se conserva por compatibilidad.
+- `"participantesReunion"`: `"avisoGrabacionAceptadoEn"`, `"retiradoEn"`.
+- `"conexionesReunion"`: reunión, usuario, `"ocupanteJid"`, `"entradaEn"`, `"salidaEn"`;
+  único por reunión, ocupante y entrada para la idempotencia.
+- `"asistenciaReunion"`: reunión, usuario, segundos conectados, porcentaje, cuenta.
+- `attendances.origen` (`'QR'` por defecto, `'VIRTUAL'`).
+
+**API** (todas bajo JWT de la aplicación, salvo el webhook):
+
+| Método | Ruta | Cambio |
+|---|---|---|
+| POST | `/api/reuniones` | Admite instructor asignado; sesiones de cursos `VIRTUAL` |
+| PATCH | `/api/reuniones/:id/politicas` | Guarda pantalla, micrófono, mano, porcentaje y grabación; deja de responder 422 |
+| POST | `/api/reuniones/:id/credencial` | Añade `lobby`; exige `aceptaGrabacion` si corresponde; registra la aceptación |
+| POST | `/api/reuniones/:id/participantes/:usuario/retirar` | Registra `retiradoEn`; el cliente moderador expulsa sus conexiones |
+| POST | `/api/reuniones/:id/finalizar` | Fija `finalizadaEn` y calcula la asistencia en la misma transacción |
+| GET | `/api/reuniones/:id/asistencia` | Resultado por inscrito (instructor y administrador) |
+| POST | `/api/jitsi/events/occupant/joined` y `/left` | Webhook de `event_sync`; secreto en tiempo constante; sin JWT de usuario; ignora salas desconocidas y la sala de espera |
+
+**Interfaz.** Pantalla previa con aviso de grabación; estado «En sala de espera»;
+panel del anfitrión con solicitudes, «Admitir inscritos» y expulsión; las políticas
+guardadas se aplican al unirse el moderador; resultado de asistencia en la reunión finalizada.
+
+## Pila, estructura y estilo
+
+Backend Fastify + TypeScript + `pg` + zod (`backend/src/modules/reuniones`,
+`backend/src/modules/jitsi`); migraciones SQL numeradas en `backend/migraciones`.
+Frontend React + Vite (`frontend/src/paginas/reuniones`, `frontend/src/servicios`).
+Infraestructura en `infraestructura/jitsi` (solo se versionan los scripts propios).
+Nombres nuevos en camelCase/PascalCase y sin guiones bajos; las rutas del webhook
+y las variables oficiales de Jitsi conservan su contrato externo. Ejemplo del estilo:
+
+```ts
+export function porcentajeConectado(intervalos: Intervalo[], referencia: Intervalo) {
+  const unidos = unirIntervalos(intervalos.map(intervalo => recortar(intervalo, referencia)))
+  const segundos = unidos.reduce((total, tramo) => total + (tramo.fin - tramo.inicio), 0)
+  return { segundos, porcentaje: segundos * 100 / (referencia.fin - referencia.inicio) }
+}
+```
+
+## Estrategia de pruebas y comandos
+
+| Nivel | Qué cubre | Comando |
+|---|---|---|
+| Unitarias backend | Token con `lobby`, unión de intervalos, umbral, validación de políticas y del webhook | `npm test -w backend` |
+| Integración (PostgreSQL real) | HU26-01, 04, 06, 09, 10, 12–15, idempotencia y permisos | `npm run test:integracion -w backend` |
+| Unitarias frontend (Vitest) | Sala de espera, aplicación de políticas, expulsión, aviso | `npm test -w frontend` |
+| Tipos y lint | — | `npm run typecheck`, `npm run lint -w frontend` |
+| Jitsi real (manual con evidencia) | HU26-02, 03, 07, 08, 09 con dos o tres Chromium y un cliente que se salta la UI | Jitsi local en `localhost:8000` |
+| Build | — | `npm run build`: **lo ejecuta el usuario** |
+
+Cada tarea sigue rojo → verde → refactor: la prueba se escribe y se ve fallar antes de
+implementar. Los criterios que dependen del servidor audiovisual no se dan por cumplidos
+con simulaciones: requieren la evidencia manual anotada en `tasks/todo.md`.
+
+## Límites
+
+- **Siempre:** comprobar inscripción, acceso al curso y estado `retirado` en cada
+  credencial; validar entradas con zod; comparar secretos en tiempo constante; no
+  confiar en nombres ni eventos del navegador para permisos o asistencia; documentar.
+- **Preguntar antes:** nuevas dependencias, cambios a migraciones aplicadas, abrir
+  puertos o exponer el webhook fuera de la red de Docker, cambiar la versión de Jitsi.
+- **Nunca:** ejecutar build ni operaciones Git de escritura (lo hace el usuario);
+  versionar secretos o la distribución descargada; modificar el código de Jitsi;
+  marcar asistencia por pedir una credencial; afirmar una verificación no ejecutada.
+
+## Seguridad y datos personales
+
+- El webhook acepta solo `POST` con el secreto propio, valida el cuerpo con zod,
+  limita tamaño, no registra tokens ni correos en los logs y es idempotente.
+- Ley 29733: los intervalos de conexión son datos personales con finalidad de
+  asistencia; se guardan solo identificador, sala y horas. El aviso de grabación
+  se registra con fecha; no se almacena audio ni vídeo.
+- El token de Jitsi sigue en 300 s; el reingreso con un token anterior se contiene
+  por la sala de espera obligatoria (HU26-09).
+
+## Decisiones tomadas
+
+El usuario pidió implementar todo sin responder las preguntas una por una; se
+aplicaron las recomendaciones y quedan a su revisión:
+
+1. Se trata `0f1aaef` como el prototipo. Si existe otro, debe registrarse en
+   [licenciasTerceros.md](docs/licenciasTerceros.md) antes de integrarlo.
+2. Se entregan los tres módulos; `difusion-masiva` y `sesion-ambas` quedan fuera.
+   Dividir y re-estimar en Jira y Planning Poker sigue siendo tarea del equipo.
+3. Duración de referencia real: `iniciadaEn` → `finalizadaEn`.
+4. El expulsado no obtiene asistencia virtual de esa sesión.
+5. El servidor no graba; se avisa y se registra la aceptación cuando el instructor la anuncia.
+6. Sí: sesiones en cursos `VIRTUAL` y creación de reuniones por el instructor asignado.
+7. Sí: vigilante que silencia, expulsa y revoca; reacción medida de 555 ms en local.
+
+Cambios respecto del diseño propuesto: una sola migración
+`0032-sesionesVirtualesSeguras.sql` (en vez de tres); `persistent_lobby` también es
+necesario para la sala de espera; `api_prefix` usa una IP porque Prosody no
+resuelve `/etc/hosts`.

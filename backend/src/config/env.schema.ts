@@ -86,6 +86,7 @@ const envSchema = z.object({
   jitsiDireccion: z.string().url().refine(valor => new URL(valor).protocol === "https:" || (new URL(valor).protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(new URL(valor).hostname)), "debe usar HTTPS; HTTP solo se admite en localhost").optional(),
   jitsiAplicacion: z.string().min(3).optional(),
   jitsiSecreto: z.string().min(32).optional(),
+  jitsiEventosSecreto: z.string().min(32).optional(),
   ADMIN_NAME: z.string().default("Administrador"),
   ADMIN_EMAIL: requerida((s) => s.email("debe ser un correo válido")),
   ADMIN_PASSWORD: requerida((s) => s.min(12, "debe tener al menos 12 caracteres"))
@@ -140,7 +141,7 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
       if (!configuracion.culqiClavePublica?.startsWith(`pk_${entorno}_`) || !configuracion.culqiClaveSecreta?.startsWith(`sk_${entorno}_`)) contexto.addIssue({ code:'custom',path:['culqiClaveSecreta'],message:'las llaves deben corresponder al entorno seleccionado' });
     }
     if (!configuracion.jitsiHabilitado) return;
-    for (const nombre of ["jitsiDominio", "jitsiAplicacion", "jitsiSecreto"] as const) {
+    for (const nombre of ["jitsiDominio", "jitsiAplicacion", "jitsiSecreto", "jitsiEventosSecreto"] as const) {
       if (!configuracion[nombre] || esValorDeEjemplo(configuracion[nombre])) {
         contexto.addIssue({ code: "custom", path: [nombre], message: "configura un valor propio para habilitar Jitsi" });
       }
@@ -153,6 +154,10 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     }
     if (configuracion.jitsiSecreto === configuracion.JWT_SECRET || configuracion.jitsiSecreto === configuracion.QR_SECRET) {
       contexto.addIssue({ code: "custom", path: ["jitsiSecreto"], message: "debe ser distinto de los secretos de sesión y QR" });
+    }
+    // El webhook de Prosody no debe aceptar un secreto que firme tokens de usuarios.
+    if ([configuracion.jitsiSecreto, configuracion.JWT_SECRET, configuracion.QR_SECRET].includes(configuracion.jitsiEventosSecreto)) {
+      contexto.addIssue({ code: "custom", path: ["jitsiEventosSecreto"], message: "debe ser distinto de los secretos de Jitsi, sesión y QR" });
     }
   }).safeParse(source);
 

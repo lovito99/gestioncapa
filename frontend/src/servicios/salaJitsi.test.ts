@@ -5,7 +5,7 @@ import { clasificarParticipantes } from './presenciaReunion'
 
 type Escucha = (...argumentos: never[]) => void
 const credencial = { token: 'credencial', dominio: 'localhost', direccionServidor: 'http://localhost:8000', nombreSala: 'prueba', nombre: 'María' }
-const eventos = Object.fromEntries(['TRACK_ADDED', 'TRACK_REMOVED', 'TRACK_MUTE_CHANGED', 'CONFERENCE_JOINED', 'CONFERENCE_FAILED', 'CONFERENCE_LEFT', 'USER_JOINED', 'USER_LEFT', 'DISPLAY_NAME_CHANGED', 'PARTICIPANT_PROPERTY_CHANGED', 'MESSAGE_RECEIVED', 'ENDPOINT_MESSAGE_RECEIVED', 'TRACK_UNMUTE_REJECTED', 'TRACK_AUDIO_LEVEL_CHANGED', 'AV_MODERATION_CHANGED', 'AV_MODERATION_APPROVED', 'AV_MODERATION_REJECTED', 'AV_MODERATION_PARTICIPANT_APPROVED', 'AV_MODERATION_PARTICIPANT_REJECTED', 'USER_ROLE_CHANGED'].map(nombre => [nombre, nombre])) as BibliotecaJitsi['events']['conference']
+const eventos = Object.fromEntries(['TRACK_ADDED', 'TRACK_REMOVED', 'TRACK_MUTE_CHANGED', 'CONFERENCE_JOINED', 'CONFERENCE_FAILED', 'CONFERENCE_LEFT', 'USER_JOINED', 'USER_LEFT', 'DISPLAY_NAME_CHANGED', 'PARTICIPANT_PROPERTY_CHANGED', 'MESSAGE_RECEIVED', 'ENDPOINT_MESSAGE_RECEIVED', 'TRACK_UNMUTE_REJECTED', 'TRACK_AUDIO_LEVEL_CHANGED', 'AV_MODERATION_CHANGED', 'AV_MODERATION_APPROVED', 'AV_MODERATION_REJECTED', 'AV_MODERATION_PARTICIPANT_APPROVED', 'AV_MODERATION_PARTICIPANT_REJECTED', 'USER_ROLE_CHANGED', 'KICKED', 'LOBBY_USER_JOINED', 'LOBBY_USER_UPDATED', 'LOBBY_USER_LEFT'].map(nombre => [nombre, nombre])) as BibliotecaJitsi['events']['conference']
 function crearPista(tipo: string, video = 'camera') {
   let silenciada = false
   const escuchas = new Map<string, () => void>()
@@ -32,7 +32,7 @@ const emitir = (evento: string, ...argumentos: unknown[]) => escuchas.get(evento
 beforeEach(() => {
   escuchas = new Map(); remotos = []
   microfono = crearPista('audio'); camara = crearPista('video'); pantalla = crearPista('video', 'desktop')
-  conferencia = { isModerator: () => false, isAVModerationSupported: () => true, enableAVModeration: vi.fn(), disableAVModeration: vi.fn(), avModerationApprove: vi.fn(), avModerationReject: vi.fn(), muteParticipant: vi.fn(), on: (evento, funcion) => { escuchas.set(evento, funcion) }, addTrack: vi.fn(async () => undefined), replaceTrack: vi.fn(async (anterior, nueva) => { if (anterior && nueva && anterior.getVideoType() !== nueva.getVideoType()) throw new Error('Jitsi no admite reemplazar camera por desktop directamente') }), join: () => emitir('CONFERENCE_JOINED'), leave: vi.fn(async () => undefined), setDisplayName: vi.fn(), myUserId: () => 'local', getParticipants: () => remotos, sendMessage: vi.fn(), sendTextMessage: vi.fn(), setLocalParticipantProperty: vi.fn() }
+  conferencia = { isModerator: () => false, isAVModerationSupported: () => true, enableAVModeration: vi.fn(), disableAVModeration: vi.fn(), avModerationApprove: vi.fn(), avModerationReject: vi.fn(), muteParticipant: vi.fn(), kickParticipant: vi.fn(), joinLobby: vi.fn(async () => undefined), lobbyApproveAccess: vi.fn(), lobbyDenyAccess: vi.fn(), on: (evento, funcion) => { escuchas.set(evento, funcion) }, addTrack: vi.fn(async () => undefined), replaceTrack: vi.fn(async (anterior, nueva) => { if (anterior && nueva && anterior.getVideoType() !== nueva.getVideoType()) throw new Error('Jitsi no admite reemplazar camera por desktop directamente') }), join: () => emitir('CONFERENCE_JOINED'), leave: vi.fn(async () => undefined), setDisplayName: vi.fn(), myUserId: () => 'local', getParticipants: () => remotos, sendMessage: vi.fn(), sendTextMessage: vi.fn(), setLocalParticipantProperty: vi.fn() }
   const conexionEscuchas = new Map<string, () => void>()
   conexion = { addEventListener: (evento, funcion) => { conexionEscuchas.set(evento, funcion) }, initJitsiConference: () => conferencia, connect: () => conexionEscuchas.get('establecida')?.(), disconnect: vi.fn() }
   class Conexion implements ConexionJitsi {
@@ -44,7 +44,7 @@ beforeEach(() => {
   biblioteca = { init: vi.fn(), JitsiConnection: Conexion, createLocalTracks: vi.fn(async (opciones: object) => {
     const tipo = (opciones as { devices: string[] }).devices[0]
     return [tipo === 'audio' ? microfono.pista : tipo === 'desktop' ? pantalla.pista : camara.pista]
-  }), events: { connection: { CONNECTION_ESTABLISHED: 'establecida', CONNECTION_FAILED: 'fallida', CONNECTION_DISCONNECTED: 'desconectada' }, conference: eventos, track: { LOCAL_TRACK_STOPPED: 'detenida' } } }
+  }), events: { connection: { CONNECTION_ESTABLISHED: 'establecida', CONNECTION_FAILED: 'fallida', CONNECTION_DISCONNECTED: 'desconectada' }, conference: eventos, track: { LOCAL_TRACK_STOPPED: 'detenida' } }, errors: { conference: { MEMBERS_ONLY_ERROR: 'soloMiembros', CONFERENCE_ACCESS_DENIED: 'accesoDenegado' } } }
   window.JitsiMeetJS = biblioteca
   vi.stubGlobal('navigator', { mediaDevices: { getDisplayMedia: vi.fn() } })
 })
@@ -272,4 +272,120 @@ it('no identifica por nombre, excluye retirados y agrupa varias conexiones de la
   const inscritos = [{ identificador: '1', estado: 'autorizado' }, { identificador: '2', estado: 'autorizado' }, { identificador: '3', estado: 'retirado' }]
   const conexiones = [{ usuarioIdentificador: '1' }, { usuarioIdentificador: '1' }, { nombre: 'Luz' }] as import('./salaJitsi').ParticipanteSala[]
   expect(clasificarParticipantes(inscritos, conexiones)).toEqual([{ identificador: '2', estado: 'autorizado' }])
+})
+
+describe('Sala segura HU-26', () => {
+  const remoto = (identificador: string, usuario?: string, rol = 'participant'): ParticipanteJitsi => ({
+    getId: () => identificador, getIdentity: () => usuario ? { user: { id: usuario } } : undefined, getDisplayName: () => 'Nombre elegido',
+    isAudioMuted: () => true, isVideoMuted: () => true, getProperty: () => undefined, getRole: () => rol })
+  const pistaRemota = (participante: string, video = 'desktop', silenciada = false) => ({ ...crearPista('video', video).pista, isLocal: () => false, getParticipantId: () => participante, isMuted: () => silenciada })
+  const comoModerador = () => {
+    conferencia.isModerator = () => true
+    vi.mocked(conferencia.enableAVModeration).mockImplementation(medio => emitir('AV_MODERATION_CHANGED', { mediaType: medio, enabled: true }))
+  }
+  const politicas = { camaraPermitida: true, microfonoPermitido: false, pantallaPermitida: false, manoPermitida: true }
+
+  it('HU26-03: el colegiado sin admisión espera en la sala de espera hasta que el instructor lo admite', async () => {
+    conferencia.join = () => emitir('CONFERENCE_FAILED', 'soloMiembros')
+    const observar = { ...observadores(), espera: vi.fn() }
+    const informar = vi.fn()
+    const sala = await conectarSala(credencial, contenedor(), informar, observar, { habilitarMedios: false })
+    expect(conferencia.joinLobby).toHaveBeenCalledWith('María')
+    expect(observar.espera).toHaveBeenLastCalledWith(true)
+    expect(informar).toHaveBeenLastCalledWith(expect.stringMatching(/sala de espera/i))
+    expect(observar.estado).not.toHaveBeenCalledWith(expect.objectContaining({ conectada: true }))
+    emitir('CONFERENCE_JOINED')
+    expect(observar.espera).toHaveBeenLastCalledWith(false)
+    expect(observar.estado).toHaveBeenLastCalledWith(expect.objectContaining({ conectada: true }))
+    await sala.cerrar()
+  })
+  it('HU26-03: si el instructor no lo admite, lo informa sin reintentar', async () => {
+    conferencia.join = () => emitir('CONFERENCE_FAILED', 'accesoDenegado')
+    const informar = vi.fn()
+    const sala = await conectarSala(credencial, contenedor(), informar, { ...observadores(), espera: vi.fn() }, { habilitarMedios: false })
+    expect(informar).toHaveBeenLastCalledWith(expect.stringMatching(/no te admitió/i))
+    expect(conferencia.joinLobby).not.toHaveBeenCalled()
+    await sala.cerrar()
+  })
+  it('HU26-03: el moderador ve solicitudes con la identidad del JWT y admite solo inscritos verificables', async () => {
+    comoModerador()
+    Object.assign(conferencia, { room: { getLobby: () => ({ lobbyRoom: { members: { 'sala@lobby.localhost/abc': { identity: { user: { id: '45' } } } } } }) } })
+    const observar = { ...observadores(), solicitudesEspera: vi.fn() }
+    const sala = await conectarSala(credencial, contenedor(), vi.fn(), observar, { habilitarMedios: false })
+    emitir('LOBBY_USER_JOINED', 'abc', 'Nombre falso')
+    emitir('LOBBY_USER_JOINED', 'xyz', 'Sin identidad')
+    expect(observar.solicitudesEspera).toHaveBeenLastCalledWith([
+      { identificador: 'abc', nombre: 'Nombre falso', usuarioIdentificador: '45' },
+      { identificador: 'xyz', nombre: 'Sin identidad', usuarioIdentificador: undefined }])
+    expect(sala.admitirInscritos(new Set(['45', '99']))).toBe(1)
+    expect(conferencia.lobbyApproveAccess).toHaveBeenCalledExactlyOnceWith('abc')
+    sala.rechazar('xyz')
+    expect(conferencia.lobbyDenyAccess).toHaveBeenCalledWith('xyz')
+    emitir('LOBBY_USER_LEFT', 'abc')
+    expect(observar.solicitudesEspera).toHaveBeenLastCalledWith([{ identificador: 'xyz', nombre: 'Sin identidad', usuarioIdentificador: undefined }])
+    await sala.cerrar()
+  })
+  it('HU26-06/07: el moderador aplica las políticas guardadas al conectarse', async () => {
+    comoModerador()
+    const sala = await conectarSala(credencial, contenedor(), vi.fn(), observadores(), { habilitarMedios: false, politicas })
+    await vi.waitFor(() => expect(conferencia.enableAVModeration).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(conferencia.enableAVModeration).mock.calls.map(([medio]) => medio).sort()).toEqual(['audio', 'desktop'])
+    await sala.cerrar()
+  })
+  it('HU26-07: el vigilante silencia y expulsa a quien publica pantalla sin autorización', async () => {
+    comoModerador()
+    remotos = [remoto('intruso', '77'), remoto('autorizado', '78'), remoto('otroModerador', '79', 'moderator')]
+    const observar = { ...observadores(), infraccion: vi.fn() }
+    const sala = await conectarSala(credencial, contenedor(), vi.fn(), observar, { habilitarMedios: false, politicas })
+    await vi.waitFor(() => expect(conferencia.enableAVModeration).toHaveBeenCalledWith('desktop'))
+    emitir('AV_MODERATION_PARTICIPANT_APPROVED', { mediaType: 'desktop', participant: remotos[1] })
+    emitir('TRACK_ADDED', pistaRemota('intruso', 'camera'))
+    emitir('TRACK_ADDED', pistaRemota('autorizado'))
+    emitir('TRACK_ADDED', pistaRemota('otroModerador'))
+    expect(conferencia.kickParticipant).not.toHaveBeenCalled()
+    // La interfaz no ofrece expulsar a otro moderador.
+    expect(observar.participantes).toHaveBeenLastCalledWith(expect.arrayContaining([expect.objectContaining({ identificador: 'otroModerador', moderador: true }), expect.objectContaining({ identificador: 'intruso', moderador: false })]))
+    emitir('TRACK_ADDED', pistaRemota('intruso'))
+    expect(conferencia.muteParticipant).toHaveBeenCalledWith('intruso', 'desktop')
+    expect(conferencia.kickParticipant).toHaveBeenCalledExactlyOnceWith('intruso', expect.any(String))
+    expect(observar.infraccion).toHaveBeenCalledWith({ participanteIdentificador: 'intruso', usuarioIdentificador: '77' })
+    // Reactivar una pantalla silenciada también es una infracción.
+    emitir('TRACK_MUTE_CHANGED', pistaRemota('intruso', 'desktop', true))
+    expect(conferencia.kickParticipant).toHaveBeenCalledOnce()
+    emitir('TRACK_MUTE_CHANGED', pistaRemota('intruso'))
+    expect(conferencia.kickParticipant).toHaveBeenCalledTimes(2)
+    await sala.cerrar()
+  })
+  it('HU26-07: sin restricción de pantalla el vigilante no actúa', async () => {
+    comoModerador()
+    remotos = [remoto('ponente', '80')]
+    const sala = await conectarSala(credencial, contenedor(), vi.fn(), observadores(), { habilitarMedios: false, politicas: { ...politicas, pantallaPermitida: true } })
+    emitir('TRACK_ADDED', pistaRemota('ponente'))
+    expect(conferencia.kickParticipant).not.toHaveBeenCalled()
+    await sala.cerrar()
+  })
+  it('HU26-09: expulsar cierra todas las conexiones del usuario y rechaza sus solicitudes en espera', async () => {
+    comoModerador()
+    remotos = [remoto('pestanaUno', '77'), remoto('pestanaDos', '77'), remoto('otro', '78')]
+    Object.assign(conferencia, { room: { getLobby: () => ({ lobbyRoom: { members: { 'sala@lobby/vuelve': { identity: { user: { id: '77' } } } } } }) } })
+    const sala = await conectarSala(credencial, contenedor(), vi.fn(), { ...observadores(), solicitudesEspera: vi.fn() }, { habilitarMedios: false })
+    emitir('LOBBY_USER_JOINED', 'vuelve', 'Otro nombre')
+    expect(sala.expulsar('77')).toBe(2)
+    expect(vi.mocked(conferencia.kickParticipant).mock.calls.map(([id]) => id)).toEqual(['pestanaUno', 'pestanaDos'])
+    expect(conferencia.lobbyDenyAccess).toHaveBeenCalledWith('vuelve')
+    await sala.cerrar()
+  })
+  it('HU26-09: el colegiado expulsado recibe el aviso y la sala se desconecta', async () => {
+    const informar = vi.fn()
+    const sala = await conectarSala(credencial, contenedor(), informar, observadores(), { habilitarMedios: false })
+    emitir('KICKED')
+    expect(informar).toHaveBeenLastCalledWith(expect.stringMatching(/retiró de la sesión/i))
+    await sala.cerrar()
+  })
+  it('HU26-11: sin permiso de mano el colegiado no puede levantarla', async () => {
+    const sala = await conectarSala(credencial, contenedor(), vi.fn(), observadores(), { habilitarMedios: false, politicas: { ...politicas, manoPermitida: false } })
+    await expect(sala.levantarMano()).rejects.toThrow(/mano/i)
+    expect(conferencia.setLocalParticipantProperty).not.toHaveBeenCalled()
+    await sala.cerrar()
+  })
 })
