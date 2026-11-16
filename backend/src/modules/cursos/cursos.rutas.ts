@@ -94,10 +94,11 @@ export async function registrarCursos(app: FastifyInstance) {
     const curso = await cursoAutorizado(request, reply);
     if (!curso) return reply;
     if (curso.estado === 'CERRADO') return error(reply, 409, 'CURSO_CERRADO', 'El curso está cerrado y no admite nuevas sesiones.');
+    if (curso.modalidad === 'GRABADO') return error(reply, 409, 'CURSO_GRABADO', 'Un curso grabado no tiene sesiones con fecha: su contenido son lecciones en video.');
     const cuerpo = typeof request.body === 'object' && request.body !== null && !Array.isArray(request.body) ? request.body : {};
     const validacion = validarClase({ ...cuerpo, instructorId: curso.instructorId });
     if (!validacion.ok) return reply.code(422).send({ code: 'VALIDACION', message: 'Completa los datos de la sesión.', fields: validacion.fields });
-    const resultado = await programarSesion(curso.id, validacion.datos);
+    const resultado = await programarSesion(curso.id, validacion.datos, request.usuario!.id);
     if (resultado.noDisponible) return error(reply, 409, 'CURSO_NO_DISPONIBLE', 'El curso o su instructor ya no están disponibles para programar sesiones.');
     if (resultado.conflicto) return reply.code(409).send({ code: 'CONFLICTO_HORARIO',
       message: `El instructor ya tiene la clase «${resultado.conflicto.nombre}» en ese horario. Elige otro horario.`, details: { claseId: resultado.conflicto.id } });

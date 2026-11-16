@@ -167,8 +167,9 @@ test('HU53-10: ni materiales ni asistencia se habilitan mediante una fila manual
   const archivo=`${ruta}/${material.json().id}/archivo`;
   assert.equal((await llamar('alumno','GET',archivo)).statusCode,403);
   assert.equal((await llamar('alumno','GET',`/api/cursos/${curso.id}`)).json().modulos.length,0);
-  const clase=(await pool.query<{id:string}>(`insert into classes(curso_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar)
-    values($1,'Sesión HU53',$2,current_date,'08:00','09:00','Sala') returning id::text`,[curso.id,usuarios.get('docente')!.id])).rows[0]!;
+  // Sesión «ambas» (HU-36): admite sala virtual además del aula.
+  const clase=(await pool.query<{id:string}>(`insert into classes(curso_id,nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,modalidad)
+    values($1,'Sesión HU53',$2,current_date,'08:00','09:00','Sala','AMBAS') returning id::text`,[curso.id,usuarios.get('docente')!.id])).rows[0]!;
   assert.equal(await inscribir(Number(clase.id),usuarios.get('alumno')!.id),false);
   await pool.query('insert into enrollments(class_id,user_id) values($1,$2) on conflict do nothing',[clase.id,usuarios.get('alumno')!.id]);
   assert.equal(await estaInscrito(Number(clase.id),Number(usuarios.get('alumno')!.id)),false);

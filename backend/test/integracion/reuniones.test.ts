@@ -31,7 +31,7 @@ before(async () => {
   const administradorAjeno = (await pool.query("insert into users(name,email,password_hash,role) values ($1,$2,$3,$4) returning id",
     ['Administrador ajeno', `${prefijo}administradorAjeno@prueba.local`, 'sinAccesoPorClave', 'admin'])).rows[0];
   usuarios.set('administradorAjeno', { identificador: administradorAjeno.id, token: aplicacion.jwt.sign({ sub: String(administradorAjeno.id) }) });
-  claseIdentificador = (await pool.query(`insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar) values ($1,$2,'2032-01-01','10:00','11:00','Virtual') returning id`, [prefijo, usuarios.get('docente')!.identificador])).rows[0].id;
+  claseIdentificador = (await pool.query(`insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,modalidad) values ($1,$2,'2032-01-01','10:00','11:00','Virtual','VIRTUAL') returning id`, [prefijo, usuarios.get('docente')!.identificador])).rows[0].id;
   await pool.query('insert into enrollments(class_id,user_id) values ($1,$2)', [claseIdentificador, usuarios.get('inscrito')!.identificador]);
 });
 after(async () => {

@@ -304,3 +304,88 @@ no llevan etiqueta. El usuario crea commits, etiquetas y PR.
 
 Las siete de la sección «Preguntas abiertas» de HU-26 en [SPEC.md](../SPEC.md).
 T26-04 depende de la pregunta 6 y el plan B de T26-09 de la pregunta 7.
+
+---
+
+# Plan HU-36: Modalidad por sesión y cursos híbridos
+
+Estado: **aprobado e implementado en local el 16/11/2026** (ajustes en la sección HU-36 de SPEC.md). Especificación: sección HU-36 de
+[SPEC.md](../SPEC.md). Tareas y evidencia: sección HU-36 de [todo.md](todo.md).
+Depende de HU-26 (aún fuera de `main`).
+
+## Resumen
+
+La modalidad pasa del curso a cada sesión (`PRESENCIAL`, `VIRTUAL`, `AMBAS`); el curso
+se clasifica solo según sus sesiones programadas y se añade el curso `GRABADO`. Las
+sesiones virtuales obtienen su sala de HU-26 automáticamente y la asistencia se toma por
+la vía que corresponde a cada sesión. Se construye primero el backend (fuente de verdad)
+en cortes verticales probados con PostgreSQL y después la interfaz y la demo.
+
+## Decisiones de arquitectura
+
+- **Modalidad derivada y guardada**: `cursos.modalidad` se recalcula dentro de cada
+  transacción que toca sesiones, para que el catálogo filtre sin cambios. Se conserva la
+  planificada (`"modalidadPlanificada"`) para cursos sin sesiones.
+- **Una función de derivación pura** usada por backend y demo, con pruebas unitarias.
+- **Las dos vías de sesiones comparten validación**: la regla de modalidad y lugar vive en
+  `clases.validacion.ts`, que ya usan ambas.
+- **Reunión automática** dentro de la misma transacción de la sesión, reutilizando la
+  creación de HU-26 (sin duplicar la lógica de participantes e invitaciones).
+- **Una migración** `0033-modalidadSesion.sql`, que rellena desde el curso para no alterar
+  ningún curso existente.
+- **Git y build manuales** (AGENTS.md): por tarea se entregan Summary y Description.
+
+## Grafo de dependencias
+
+```
+T36-01 migración + derivación ─┬─ T36-02 vía cursos/sesiones ─┐
+                               ├─ T36-03 vía /api/clases ──────┼─ T36-05 detalle con modalidad y sala ─ T36-06 sala automática
+                               └─ T36-04 curso calculado/GRABADO┘          │
+                                                                T36-07 asistencia ─ T36-08 certificados ─ Checkpoint A
+Checkpoint A ─ T36-09 servicio y sesiones UI ─ T36-10 formulario de clases ─ T36-11 curso/etiquetas ─ T36-12 demo ─ Checkpoint B
+Checkpoint B ─ T36-13 E2E ─ T36-14 docs ─ T36-15 revisión y entrega
+```
+
+## Tareas ordenadas
+
+| Id | Tarea | Criterios | Tamaño |
+|---|---|---|---|
+| T36-01 | Migración 0033 y `modalidadDerivada` pura | 03, 06 | S |
+| T36-02 | Modalidad y lugar en `POST /api/cursos/:id/sesiones` con recálculo | 01, 02, 03 | S |
+| T36-03 | Modalidad en `POST/PUT /api/clases` y recálculo al cancelar | 01, 02, 03 | M |
+| T36-04 | Modalidad calculada en `POST/PATCH /api/cursos` y valor `GRABADO` | 04, 13 | S |
+| T36-05 | Detalle del curso: sesiones con `modalidad` y `reunion` según permisos | 05, 08 | S |
+| T36-06 | Reunión automática por sesión virtual o «ambas»; 409 en presenciales | 07, 09 | M |
+| T36-07 | QR rechazado en sesiones virtuales; «ambas» por cualquier vía | 10, 11 | S |
+| T36-08 | Certificados en cursos virtuales e híbridos; grabado fuera hasta HU-37 | 12, 15 | S |
+| — | **Checkpoint A**: suites backend e integración, tipos; revisión humana | 01–15 backend | — |
+| T36-09 | Servicio y `SesionesCurso`: selector, lugar condicional, etiqueta y acceso a sala | 01, 02, 05, 08 | M |
+| T36-10 | `ClaseFormPagina`: modalidad y lugar condicional | 01, 02 | S |
+| T36-11 | Formulario del curso (Grabado y modalidad calculada), etiquetas y filtros | 04, 13, 14 | M |
+| T36-12 | Demo MSW alineada con las reglas del backend | 01–15 demo | M |
+| — | **Checkpoint B**: Vitest, lint, tipos; revisión humana | UI | — |
+| T36-13 | E2E demo y real: curso híbrido (virtual + presencial) visto por el colegiado | 03, 05, 08 | M |
+| T36-14 | Documentación: API, cursos, certificados, reuniones y matriz CPPP | Todos | S |
+| T36-15 | Simplificación, revisión de calidad y seguridad, DoD y lista de publicación | Todos | S |
+
+## Riesgos y mitigaciones
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Cambiar la regla de certificación sin acuerdo del CPPP | Alto | Pregunta 5; la tarea T36-08 solo se hace si se aprueba |
+| Datos existentes cambian de modalidad al migrar | Alto | Relleno desde el curso y prueba de migración que compara antes y después |
+| Divergencia entre las dos vías de sesiones | Medio | Validación compartida y pruebas en ambas rutas |
+| Reunión automática duplicada o huérfana | Medio | Una reunión activa por sesión, en la misma transacción, con pruebas de cancelación |
+| Filtros, historial y certificados con el nuevo valor `GRABADO` | Medio | Búsqueda de todos los usos de `modalidad` y etiquetas centralizadas |
+| PR apilado sobre HU-26 | Medio | Integrar HU-26 primero; si cambia, rebasar esta rama |
+| Demo (MSW) desalineada | Medio | T36-12 con las mismas pruebas de reglas |
+
+## Versionado propuesto
+
+Funcionalidad nueva (nivel Función). Si HU-26 se publica antes como `v3.1.0.0.0`, HU-36
+sería `v3.2.0.0.0`; si se publican juntas, `v3.1.0.0.0`. El usuario crea commits y etiquetas.
+
+## Preguntas abiertas
+
+Las ocho de la sección HU-36 de [SPEC.md](../SPEC.md). T36-06 depende de la pregunta 3,
+T36-07 de la 4, T36-08 de la 5 y T36-04/T36-11 de la 6.

@@ -54,7 +54,7 @@ brecha, incluso cuando ya existe una parte de una etapa posterior.
 | RF-23 | Pendiente | Falta carga privada de voucher BCP, revisión, motivo y auditoría | 5 |
 | RF-24 | Parcial | HU-53 implementa efectivo ADMIN con referencia única y auditoría persistente; recorrido real local probado, activación operativa pendiente | 5 |
 | RF-25 | Parcial | HU-53 añade política por curso, reserva/plazo, confirmación, retención y comprobante interno; faltan sandboxes, regularización histórica y publicación | 5 |
-| RF-26 | Parcial | HU-20 emite constancias presenciales gratuitas con 80 %; faltan nota, pago y otras modalidades | 6 |
+| RF-26 | Parcial | HU-20 emite constancias con 80 % en cursos presenciales, virtuales e híbridos (HU-36); faltan nota y curso grabado (HU-37) | 6 |
 | RF-27 | Implementado | HU-20: excepción persistente con motivo, actor y fecha; documento de demostración | 6 |
 | RF-28 | Parcial | Historial descarga archivos almacenados con permisos; falta emisor oficial PDF/QR y firma autorizada del Decano | 6 |
 | RF-29 | Implementado | HU-20: verificación pública persistente de válido, anulado o reemplazado, sin DNI ni nota | 6 |

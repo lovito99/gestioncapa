@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 import type { EstadoCertificado } from './certificados'
+import type { ModalidadCurso, ModalidadSesion } from './modalidadCurso'
 
 export type MaterialCurso = { id: string; titulo: string; tipo: 'PDF' | 'ENLACE' | 'VIDEO'; url: string | null }
 export type ModuloCurso = { id: string; titulo: string; orden: number; materiales: MaterialCurso[] }
@@ -9,7 +10,7 @@ export type PoliticaCobro = { modalidadCobro: ModalidadCobro | ''; costo: number
 export type Curso = {
   modalidadCobro?: ModalidadCobro | null; plazoPagoMinutos?: number | null; versionCobro?: number;
   id: string; titulo: string; descripcion: string; instructorId: string; instructorNombre: string;
-  horasLectivas: number; modalidad: 'PRESENCIAL' | 'VIRTUAL' | 'HIBRIDA'; costo: number; cupos: number;
+  horasLectivas: number; modalidad: ModalidadCurso; costo: number; cupos: number;
   categoria: string; fechaInicio: string | null; fechaFin: string | null; cuposDisponibles: number; inscrito?: boolean;
   tipoCertificado: 'PARTICIPACION' | 'APROBACION'; notaMinima: number; estado: 'BORRADOR' | 'PUBLICADO' | 'CERRADO';
   estadoInscripcion?: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO' | 'CANCELADA' | null;
@@ -20,8 +21,9 @@ export type Curso = {
 }
 export const categoriasCatalogo = ['Educación', 'General', 'Seguridad y salud', 'Tecnología'] as const
 export type ModuloEntrada = { id?: string; titulo: string }
-export type SesionEntrada = { nombre: string; fecha: string; horaInicio: string; horaFin: string; lugar: string }
-export type SesionCurso = SesionEntrada & { id: string; cursoId?: string; estado: 'PROGRAMADA' | 'CANCELADA' }
+export type SesionEntrada = { nombre: string; fecha: string; horaInicio: string; horaFin: string; lugar: string; modalidad: ModalidadSesion }
+/** `reunion` solo llega a quien gestiona el curso o tiene acceso a él (HU-36). */
+export type SesionCurso = SesionEntrada & { id: string; cursoId?: string; estado: 'PROGRAMADA' | 'CANCELADA'; reunion: { identificador: string; estado: string } | null }
 export type AsistenciaCurso = { totalSesiones: number; presentes: number; porcentaje: number; requisitoAsistencia: number; cumpleAsistencia: boolean }
 export type DetalleCurso = Curso & { modulos: ModuloCurso[]; sesiones: SesionCurso[] }
 export type FilaCierre = { agremiado: { id: string; nombre: string }; presentes: number; sesiones: number; porcentaje: number; cumple: boolean }
@@ -38,7 +40,7 @@ export type CursoEntrada = Pick<Curso, 'titulo' | 'descripcion' | 'instructorId'
 }
 /** Categorías que ofrece el formulario de curso; pendientes de confirmar con el CPPP */
 export const CATEGORIAS_CURSO = ['Educación', 'Evaluación', 'Didáctica', 'Gestión escolar', 'Tecnología educativa', 'Seguridad y salud', 'General']
-export const MODALIDADES_CURSO = { PRESENCIAL: 'Presencial', VIRTUAL: 'Virtual', HIBRIDA: 'Híbrida' } as const
+export const MODALIDADES_CURSO = { PRESENCIAL: 'Presencial', VIRTUAL: 'Virtual', HIBRIDA: 'Híbrida', GRABADO: 'Grabado' } as const
 export const CERTIFICADOS_CURSO = { PARTICIPACION: 'Constancia de participación', APROBACION: 'Certificado de aprobación' } as const
 
 /** Lee un PDF de hasta 5 MB y devuelve su contenido en base64, como lo espera la API. */

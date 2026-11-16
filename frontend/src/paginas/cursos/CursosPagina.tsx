@@ -13,7 +13,6 @@ import { cursos, type Curso, type CursoPublico } from '@/servicios/cursos'
 import { condicionesCobro, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
 import { DatoCurso, EtiquetasCurso } from './presentacion'
 
-const modalidades = { PRESENCIAL: 'Presencial', VIRTUAL: 'Virtual', HIBRIDA: 'Híbrida' }
 export function FechasCurso({ curso }: { curso: Pick<Curso, 'fechaInicio' | 'fechaFin'> }) {
   const fecha = (valor: string) => valor.split('-').reverse().join('/')
   return <span>{curso.fechaInicio && curso.fechaFin ? `${fecha(curso.fechaInicio)} al ${fecha(curso.fechaFin)}` : 'Fechas por confirmar'}</span>
@@ -25,7 +24,7 @@ function TarjetaCurso({ curso, editable = false }: { curso: Curso; editable?: bo
     <p className="whitespace-pre-wrap text-sm">{curso.descripcion || 'Sin descripción disponible.'}</p>
     <p className="text-sm">Instructor: {curso.instructorNombre}</p>
     <p className="text-sm"><FechasCurso curso={curso} /></p>
-    <p className="text-sm">{curso.horasLectivas} horas lectivas · {modalidades[curso.modalidad]}</p>
+    <p className="text-sm">{curso.horasLectivas} horas lectivas · {ETIQUETA_MODALIDAD[curso.modalidad]}</p>
     <p className="text-sm">{condicionesCobro(curso)}</p>
     <p className={`text-sm font-semibold ${curso.cuposDisponibles === 0 ? 'text-danger' : 'text-ink'}`}>{curso.cuposDisponibles === 0 ? 'Sin cupos' : `${curso.cuposDisponibles} cupos disponibles`}</p>
     {curso.inscrito && <p className="text-sm font-semibold text-success">Ya estás inscrito(a)</p>}

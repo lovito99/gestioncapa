@@ -1,3 +1,4 @@
+import { modalidadesCurso } from './modalidadCurso.js';
 import { z } from 'zod';
 import { camposCobro, validarCoherenciaCobro } from './cursos.cobro.js';
 
@@ -17,7 +18,7 @@ export const esquemaCurso = z.object({
   fechaInicio: fechaCurso,
   fechaFin: fechaCurso,
   horasLectivas: z.number({ error: 'Indica las horas lectivas.' }).positive('Las horas lectivas deben ser mayores que cero.').max(10000, 'El máximo es 10000 horas.'),
-  modalidad: z.enum(['PRESENCIAL', 'VIRTUAL', 'HIBRIDA'], { error: 'Selecciona una modalidad válida.' }),
+  modalidad: z.enum(modalidadesCurso, { error: 'Selecciona una modalidad válida.' }),
   costo: z.number({ error: 'Indica un costo válido.' }).min(0, 'El costo no puede ser negativo.').max(9999999999.99, 'El costo supera el máximo permitido.').multipleOf(0.01, 'El costo admite hasta dos decimales.'),
   cupos: z.number({ error: 'Indica los cupos.' }).int('Los cupos deben ser enteros.').min(1, 'Indica al menos un cupo.').max(1000000, 'El máximo es 1000000 de cupos.'),
   tipoCertificado: z.enum(['PARTICIPACION', 'APROBACION'], { error: 'Selecciona el tipo de certificado.' }),
@@ -48,7 +49,7 @@ export type DatosMaterial = z.infer<typeof esquemaMaterial>;
 
 export const esquemaConsultaCatalogo = z.object({
   buscar: z.string().trim().max(160, 'Usa como máximo 160 caracteres para buscar.').default(''),
-  modalidad: z.enum(['PRESENCIAL', 'VIRTUAL', 'HIBRIDA'], { error: 'Selecciona una modalidad válida.' }).optional(),
+  modalidad: z.enum(modalidadesCurso, { error: 'Selecciona una modalidad válida.' }).optional(),
   categoria: z.string().trim().min(1).max(80, 'Usa como máximo 80 caracteres en la categoría.').optional(),
   pagina: z.coerce.number().int().min(1, 'La página debe ser mayor que cero.').max(100000).default(1),
   tamanoPagina: z.coerce.number().int().min(1).max(50, 'El máximo es 50 cursos por página.').default(6),

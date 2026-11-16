@@ -1,6 +1,7 @@
 import type { PoolClient } from "pg";
 import { pool } from "../../shared/database.js";
 import type { DatosClase } from "./clases.validacion.js";
+import type { ModalidadSesion } from "../cursos/modalidadCurso.js";
 
 export type EstadoClase = "PROGRAMADA" | "CANCELADA";
 
@@ -13,6 +14,7 @@ export type Clase = {
   horaInicio: string;
   horaFin: string;
   lugar: string;
+  modalidad: ModalidadSesion;
   inscritos: number;
   estado: EstadoClase;
 };
@@ -26,6 +28,8 @@ type FilaClase = {
   hora_inicio: string;
   hora_fin: string;
   lugar: string;
+  modalidad: ModalidadSesion;
+  curso_id: string | null;
   inscritos: number;
   estado: EstadoClase;
 };
@@ -38,7 +42,7 @@ const SELECT_CLASE = `
          to_char(c.fecha, 'YYYY-MM-DD') as fecha,
          to_char(c.hora_inicio, 'HH24:MI') as hora_inicio,
          to_char(c.hora_fin, 'HH24:MI') as hora_fin,
-         c.lugar, c.estado,
+         c.lugar, c.modalidad, c.curso_id::text as curso_id, c.estado,
          (select count(*)::int from enrollments e where e.class_id = c.id) as inscritos
   from classes c
   join users u on u.id = c.instructor_id
@@ -52,6 +56,7 @@ const aClase = (fila: FilaClase): Clase => ({
   horaInicio: fila.hora_inicio,
   horaFin: fila.hora_fin,
   lugar: fila.lugar,
+  modalidad: fila.modalidad,
   inscritos: fila.inscritos,
   estado: fila.estado
 });
@@ -147,10 +152,10 @@ export async function conClaseBloqueada<T>(claseId: number, trabajo: (consultor:
 
 export async function insertarClase(datos: DatosClase, consultor: Consultor) {
   const resultado = await consultor.query<{ id: string }>(
-    `insert into classes (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar)
-     values ($1, $2, $3, $4, $5, $6)
+    `insert into classes (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar, modalidad)
+     values ($1, $2, $3, $4, $5, $6, $7)
      returning id`,
-    [datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar]
+    [datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar, datos.modalidad]
   );
   return Number(resultado.rows[0]!.id);
 }
@@ -159,16 +164,21 @@ export async function insertarClase(datos: DatosClase, consultor: Consultor) {
 export async function actualizarClase(id: number, datos: DatosClase, consultor: Consultor) {
   const resultado = await consultor.query(
     `update classes
-     set nombre = $2, instructor_id = $3, fecha = $4, hora_inicio = $5, hora_fin = $6, lugar = $7, updated_at = now()
+     set nombre = $2, instructor_id = $3, fecha = $4, hora_inicio = $5, hora_fin = $6, lugar = $7, modalidad = $8, updated_at = now()
      where id = $1 and estado = 'PROGRAMADA'`,
-    [id, datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar]
+    [id, datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar, datos.modalidad]
   );
   return resultado.rowCount === 1;
 }
 
+/** Curso de la sesión, o null si es una clase suelta. */
+export async function cursoDeClase(id: number, consultor: Consultor = pool) {
+  return (await consultor.query<{ cursoId: string | null }>('select curso_id::text as "cursoId" from classes where id = $1', [id])).rows[0]?.cursoId ?? null;
+}
+
 /** Cambia PROGRAMADA → CANCELADA; devuelve false si no estaba programada. */
-export async function cancelarClase(id: number) {
-  const resultado = await pool.query(
+export async function cancelarClase(id: number, consultor: Consultor = pool) {
+  const resultado = await consultor.query(
     `update classes set estado = 'CANCELADA', updated_at = now() where id = $1 and estado = 'PROGRAMADA'`,
     [id]
   );

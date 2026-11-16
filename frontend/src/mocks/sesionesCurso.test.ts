@@ -56,3 +56,20 @@ it('demo: la asistencia considera solo sesiones no canceladas del curso y compar
   expect((await llamar('GET', `${ruta}/mi-asistencia`, 'p-1')).datos).toEqual({ totalSesiones: 4, presentes: 3, porcentaje: 75, requisitoAsistencia: 80, cumpleAsistencia: false })
   expect((await llamar('GET', `${ruta}/mi-asistencia`, 'i-1')).status).toBe(403)
 })
+
+it('HU-36 demo: la modalidad por sesión clasifica el curso y el grabado no admite sesiones', async () => {
+  const id = await crear('PRESENCIAL')
+  const ruta = `/cursos/${id}/sesiones`
+  const virtual = await llamar('POST', ruta, 'u-admin-1', { ...entrada, fecha: '2038-07-01', lugar: '', modalidad: 'VIRTUAL' })
+  expect(virtual.status).toBe(201)
+  expect(virtual.datos).toMatchObject({ modalidad: 'VIRTUAL', lugar: 'Aula virtual' })
+  expect((await llamar('GET', `/cursos/${id}`)).datos.modalidad).toBe('VIRTUAL')
+  expect((await llamar('POST', ruta, 'u-admin-1', { ...entrada, fecha: '2038-07-02', modalidad: 'PRESENCIAL' })).status).toBe(201)
+  expect((await llamar('GET', `/cursos/${id}`)).datos.modalidad).toBe('HIBRIDA')
+  expect((await llamar('POST', ruta, 'u-admin-1', { ...entrada, fecha: '2038-07-03', lugar: ' ', modalidad: 'AMBAS' })).status).toBe(422)
+  expect((await llamar('POST', ruta, 'u-admin-1', { ...entrada, fecha: '2038-07-04', modalidad: 'HIBRIDA' })).status).toBe(422)
+  const grabado = await crear('GRABADO')
+  const intento = await llamar('POST', `/cursos/${grabado}/sesiones`, 'u-admin-1', { ...entrada, fecha: '2038-07-05', modalidad: 'VIRTUAL' })
+  expect(intento.status).toBe(409)
+  expect(intento.datos.code).toBe('CURSO_GRABADO')
+})

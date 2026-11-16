@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { camposDeError, textoObligatorio } from "../../shared/validacion.js";
+import { modalidadesSesion, type ModalidadSesion } from "../cursos/modalidadCurso.js";
 
 export type DatosClase = {
   nombre: string;
@@ -10,6 +11,8 @@ export type DatosClase = {
   horaInicio: string;
   horaFin: string;
   lugar: string;
+  /** HU-36: dónde se dicta la sesión. */
+  modalidad: ModalidadSesion;
 };
 
 export type ResultadoValidacion =
@@ -19,6 +22,8 @@ export type ResultadoValidacion =
 const largoMaximo = 160;
 const formatoFecha = /^\d{4}-\d{2}-\d{2}$/;
 const formatoHora = /^([01]\d|2[0-3]):[0-5]\d$/;
+/** Lugar que se guarda cuando la sesión es solo virtual (la columna no admite vacío). */
+export const lugarVirtual = "Aula virtual";
 
 /** Rechaza fechas con formato correcto que no existen, como 2030-02-30. */
 function esFechaReal(fecha: string) {
@@ -44,18 +49,26 @@ const esquemaClase = z.object({
     .pipe(z.string().regex(formatoHora, "Ingresa una hora válida (HH:mm)")),
   horaFin: textoObligatorio("Ingresa la hora de fin")
     .pipe(z.string().regex(formatoHora, "Ingresa una hora válida (HH:mm)")),
-  lugar: textoObligatorio("Ingresa el lugar")
-    .pipe(z.string().max(largoMaximo, `El lugar admite hasta ${largoMaximo} caracteres`))
-}).refine(
+  lugar: z.preprocess(valor => typeof valor === "string" ? valor.trim() : valor ?? "",
+    z.string({ error: "Ingresa el lugar" }).max(largoMaximo, `El lugar admite hasta ${largoMaximo} caracteres`)),
+  modalidad: z.enum(modalidadesSesion, { error: "Elige si la sesión es presencial, virtual o ambas" })
+}).superRefine((datos, contexto) => {
+  // Solo la sesión virtual prescinde de un lugar físico.
+  if (datos.modalidad !== "VIRTUAL" && !datos.lugar) contexto.addIssue({ code: "custom", path: ["lugar"], message: "Ingresa el lugar" });
+}).transform(datos => ({ ...datos, lugar: datos.lugar || lugarVirtual })).refine(
   (datos) => !formatoHora.test(datos.horaInicio)
     || !formatoHora.test(datos.horaFin)
     || datos.horaFin > datos.horaInicio,
   { path: ["horaFin"], message: "La hora de fin debe ser posterior a la de inicio" }
 );
 
-/** Valida POST/PUT /clases con Zod, conservando el contrato del formulario. */
-export function validarClase(entrada: unknown): ResultadoValidacion {
-  const cuerpo = typeof entrada === "object" && entrada !== null && !Array.isArray(entrada) ? entrada : {};
+/**
+ * Valida POST/PUT /clases con Zod, conservando el contrato del formulario. Sin `modalidad`
+ * se usa la de la ruta: PRESENCIAL al crear y la actual al editar (clientes anteriores a HU-36).
+ */
+export function validarClase(entrada: unknown, modalidadPorDefecto: ModalidadSesion = "PRESENCIAL"): ResultadoValidacion {
+  const cuerpo: Record<string, unknown> = typeof entrada === "object" && entrada !== null && !Array.isArray(entrada) ? { ...entrada } : {};
+  if (cuerpo.modalidad === undefined) cuerpo.modalidad = modalidadPorDefecto;
   const resultado = esquemaClase.safeParse(cuerpo);
   return resultado.success
     ? { ok: true, datos: resultado.data }

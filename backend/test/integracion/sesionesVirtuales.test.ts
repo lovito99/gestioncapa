@@ -34,8 +34,8 @@ before(async () => {
     const persona = (await pool.query('insert into users (name,email,password_hash,role) values ($1,$2,$3,$4) returning id', [nombre, `${prefijo}${nombre}@prueba.local`, 'sinAccesoPorClave', rol])).rows[0];
     usuarios.set(nombre, { identificador: String(persona.id), token: aplicacion.jwt.sign({ sub: String(persona.id) }) });
   }
-  claseIdentificador = (await pool.query(`insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar) values ($1,$2,'2032-01-01','10:00','11:00','Sala virtual') returning id`, [prefijo, usuarios.get('docente')!.identificador])).rows[0].id;
-  claseAjena = (await pool.query(`insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar) values ($1,$2,'2032-01-02','10:00','11:00','Sala virtual') returning id`, [`${prefijo}ajena`, usuarios.get('otroDocente')!.identificador])).rows[0].id;
+  claseIdentificador = (await pool.query(`insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,modalidad) values ($1,$2,'2032-01-01','10:00','11:00','Sala virtual','VIRTUAL') returning id`, [prefijo, usuarios.get('docente')!.identificador])).rows[0].id;
+  claseAjena = (await pool.query(`insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,modalidad) values ($1,$2,'2032-01-02','10:00','11:00','Sala virtual','VIRTUAL') returning id`, [`${prefijo}ajena`, usuarios.get('otroDocente')!.identificador])).rows[0].id;
   for (const nombre of ['inscrito', 'segundo', 'expulsado']) await pool.query('insert into enrollments(class_id,user_id) values ($1,$2)', [claseIdentificador, usuarios.get(nombre)!.identificador]);
 });
 

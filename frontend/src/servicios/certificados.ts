@@ -1,3 +1,4 @@
+import type { ModalidadCurso } from './modalidadCurso'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/api'
 
@@ -14,7 +15,7 @@ export type CertificadoDocumento = {
   nombre: string
   dniEnmascarado: string | null
   curso: string
-  modalidad: 'PRESENCIAL' | 'VIRTUAL' | 'HIBRIDA'
+  modalidad: ModalidadCurso
   horasLectivas: number
   fechaInicio: string | null
   fechaFin: string | null

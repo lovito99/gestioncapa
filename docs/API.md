@@ -329,3 +329,20 @@ Cambios y rutas nuevas:
 el mínimo se guarda en `attendances` con `origen='VIRTUAL'` y cuenta para el 80 %
 del certificado; una asistencia QR previa se conserva. Detalle y evidencia:
 [sesiones virtuales seguras](esp/sesionesVirtuales.md).
+
+## HU-36 — Modalidad por sesión y cursos híbridos
+
+| Método/ruta | Cambio |
+| --- | --- |
+| POST /api/cursos/:id/sesiones, POST /api/clases, PUT /api/clases/:id | Campo opcional `modalidad`: `PRESENCIAL`, `VIRTUAL` o `AMBAS` (otro valor → 422). Sin él: `PRESENCIAL` al crear y la actual al editar. `lugar` es obligatorio salvo en `VIRTUAL`, que guarda «Aula virtual». Recalculan la modalidad del curso y sincronizan su sala en la misma transacción |
+| POST /api/clases/:id/cancelar | Recalcula el curso y cancela la sala aún programada |
+| POST /api/cursos/:id/sesiones | 409 `CURSO_GRABADO` si el curso es grabado |
+| POST /api/cursos, GET /api/catalogo/cursos/pagina | `modalidad` admite `GRABADO` (alta y filtro) |
+| GET /api/cursos/:id | `modalidad` calculada: todas presenciales → `PRESENCIAL`; todas virtuales → `VIRTUAL`; mezcla o «ambas» → `HIBRIDA`; sin sesiones programadas, la elegida al crear. Cada sesión trae `modalidad` y `reunion: {identificador,estado} \| null` (solo para ADMIN, instructor asignado o colegiado con acceso al curso) |
+| GET /api/clases/:id/qr, POST /api/asistencia/marcar | 409 `SESION_VIRTUAL` en sesiones solo virtuales |
+| POST /api/reuniones | 409 `SESION_PRESENCIAL` para sesiones presenciales |
+| Cierre y constancias | Cursos `PRESENCIAL`, `VIRTUAL` e `HIBRIDA`; `GRABADO` → 409 `CURSO_GRABADO` |
+
+Las respuestas de clases añaden `modalidad`. El backend no tiene edición general del curso
+(`PUT /api/cursos/:id` sigue pendiente): la modalidad planificada se fija al crear; la demo
+rechaza con 422 `MODALIDAD_CALCULADA` cambiarla a mano cuando hay sesiones programadas.

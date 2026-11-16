@@ -98,6 +98,7 @@ describe("Característica: Programar clase presencial", () => {
       horaInicio: "10:00",
       horaFin: "11:00",
       lugar: "Sala de pruebas",
+      modalidad: "PRESENCIAL",
       inscritos: 0,
       estado: "PROGRAMADA"
     });

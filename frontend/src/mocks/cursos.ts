@@ -5,6 +5,7 @@ import { usuarios, clases, asistencias, participantes, inscripciones } from './d
 import { emitirCertificado, certificadoDe } from './certificados'
 import type { DetalleCurso, MaterialCurso, SesionCurso, FilaCierre } from '@/servicios/cursos'
 import { z } from 'zod'
+import { modalidadDerivada, modalidadesCurso, modalidadesSesion } from '@/servicios/modalidadCurso'
 
 const API = import.meta.env.VITE_API_URL ?? '/api'
 const demo = crearCursosDemo()
@@ -15,7 +16,7 @@ export const inscripcionesCursosDemo = new Map<string, Set<string>>(cursosSimula
 const diaRelativo = (dias: number) => new Date(Date.now() + dias * 86400000).toISOString().slice(0, 10)
 const didactica = cursosSimulados.find(c => c.titulo.includes('Didáctica'))!
 const sesionDemo = (n: number, dias: number, lugar: string): SesionCurso =>
-  ({ id: `s-d-${n}`, nombre: `Sesión ${n}`, fecha: diaRelativo(dias), horaInicio: '08:00', horaFin: '14:00', lugar, estado: 'PROGRAMADA' })
+  ({ id: `s-d-${n}`, nombre: `Sesión ${n}`, fecha: diaRelativo(dias), horaInicio: '08:00', horaFin: '14:00', lugar, estado: 'PROGRAMADA', modalidad: 'PRESENCIAL', reunion: null })
 /** Sesiones demo con su asistencia (ids de agremiados presentes) */
 const sesionesDemo = new Map<string, { sesion: SesionCurso; presentes: string[] }[]>([[didactica.id, [
   { sesion: sesionDemo(1, -21, 'Auditorio principal, piso 2'), presentes: ['p-1', 'p-2', 'p-3', 'p-4', 'p-5', 'p-6'] },
@@ -27,7 +28,12 @@ const sesionesDemo = new Map<string, { sesion: SesionCurso; presentes: string[] 
 /** Sesiones del curso = clases con ese `cursoId` (más las demo), en orden de fecha. */
 function sesionesDe(cursoId: string): SesionCurso[] {
   const vinculadas = clases.filter(c => (c.curso?.id ?? c.cursoId) === cursoId)
-    .map(c => ({ id: c.id, nombre: c.nombre, fecha: c.fecha, horaInicio: c.horaInicio, horaFin: c.horaFin, lugar: c.lugar, estado: c.estado }))
+    .map(c => {
+      const modalidad = c.modalidad ?? 'PRESENCIAL'
+      // La demo no simula salas: las sesiones con sala aparecen como «se habilita al iniciar».
+      return { id: c.id, nombre: c.nombre, fecha: c.fecha, horaInicio: c.horaInicio, horaFin: c.horaFin, lugar: c.lugar, estado: c.estado, modalidad,
+        reunion: modalidad === 'PRESENCIAL' ? null : { identificador: `demo-${c.id}`, estado: 'programada' } }
+    })
   return [...(sesionesDemo.get(cursoId) ?? []).map(s => s.sesion), ...vinculadas]
     .sort((a, b) => (a.fecha + a.horaInicio).localeCompare(b.fecha + b.horaInicio))
 }
@@ -49,7 +55,10 @@ function disponibilidad(curso: DetalleCurso, usuarioId?: string): DetalleCurso {
   const estadoInscripcion = inscrito
     ? estadosInscripcionDemo.get(`${curso.id}:${usuarioId}`) ?? (usuarioId === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : 'EN_CURSO')
     : null
-  return { ...curso,versionCobro:curso.versionCobro??1,estadoInscripcion, sesiones: sesionesDe(curso.id), cuposDisponibles: Math.max(0, curso.cupos - inscritos.size), inscrito }
+  const sesiones = sesionesDe(curso.id)
+  // HU-36: `curso.modalidad` guarda la planificada; la respuesta la clasifica por sesiones.
+  const modalidad = modalidadDerivada(sesiones.filter(s => s.estado === 'PROGRAMADA').map(s => s.modalidad), curso.modalidad)
+  return { ...curso,modalidad,versionCobro:curso.versionCobro??1,estadoInscripcion, sesiones, cuposDisponibles: Math.max(0, curso.cupos - inscritos.size), inscrito }
 }
 
 const archivos = demo.archivos
@@ -80,7 +89,7 @@ const esquema = z.object({
   categoria: z.string().trim().min(1).max(80).default('General'),
   fechaInicio: fechaOpcional, fechaFin: fechaOpcional,
   titulo, descripcion: z.string().trim().max(5000).default(''), instructorId: z.string(),
-  horasLectivas: z.number().positive().max(10000), modalidad: z.enum(['PRESENCIAL', 'VIRTUAL', 'HIBRIDA']),
+  horasLectivas: z.number().positive().max(10000), modalidad: z.enum(modalidadesCurso),
   costo: z.number().min(0).max(9999999999.99).multipleOf(0.01), cupos: z.number().int().min(1).max(1000000),
   tipoCertificado: z.enum(['PARTICIPACION', 'APROBACION']), notaMinima: z.number().min(0).max(20).default(14),
   modulos: z.array(z.object({ titulo }).strict()).min(1).max(100),
@@ -95,19 +104,20 @@ function resumenPublico(curso: DetalleCurso) {
     plazoPagoMinutos: curso.plazoPagoMinutos ?? null, versionCobro: curso.versionCobro ?? 1 }
 }
 function catalogoPaginado(request: Request, publico = false, usuarioId = '') {
-  const consulta = z.object({ buscar: z.string().trim().max(160).default(''), categoria: z.string().min(1).max(80).optional(), modalidad: z.enum(['PRESENCIAL','VIRTUAL','HIBRIDA']).optional(), pagina: z.coerce.number().int().min(1).max(100000).default(1), tamanoPagina: z.coerce.number().int().min(1).max(50).default(6) }).strict().safeParse(Object.fromEntries(new URL(request.url).searchParams))
+  const consulta = z.object({ buscar: z.string().trim().max(160).default(''), categoria: z.string().min(1).max(80).optional(), modalidad: z.enum(modalidadesCurso).optional(), pagina: z.coerce.number().int().min(1).max(100000).default(1), tamanoPagina: z.coerce.number().int().min(1).max(50).default(6) }).strict().safeParse(Object.fromEntries(new URL(request.url).searchParams))
   if (!consulta.success) return error(422, 'Revisa los filtros y la página solicitada.')
   const { buscar, categoria, modalidad, pagina, tamanoPagina } = consulta.data
   const normalizar = (texto: string) => texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
   const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
   const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO' && (!publico || !c.fechaFin || c.fechaFin >= hoy))
-  const filtrados = publicados.filter(c => normalizar(c.titulo).includes(normalizar(buscar)) && (!categoria || c.categoria === categoria) && (!modalidad || c.modalidad === modalidad)).sort((a,b) => Number(b.id)-Number(a.id))
+  const filtrados = publicados.filter(c => normalizar(c.titulo).includes(normalizar(buscar)) && (!categoria || c.categoria === categoria) && (!modalidad || disponibilidad(c).modalidad === modalidad)).sort((a,b) => Number(b.id)-Number(a.id))
   return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => publico ? resumenPublico(disponibilidad(c, '')) : disponibilidad(c, usuarioId)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...categoriasCatalogo] })
 }
 
 function alcanceCertificacion(curso: DetalleCurso) {
-  return curso.modalidad !== 'PRESENCIAL' || curso.tipoCertificado !== 'PARTICIPACION' || curso.costo > 0
-    ? error(409, 'Esta entrega emite constancias presenciales gratuitas sin examen.', 'CERTIFICACION_FUERA_ALCANCE') : null
+  if (curso.modalidad === 'GRABADO') return error(409, 'Los cursos grabados emitirán constancia cuando existan sus lecciones en video (HU-37).', 'CURSO_GRABADO')
+  return curso.tipoCertificado !== 'PARTICIPACION' || curso.costo > 0
+    ? error(409, 'Esta entrega emite constancias gratuitas sin examen.', 'CERTIFICACION_FUERA_ALCANCE') : null
 }
 
 export const estadosInscripcionDemo = new Map<string, 'EN_CURSO' | 'PENDIENTE_PAGO'>()
@@ -177,8 +187,12 @@ export const handlersCursos = [
     const curso = auth.curso!
     const inscritos = inscripcionesCursosDemo.get(curso.id)?.size ?? 0
     if (datos.data.cupos < inscritos) return error(422, `Ya hay ${inscritos} inscritos; los cupos no pueden ser menos.`)
+    // HU-36: con sesiones programadas la modalidad se calcula; sin ellas se guarda la elegida.
+    const calculada = disponibilidad(curso).modalidad
+    const conSesiones = sesionesDe(curso.id).some(s => s.estado === 'PROGRAMADA')
+    if (conSesiones && datos.data.modalidad !== calculada) return error(422, 'La modalidad se calcula por las sesiones programadas del curso.', 'MODALIDAD_CALCULADA')
     const anteriores = new Map(curso.modulos.map(m => [m.id, m]))
-    Object.assign(curso, { ...datos.data, instructorNombre: instructor.nombre,
+    Object.assign(curso, { ...datos.data, modalidad: conSesiones ? curso.modalidad : datos.data.modalidad, instructorNombre: instructor.nombre,
       modulos: datos.data.modulos.map((m, i) => ({ id: m.id && anteriores.has(m.id) ? m.id : nuevoId(), titulo: m.titulo, orden: i + 1, materiales: (m.id && anteriores.get(m.id)?.materiales) || [] })) })
     return HttpResponse.json(disponibilidad(curso, auth.usuario!.id))
   }),
@@ -272,13 +286,16 @@ export const handlersCursos = [
     const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
     const curso = auth.curso!
     if (curso.estado === 'CERRADO') return error(409, 'El curso ya está cerrado.', 'CURSO_CERRADO')
+    if (curso.modalidad === 'GRABADO') return error(409, 'Un curso grabado no tiene sesiones con fecha: su contenido son lecciones en video.', 'CURSO_GRABADO')
     const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => {
       const d = new Date(`${v}T00:00:00Z`)
       return !v.startsWith('0000-') && Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === v
     })
     const hora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
-    const datos = z.object({ nombre: titulo, fecha, horaInicio: hora, horaFin: hora, lugar: titulo })
-      .refine(v => v.horaFin > v.horaInicio).safeParse(await request.json())
+    const datos = z.object({ nombre: titulo, fecha, horaInicio: hora, horaFin: hora, lugar: z.string().trim().max(160).default(''),
+      modalidad: z.enum(modalidadesSesion).default('PRESENCIAL') })
+      .refine(v => v.horaFin > v.horaInicio && (v.modalidad === 'VIRTUAL' || v.lugar.length > 0))
+      .transform(v => ({ ...v, lugar: v.lugar || 'Aula virtual' })).safeParse(await request.json())
     if (!datos.success) return error(422, 'Completa los datos de la sesión con una fecha y un horario válidos.')
     if (clases.some(c => c.estado === 'PROGRAMADA' && c.instructor.id === curso.instructorId && c.fecha === datos.data.fecha && c.horaInicio < datos.data.horaFin && datos.data.horaInicio < c.horaFin)) {
       return error(409, 'El instructor ya tiene una clase en ese horario. Elige otro horario.', 'CONFLICTO_HORARIO')

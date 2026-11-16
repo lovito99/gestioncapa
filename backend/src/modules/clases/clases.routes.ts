@@ -6,6 +6,7 @@ import {
   buscarParticipante,
   cancelarClase,
   conInstructorBloqueado,
+  cursoDeClase,
   esInstructorActivo,
   inscribir,
   insertarClase,
@@ -20,6 +21,9 @@ import { env } from "../../config/env.js";
 import { DURACION_QR_SEGUNDOS, emitirTokenQr, reloj } from "../qr/qr.token.js";
 import { esquemaInscripcion, validarClase, type DatosClase } from "./clases.validacion.js";
 import { camposDeError } from "../../shared/validacion.js";
+import type { PoolClient } from "pg";
+import { recalcularModalidadCurso, type ModalidadSesion } from "../cursos/modalidadCurso.js";
+import { conTransaccion, sincronizarSalaSesion } from "../reuniones/reuniones.repositorio.js";
 
 // El acceso por rol de cada ruta lo aplica la matriz de backend/src/plugins/permisos.ts.
 
@@ -70,9 +74,19 @@ function errorConflicto(reply: FastifyReply, conflicto: Clase) {
   );
 }
 
+/** HU-36: tras cambiar una sesión, el curso se reclasifica y su sala se ajusta en la misma transacción. */
+async function despuesDeCambiarSesion(cliente: PoolClient, claseId: number, actorId: number) {
+  const cursoId = await cursoDeClase(claseId, cliente);
+  if (cursoId) await recalcularModalidadCurso(cliente, cursoId);
+  await sincronizarSalaSesion(cliente, claseId, actorId);
+}
+
+const sesionVirtual = (reply: FastifyReply) => enviarError(reply, 409, "SESION_VIRTUAL",
+  "Esta sesión es solo virtual: la asistencia se registra en la sala virtual, no con QR.");
+
 /** Valida el cuerpo y el instructor; devuelve los datos o envía 422. */
-async function leerDatos(request: FastifyRequest, reply: FastifyReply): Promise<DatosClase | null> {
-  const resultado = validarClase(request.body);
+async function leerDatos(request: FastifyRequest, reply: FastifyReply, modalidadActual?: ModalidadSesion): Promise<DatosClase | null> {
+  const resultado = validarClase(request.body, modalidadActual);
 
   if (!resultado.ok) {
     await errorValidacion(reply, resultado.fields);
@@ -112,7 +126,9 @@ export async function clasesRoutes(app: FastifyInstance) {
     const resultado = await conInstructorBloqueado(datos.instructorId, async (consultor) => {
       const conflicto = await buscarConflicto(datos, consultor);
       if (conflicto) return { conflicto };
-      return { clase: await obtenerClase(await insertarClase(datos, consultor), consultor) };
+      const id = await insertarClase(datos, consultor);
+      await despuesDeCambiarSesion(consultor, id, request.usuario!.id);
+      return { clase: await obtenerClase(id, consultor) };
     });
 
     if (resultado.conflicto) return errorConflicto(reply, resultado.conflicto);
@@ -126,7 +142,7 @@ export async function clasesRoutes(app: FastifyInstance) {
     if (!id || !actual) return claseNoExiste(reply);
     if (actual.estado === "CANCELADA") return claseCancelada(reply);
 
-    const datos = await leerDatos(request, reply);
+    const datos = await leerDatos(request, reply, actual.modalidad);
     if (!datos) return reply;
 
     const resultado = await conInstructorBloqueado(datos.instructorId, async (consultor) => {
@@ -134,6 +150,7 @@ export async function clasesRoutes(app: FastifyInstance) {
       if (conflicto) return { conflicto };
       // Pudo cancelarse entre la lectura y la escritura.
       if (!(await actualizarClase(id, datos, consultor))) return { cancelada: true };
+      await despuesDeCambiarSesion(consultor, id, request.usuario!.id);
       return { clase: await obtenerClase(id, consultor) };
     });
 
@@ -146,7 +163,12 @@ export async function clasesRoutes(app: FastifyInstance) {
     const id = leerId(request);
     if (!id) return claseNoExiste(reply);
 
-    if (!(await cancelarClase(id))) {
+    const cancelada = await conTransaccion(async cliente => {
+      if (!(await cancelarClase(id, cliente))) return false;
+      await despuesDeCambiarSesion(cliente, id, request.usuario!.id);
+      return true;
+    });
+    if (!cancelada) {
       return (await obtenerClase(id)) ? claseCancelada(reply) : claseNoExiste(reply);
     }
 
@@ -214,6 +236,7 @@ export async function clasesRoutes(app: FastifyInstance) {
       return enviarError(reply, 403, "SIN_PERMISO", "Esta clase no está asignada a ti.");
     }
     if (clase.estado === "CANCELADA") return claseCancelada(reply);
+    if (clase.modalidad === "VIRTUAL") return sesionVirtual(reply);
 
     const ahora = reloj.ahora();
     const { token, expiraEnMs } = emitirTokenQr(clase.id, ahora, env.QR_SECRET);

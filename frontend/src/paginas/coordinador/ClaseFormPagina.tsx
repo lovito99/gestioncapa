@@ -16,6 +16,8 @@ import { esApiError } from '@/lib/api'
 import { useClase, useGuardarClase, useInstructores } from '@/servicios/clases'
 import { useCursosParaClase } from '@/servicios/cursos'
 import { CODIGOS_ERROR, type ClaseEntrada } from '@/types/api'
+import { modalidadesSesion } from '@/servicios/modalidadCurso'
+import { ETIQUETA_MODALIDAD_SESION } from '@/paginas/cursos/formatoCurso'
 
 const esquema = z
   .object({
@@ -27,16 +29,18 @@ const esquema = z
     fecha: z.string().min(1, 'Ingresa la fecha de la clase'),
     horaInicio: z.string().min(1, 'Ingresa la hora de inicio'),
     horaFin: z.string().min(1, 'Ingresa la hora de fin'),
-    lugar: z.string().trim().min(1, 'Ingresa el lugar')
-      .max(160, 'El lugar admite hasta 160 caracteres'),
+    lugar: z.string().trim().max(160, 'El lugar admite hasta 160 caracteres'),
+    modalidad: z.enum(modalidadesSesion, { error: 'Elige si la sesión es presencial, virtual o ambas' }),
   })
+  // HU-36: solo la sesión virtual prescinde de un lugar físico.
+  .refine((d) => d.modalidad === 'VIRTUAL' || d.lugar.length > 0, { path: ['lugar'], message: 'Ingresa el lugar' })
   .refine((d) => !d.horaInicio || !d.horaFin || d.horaFin > d.horaInicio, {
     path: ['horaFin'],
     message: 'La hora de fin debe ser posterior a la de inicio',
   })
 
 type Formulario = z.infer<typeof esquema>
-const VACIO: Formulario = { cursoId: '', nombre: '', instructorId: '', fecha: '', horaInicio: '', horaFin: '', lugar: '' }
+const VACIO: Formulario = { cursoId: '', nombre: '', instructorId: '', fecha: '', horaInicio: '', horaFin: '', lugar: '', modalidad: 'PRESENCIAL' }
 
 const MENSAJE_INCOMPLETO = 'No se pudo guardar la clase. Completa los campos obligatorios marcados.'
 
@@ -73,7 +77,8 @@ export function ClaseFormPagina() {
         fecha: clase.data.fecha,
         horaInicio: clase.data.horaInicio,
         horaFin: clase.data.horaFin,
-        lugar: clase.data.lugar,
+        lugar: clase.data.modalidad === 'VIRTUAL' ? '' : clase.data.lugar,
+        modalidad: clase.data.modalidad ?? 'PRESENCIAL',
       }
     : { ...VACIO, cursoId: parametros.get('curso') ?? '' }
 
@@ -132,9 +137,9 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cu
   } = useForm<Formulario>({ resolver: zodResolver(esquema), defaultValues: iniciales })
 
   // El aviso de conflicto solo aplica mientras no cambien instructor, fecha ni horas
-  const [instructorId, fecha, horaInicio, horaFin, cursoId] = useWatch({
+  const [instructorId, fecha, horaInicio, horaFin, cursoId, modalidad] = useWatch({
     control,
-    name: ['instructorId', 'fecha', 'horaInicio', 'horaFin', 'cursoId'],
+    name: ['instructorId', 'fecha', 'horaInicio', 'horaFin', 'cursoId', 'modalidad'],
   })
   const firmaActual = [instructorId, fecha, horaInicio, horaFin].join('|')
   const conflicto = aviso?.firma === firmaActual ? aviso.mensaje : null
@@ -149,7 +154,7 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cu
         setError('cursoId', { message: 'Selecciona el curso al que pertenece la clase' })
         return
       }
-      guardar.mutate(datos satisfies ClaseEntrada, {
+      guardar.mutate({ ...datos, lugar: datos.modalidad === 'VIRTUAL' ? '' : datos.lugar } satisfies ClaseEntrada, {
         onSuccess: (guardada) => {
           toast.success(id ? 'Clase actualizada.' : `Clase «${guardada.nombre}» creada.`)
           // Si se programó desde «Sesiones del curso», se vuelve al curso para ver la sesión nueva
@@ -186,7 +191,7 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cu
         <h1 className="text-2xl leading-8 font-semibold tracking-[-0.6px] text-ink-2">
           {id ? 'Editar clase' : 'Nueva clase'}
         </h1>
-        <p className="mt-1 text-sm leading-5 text-muted-2">Programa una clase presencial y asigna un instructor</p>
+        <p className="mt-1 text-sm leading-5 text-muted-2">Programa una sesión presencial, virtual o ambas y asigna un instructor</p>
       </header>
 
       <form
@@ -267,9 +272,19 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cu
           </p>
         </div>
 
-        <Campo etiqueta="Lugar" obligatorio error={errors.lugar?.message}>
-          <Entrada placeholder="Ej.: Auditorio principal, piso 2" estado={estado('lugar')} {...register('lugar')} />
+        <Campo etiqueta="Modalidad de la sesión" obligatorio error={errors.modalidad?.message}>
+          <Selector estado={estado('modalidad')} {...register('modalidad')}>
+            {modalidadesSesion.map((valor) => <option key={valor} value={valor}>{ETIQUETA_MODALIDAD_SESION[valor]}</option>)}
+          </Selector>
         </Campo>
+
+        {modalidad === 'VIRTUAL' ? (
+          <p className="text-sm text-muted-2">Sesión virtual: se creará su sala con el mismo horario.</p>
+        ) : (
+          <Campo etiqueta="Lugar" obligatorio error={errors.lugar?.message}>
+            <Entrada placeholder="Ej.: Auditorio principal, piso 2" estado={estado('lugar')} {...register('lugar')} />
+          </Campo>
+        )}
 
         <div className="mt-6 flex justify-end gap-3 border-t border-line pt-5.25">
           <Boton variante="secundario" onClick={() => navegar(rutaClases)}>

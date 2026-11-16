@@ -49,7 +49,7 @@ export async function obtenerCurso(id: string, usuarioId?: number) {
   const miInscripcion=usuarioId===undefined ? null : await obtenerMiInscripcion(id,usuarioId);
   const estadoInscripcion=miInscripcion?.estado ?? curso.estadoInscripcion;
   return { ...curso,estadoInscripcion,inscrito:!!curso.inscrito && estadoInscripcion!=='CANCELADA',miInscripcion,
-    sesiones: await listarSesiones(id), modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
+    sesiones: await listarSesiones(id, usuarioId), modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
 }
 export async function obtenerMiInscripcion(cursoId:string,usuarioId:number) {
   return (await pool.query(`select t.id as "intentoId",t."modalidadCobro",t."importeCentimos"::float8,t.moneda,t."versionCobro",t."plazoPagoMinutos",

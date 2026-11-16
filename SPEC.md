@@ -918,3 +918,231 @@ Cambios respecto del diseño propuesto: una sola migración
 `0032-sesionesVirtualesSeguras.sql` (en vez de tres); `persistent_lobby` también es
 necesario para la sala de espera; `api_prefix` usa una IP porque Prosody no
 resuelve `/etc/hosts`.
+
+---
+
+# HU-36: Modalidad por sesión y cursos híbridos
+
+Estado: **aprobada por el usuario el 16/11/2026 («realiza la implementación») e implementada en local.**
+Las preguntas abiertas se resolvieron con las recomendaciones (ver «Decisiones tomadas»).
+Fecha de revisión: 16/11/2026, America/Lima. Rama `SCRUM-147-hu-36-modalidad-por-sesion-y-cursos-hibridos`,
+base `e79bd6c`. Esa base contiene HU-26 (`14ceac6`, `e79bd6c`), que **aún no está en `main`**:
+el PR de HU-36 depende del de HU-26. Plan y seguimiento: sección HU-36 de
+[tasks/plan.md](tasks/plan.md) y [tasks/todo.md](tasks/todo.md).
+
+## Objetivo y caso de uso
+
+Como administrador del CPPP, quiero definir si cada sesión de un curso es presencial,
+virtual o ambas, y marcar un curso como grabado, para ofrecer cursos presenciales,
+virtuales en vivo, grabados e híbridos (por ejemplo, cuatro días virtuales y el último
+presencial). Origen: NR-03 y NR-06 de la reunión con el CPPP. Complementa HU-13.
+
+Actores: **administrador** (programa y edita sesiones, crea cursos), **instructor**
+(dicta, toma asistencia y abre la sala), **colegiado** (ve cómo y dónde asistir).
+
+Éxito: el colegiado sabe, sesión por sesión, si va al aula, a la sala virtual o a
+cualquiera de las dos; el curso se clasifica solo según sus sesiones; la asistencia se
+toma por la vía que corresponde a cada sesión y cuenta igual para el certificado.
+
+## Mapa de capacidades (Fase 0)
+
+| Módulo | Responsabilidad | Depende de |
+|---|---|---|
+| `modalidad-sesion` | Modalidad por sesión, reglas de lugar, edición y modalidad del curso derivada de sus sesiones | — |
+| `sala-por-sesion` | Sala virtual creada para sesiones virtuales o «ambas», acceso visible en la sesión | `modalidad-sesion`, HU-26 |
+| `asistencia-por-modalidad` | QR solo donde hay aula, asistencia virtual solo donde hay sala; ambas cuentan para el 80 % | `modalidad-sesion`, HU-26 |
+| `curso-grabado` | Tipo de curso grabado, sin sesiones con fecha | — |
+| `lecciones-video` | Lecciones en video del curso grabado | HU-37 — **fuera de alcance** |
+
+Orden: `modalidad-sesion` → `sala-por-sesion` y `asistencia-por-modalidad` → `curso-grabado`
+(este último es independiente y puede adelantarse).
+
+## Revisión del código actual e inconsistencias
+
+| Hallazgo | Evidencia | Implicación |
+|---|---|---|
+| La modalidad solo existe en el curso | `cursos.modalidad` (`PRESENCIAL`, `VIRTUAL`, `HIBRIDA`); `classes` no tiene modalidad | Hay que añadirla a la sesión y derivar la del curso |
+| La modalidad del curso la elige el administrador | Formulario y `PATCH /api/cursos/:id` | Contradice «se muestra según sus sesiones»: debe calcularse cuando hay sesiones |
+| Dos vías crean sesiones | `POST /api/cursos/:id/sesiones` (detalle del curso) y `POST/PUT /api/clases` (`ClaseFormPagina`, con `cursoId`) | Ambas deben validar y guardar la modalidad y recalcular el curso |
+| `lugar` es obligatorio siempre | `classes.lugar not null`; validación `"Ingresa el lugar"` | Una sesión virtual no tiene lugar físico |
+| La sala virtual no se relaciona con la sesión en pantalla | Las reuniones se crean a mano en `/reuniones` con el identificador de la sesión | «Una sesión virtual muestra el acceso a la sala» no se cumple hoy |
+| El QR vale para cualquier sesión | `POST /api/asistencia/marcar` y `GET /api/clases/:id/qr` no miran la modalidad | Una sesión solo virtual no debería tomar asistencia en aula |
+| **Certificados solo para cursos presenciales** | `validarAlcance`: `modalidad !== 'PRESENCIAL'` → 409 `CERTIFICACION_FUERA_ALCANCE` ([docs/esp/certificados.md](docs/esp/certificados.md)) | HU-26 dice que la asistencia virtual cuenta para el 80 % del certificado, pero un curso virtual o híbrido no puede emitirlo |
+| No existe HU-37 ni HU-39 | Sin código ni documentación | Lecciones en video quedan fuera; «asistencia en aula» se interpreta como el QR actual |
+| No existe el curso grabado | Ningún valor ni regla | Sin sesiones el 80 % nunca se cumple: el certificado depende de HU-37 |
+| Pendiente del CPPP: híbrido el mismo horario o días distintos | Nota de la historia | El modelo por sesión cubre ambos casos (sesión «ambas» o sesiones distintas); no bloquea |
+
+## Supuestos (corregir antes de aprobar)
+
+1. Valores de sesión: `PRESENCIAL`, `VIRTUAL`, `AMBAS`. Las sesiones existentes heredan la
+   modalidad de su curso: `PRESENCIAL`→`PRESENCIAL`, `VIRTUAL`→`VIRTUAL`, `HIBRIDA`→`AMBAS`,
+   así ningún curso cambia de modalidad al migrar.
+2. Modalidad derivada del curso, contando solo sesiones programadas: todas presenciales →
+   `PRESENCIAL`; todas virtuales → `VIRTUAL`; cualquier mezcla o alguna «ambas» → `HIBRIDA`.
+   Sin sesiones programadas se conserva la modalidad planificada que eligió el administrador.
+   Se guarda en `cursos.modalidad` dentro de la misma transacción para que el filtro del
+   catálogo siga funcionando.
+3. Con sesiones programadas, la modalidad del curso no se edita a mano: el formulario la muestra
+   como calculada.
+4. `GRABADO` es un nuevo valor de `cursos.modalidad`. Un curso grabado no admite sesiones
+   (409) y no puede pasar a grabado si tiene sesiones programadas. Puede publicarse con sus
+   módulos y materiales; las lecciones en video y su certificado esperan a HU-37.
+5. Una sesión `VIRTUAL` no exige lugar (se guarda «Aula virtual»); `PRESENCIAL` y `AMBAS` sí.
+6. Programar o cambiar una sesión a `VIRTUAL` o `AMBAS` crea su reunión de HU-26 con el mismo
+   horario si no tiene una activa; cancelarla o pasarla a `PRESENCIAL` cancela la reunión programada.
+7. El QR se rechaza en sesiones `VIRTUAL`; no se crea reunión para sesiones `PRESENCIAL`.
+   En `AMBAS` vale cualquiera de las dos y cuenta una sola asistencia por sesión.
+8. Los certificados se amplían a cursos `VIRTUAL` e `HIBRIDA` con la misma regla del 80 %
+   (asistencia QR o virtual). `GRABADO` sigue fuera hasta HU-37.
+9. No se añaden dependencias.
+
+## Alcance
+
+Incluye: migración, validación y API de modalidad por sesión en las dos vías; derivación de
+la modalidad del curso; formularios y presentación de sesiones; reunión automática por sesión
+virtual; reglas de asistencia por modalidad; ampliación del certificado; curso grabado en
+creación, catálogo y filtros; mocks de la demo; documentación y pruebas.
+
+Excluye: lecciones en video (HU-37), cambios al QR más allá de la modalidad (HU-39),
+transmisión masiva y despliegue.
+
+## Criterios de aceptación
+
+**`modalidad-sesion`**
+
+- **HU36-01** Dado un curso, cuando el administrador programa o edita una sesión por
+  cualquiera de las dos vías, elige `PRESENCIAL`, `VIRTUAL` o `AMBAS`; otro valor → 422.
+- **HU36-02** Una sesión `PRESENCIAL` o `AMBAS` sin lugar → 422; una `VIRTUAL` no lo pide.
+- **HU36-03** Tras cada alta, edición o cancelación, el curso pasa a `PRESENCIAL`, `VIRTUAL`
+  o `HIBRIDA` según sus sesiones programadas (supuesto 2), en la misma transacción.
+- **HU36-04** Con sesiones programadas, `PATCH /api/cursos/:id` ignora o rechaza un cambio
+  manual de modalidad (422 explicando que se calcula por sesiones).
+- **HU36-05** En el detalle del curso, cada sesión muestra su modalidad; la presencial
+  muestra lugar, fecha y horario; la virtual muestra fecha, horario y el acceso a la sala.
+- **HU36-06** La migración asigna a las sesiones existentes la modalidad de su curso sin
+  cambiar la modalidad de ningún curso.
+
+**`sala-por-sesion`**
+
+- **HU36-07** Programar o cambiar una sesión a `VIRTUAL` o `AMBAS` crea su reunión con el mismo
+  horario (una sola activa por sesión); cancelarla o pasarla a `PRESENCIAL` cancela la reunión
+  aún programada.
+- **HU36-08** El inscrito con acceso, el instructor y el administrador ven «Entrar a la sala» en
+  la sesión cuando la reunión está iniciada, y «La sala se habilita al iniciar» antes.
+  Quien no está inscrito no ve el acceso; la credencial sigue protegida por HU-26.
+- **HU36-09** `POST /api/reuniones` para una sesión `PRESENCIAL` → 409.
+
+**`asistencia-por-modalidad`**
+
+- **HU36-10** En una sesión `VIRTUAL`, `POST /api/asistencia/marcar` y el QR del instructor → 409
+  `SESION_VIRTUAL`.
+- **HU36-11** En una sesión `AMBAS`, el colegiado obtiene asistencia por QR en el aula o por la
+  sala virtual (HU-26); queda una sola por sesión y la QR previa se conserva.
+- **HU36-12** El 80 % del curso cuenta asistencias de ambas vías y permite emitir constancias en
+  cursos `PRESENCIAL`, `VIRTUAL` e `HIBRIDA`.
+
+**`curso-grabado`**
+
+- **HU36-13** El administrador crea o edita un curso como `GRABADO` si no tiene sesiones
+  programadas; programar sesiones en él → 409 `CURSO_GRABADO`.
+- **HU36-14** El catálogo, el detalle, el historial y los filtros muestran «Grabado».
+- **HU36-15** Un curso grabado no emite constancias hasta HU-37 (409 explicativo).
+
+## Diseño propuesto
+
+**Datos** (migración nueva `0033-modalidadSesion.sql`, sin tocar las aplicadas):
+
+- `classes.modalidad varchar(10) not null default 'PRESENCIAL' check in ('PRESENCIAL','VIRTUAL','AMBAS')`,
+  rellenada desde el curso (supuesto 1).
+- `cursos.modalidad`: el `check` admite además `GRABADO`; se añade `"modalidadPlanificada"` con
+  el valor elegido por el administrador para cuando no haya sesiones.
+- Función SQL o de repositorio `recalcularModalidadCurso(cliente, cursoId)` llamada desde las
+  transacciones que crean, editan o cancelan sesiones.
+
+**API**
+
+| Método/ruta | Cambio |
+|---|---|
+| POST /api/cursos/:id/sesiones, POST /api/clases, PUT /api/clases/:id | Nuevo campo `modalidad`; `lugar` según la modalidad; recalculan el curso; crean o cancelan la reunión |
+| POST /api/clases/:id/cancelar | Recalcula el curso y cancela la reunión programada de la sesión |
+| GET /api/cursos/:id | Cada sesión incluye `modalidad` y `reunion: { identificador, estado } \| null` (solo para quien gestiona o tiene acceso) |
+| POST/PATCH /api/cursos | `modalidad` admite `GRABADO`; con sesiones, la modalidad es calculada |
+| POST /api/asistencia/marcar, GET /api/clases/:id/qr | 409 `SESION_VIRTUAL` en sesiones virtuales |
+| POST /api/reuniones | 409 en sesiones presenciales |
+
+**Interfaz.** Selector de modalidad en «Programar sesión» y en el formulario de clases (el
+lugar se oculta para virtual); la lista de sesiones muestra la etiqueta y el lugar o el acceso a
+la sala; el formulario del curso ofrece «Grabado» y muestra la modalidad calculada; etiquetas
+y filtros incluyen «Grabado»; la demo (MSW) replica las reglas.
+
+## Pila, estructura y estilo
+
+Igual que HU-26: Fastify + `pg` + zod en `backend/src/modules/{cursos,clases,reuniones,asistencia,certificados}`;
+React + React Query en `frontend/src/paginas/{cursos,coordinador}` y `frontend/src/servicios`;
+mocks en `frontend/src/mocks`. camelCase sin guiones bajos en nombres nuevos; las columnas
+existentes (`curso_id`, `hora_inicio`) se conservan. Ejemplo:
+
+```ts
+export function modalidadDerivada(sesiones: ModalidadSesion[], planificada: ModalidadCurso): ModalidadCurso {
+  if (sesiones.length === 0) return planificada
+  if (sesiones.every(modalidad => modalidad === 'PRESENCIAL')) return 'PRESENCIAL'
+  if (sesiones.every(modalidad => modalidad === 'VIRTUAL')) return 'VIRTUAL'
+  return 'HIBRIDA'
+}
+```
+
+## Estrategia de pruebas y comandos
+
+| Nivel | Qué cubre | Comando |
+|---|---|---|
+| Unitarias backend | Derivación, validación de sesión y lugar | `npm test -w backend` |
+| Integración (PostgreSQL) | HU36-01 a HU36-15, migración y transacciones | `DB_NAME=<base aislada> npm run test:integracion -w backend` |
+| Frontend (Vitest) | Formularios, presentación, etiquetas y mocks | `npm test -w frontend` |
+| E2E demo y real | Curso híbrido programado y visto por el colegiado | `npm run e2e`, `npm run e2e:real` |
+| Tipos y lint | — | `npm run typecheck`, `npm run lint -w frontend`, `npm run e2e:tipos` |
+| Build | — | `npm run build`: **lo ejecuta el usuario** |
+
+Cada tarea: prueba en rojo, implementación mínima, suite del workspace, tipos y evidencia.
+
+## Límites
+
+- **Siempre:** validar en el backend (no solo en la interfaz); recalcular en la misma transacción;
+  mantener la demo alineada; conservar la compatibilidad de datos existentes.
+- **Preguntar antes:** dependencias nuevas, cambios en migraciones aplicadas, cambiar reglas
+  de certificación más allá del supuesto 8.
+- **Nunca:** build ni operaciones Git de escritura (las hace el usuario); inventar lecciones en
+  video; afirmar verificaciones no ejecutadas.
+
+## Decisiones tomadas y ajustes de diseño
+
+Se aplicaron las ocho recomendaciones: modalidad planificada sin sesiones; modalidad
+calculada (no editable a mano) con sesiones; sala automática para «virtual» y «ambas»;
+QR rechazado en virtuales y sala rechazada en presenciales; constancias en cursos
+virtuales e híbridos; «Grabado» como modalidad que puede publicarse sin certificado;
+no esperar la confirmación del CPPP; integrar HU-26 antes que HU-36.
+
+Ajustes descubiertos al implementar:
+
+- `modalidad` es **opcional** en la API por compatibilidad: `PRESENCIAL` al crear y la actual
+  al editar. La interfaz siempre la envía (ajusta HU36-01).
+- El backend **no tiene** `PUT /api/cursos/:id` (ruta pendiente): la modalidad planificada se fija
+  al crear. HU36-04 se cumple en la interfaz (campo calculado) y en la demo (422 `MODALIDAD_CALCULADA`).
+- `"modalidadPlanificada"` se completa con un trigger para las inserciones antiguas (semillas y scripts).
+- La migración marca «ambas» las sesiones con una sala activa; la semilla demo declara esas clases como «ambas».
+- Inconsistencia previa, **no corregida**: `ClaseFormPagina` envía `cursoId` a `POST /api/clases`, que lo
+  ignora, así que la clase queda sin curso en el backend real. Se dejó igual para no cambiar el
+  instructor asignado ni romper PRG-10; queda pendiente.
+
+## Preguntas abiertas (resueltas, se conservan como registro)
+
+1. Sin sesiones, ¿el curso muestra la modalidad planificada (recomendado) o «Por definir»?
+2. ¿Bloquear la edición manual de la modalidad cuando hay sesiones (recomendado: sí, calculada)?
+3. ¿Crear automáticamente la sala de HU-26 al programar una sesión virtual o «ambas» (recomendado: sí)?
+4. ¿Rechazar el QR en sesiones solo virtuales y la sala en sesiones presenciales (recomendado: sí)?
+5. **Certificados**: ¿se emiten constancias en cursos virtuales e híbridos con el mismo 80 %?
+   Hoy solo en presenciales (regla HU-20). Recomendado: sí, confirmándolo con el CPPP.
+6. ¿«Grabado» como valor de modalidad del curso (recomendado) o como marca aparte? ¿Se permite
+   publicarlo antes de HU-37 (recomendado: sí, sin certificado)?
+7. ¿Esperar la confirmación del CPPP sobre el híbrido? El diseño cubre el mismo horario
+   (sesión «ambas») y días distintos (sesiones separadas), así que no bloquea.
+8. El PR de HU-36 depende de HU-26: ¿se integra primero HU-26 en `main` (recomendado)?
