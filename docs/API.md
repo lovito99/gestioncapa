@@ -512,3 +512,9 @@ Campos nuevos de `GET /api/pagos/:id`:
 - `venceEn`: fin del plazo para pagar (cuenta regresiva de la pantalla).
 - `POST /api/pagos/:id/efectivo` con un importe distinto del pago → `422 IMPORTE_NO_COINCIDE` con `fields.importe`.
 - El rechazo de un voucher envía uno de los motivos de `MOTIVOS_RECHAZO` (`servicios/pagos.ts`) o un texto libre.
+
+## SCRUM-211 — Plantillas de correo con la identidad del CPPP (HU-29)
+
+Las cinco plantillas del Figma S3 10.1–10.5 están en [docs/correos](correos/README.md):
+inscripción confirmada, pago aprobado, pago rechazado, cambio de sesión y constancia emitida,
+con la lista de campos que el backend debe reemplazar en cada una.
