@@ -464,3 +464,51 @@ Al ser retirado (`KICKED`) o no admitido, el colegiado ve su pantalla final.
 **Pendiente de definir:** el interruptor «Usar el chat» del Figma y el contador «REC 00:42:10»
 necesitan soporte del servidor (permiso de chat y estado real de la grabación); por ahora la
 sala muestra «REC» cuando la grabación está anunciada y no ofrece apagar el chat.
+
+## Sprint 3 — Cursos: portada, precios, cobro y compartir (SCRUM-181/182, 184/185, 190/191, 193)
+
+Simulación: `frontend/src/mocks/cursos.ts`; especificación ejecutable: `mocks/cursosS3.test.ts`.
+
+| Método y ruta | Actor | Cuerpo y respuesta |
+|---|---|---|
+| `PUT /api/cursos/:id/portada` | ADMIN | `{ nombre, tipo: "image/jpeg"\|"image/png"\|"image/webp", contenidoBase64 }` estricto. `200 { portadaUrl }`. Más de 1 MB → `422 PORTADA_MUY_PESADA`; otro tipo → `422 VALIDACION` con `fields.portada` |
+| `DELETE /api/cursos/:id/portada` | ADMIN | `204`. El curso vuelve a la portada por defecto de su categoría |
+| `PATCH /api/cursos/:id/cobro` | ADMIN | `{ modalidadCobro: "PREVIO"\|"CERTIFICADO"\|"GRATUITO", costo, precioGeneral?, plazoPagoMinutos\|null, versionCobro }` estricto. `200` con el curso y `versionCobro + 1`. `GRATUITO` ⇔ `costo = 0`; `PREVIO` ⇔ hay plazo. Curso cerrado o `versionCobro` desactualizada → `409` |
+| `GET /api/publico/cursos/:id/compartir` | Sin sesión | `200 { url, enlaceCorto }` para cursos `PUBLICADO`; si no, `404`. `url` apunta a `/capacitaciones/:id` (SCRUM-187); el backend puede acortarlo |
+| `GET /api/publico/cursos?cobro=` | Sin sesión | Filtro nuevo `cobro`: `PREVIO`, `CERTIFICADO` o `GRATUITO` (otro valor → `422`) |
+
+Campos nuevos del curso (en `GET /api/cursos/:id`, el catálogo y el catálogo público):
+`portadaUrl` (`null` → portada por categoría), `precioGeneral` (precio para no colegiados;
+si falta se usa `costo`), `modalidadCobro`, `plazoPagoMinutos`, `versionCobro` y `categoria`.
+
+- `POST /api/cursos` y `PUT /api/cursos/:id` aceptan `precioGeneral` y `modalidadCobro`.
+  El formulario solo envía `precioGeneral` si es distinto de `costo` (SCRUM-191 pendiente).
+- `GET /api/cursos/:id` añade `miPrecio` para el agremiado:
+  `{ tipo: "COLEGIADO"|"GENERAL", importe, dniParcial: "•••• 5678"|null, enPadron }`.
+  `enPadron` indica si su DNI está habilitado en el padrón del CPPP; quien no está paga `precioGeneral`.
+- `POST /api/cursos/:id/inscribirme` recibe `{ versionCobro }`; si cambió desde que el agremiado
+  vio el precio → `409` y la pantalla vuelve a cargar el curso. Con cobro `PREVIO` responde
+  `estado: "PENDIENTE_PAGO"` y el frontend pasa a `/cursos/:id/pagar`.
+
+## Sprint 3 — Pagos del agremiado y bandeja del administrador (SCRUM-196/198, 199/201, HU-32, HU-54)
+
+Simulación: `frontend/src/mocks/pagos.ts`. Se suma a T-25 y HU-32 (arriba).
+
+| Método y ruta | Actor | Respuesta |
+|---|---|---|
+| `GET /api/pagos/bandeja?estado=&buscar=` | ADMIN | `200 { resumen: { enRevision, confirmadosMes, rechazadosMes }, items }`. `estado`: `EN_REVISION`, `CONFIRMADO` o `RECHAZADO`. `buscar` compara nombre, código de orden, número de operación y DNI. Primero los `EN_REVISION`, luego por fecha descendente |
+| `GET /api/pagos/pendientes?dni=` | ADMIN | Para «Registrar pago en efectivo». `200 { agremiado: { nombre, dniParcial }, pagos: [{ pagoId, codigoOrden, cursoTitulo, concepto, importeCentimos }] }`. DNI sin 8 dígitos → `422`; desconocido → `404 DNI_NO_ENCONTRADO` |
+| `GET /api/pagos/:id/comprobante` | Propietario o ADMIN | `200 application/pdf`. Si el pago no está `PAGADO` → `409 PAGO_PENDIENTE` |
+| `POST /api/pagos/:id/intentos` | Propietario | Acepta además `instrumento: "TARJETA"\|"YAPE"` para el pago en línea |
+
+Cada `item` de la bandeja: `{ pagoId, operacionId, codigoOrden, agremiado: { nombre, dniParcial },
+cursoTitulo, concepto, importeCentimos, medio: "TRANSFERENCIA"|"IZIPAY"|"EFECTIVO", detalleMedio,
+referencia, fecha, estado }`.
+
+Campos nuevos de `GET /api/pagos/:id`:
+- `codigoOrden` («ORD-2026-00482»): el agremiado lo escribe en el concepto de la transferencia.
+  Si falta, el frontend lo arma con el id.
+- `comisionEnLinea: { porcentaje: 3.5, importeCentimos }`: comisión de la pasarela, que se suma solo al pago en línea.
+- `venceEn`: fin del plazo para pagar (cuenta regresiva de la pantalla).
+- `POST /api/pagos/:id/efectivo` con un importe distinto del pago → `422 IMPORTE_NO_COINCIDE` con `fields.importe`.
+- El rechazo de un voucher envía uno de los motivos de `MOTIVOS_RECHAZO` (`servicios/pagos.ts`) o un texto libre.
