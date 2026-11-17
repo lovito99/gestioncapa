@@ -52,11 +52,12 @@ export function pagoNecesitaActualizacion(pago:Pick<Pago,'estado'|'operaciones'|
 }
 export const pagos = {
   obtener:async(id:string)=>(await api.get<Pago>(`/pagos/${id}`)).data,
-  iniciar:async(id:string,entrada:{medio:'IZIPAY'|'CULQI';clave:string;token?:string;instrumento?:'TARJETA'|'YAPE'})=>
+  /** `instrumento` (Tarjeta o Yape) aún no se envía: el esquema estricto del backend lo rechaza con 422. Izipay ofrece ambos. */
+  iniciar:async(id:string,{instrumento:_instrumento,...entrada}:{medio:'IZIPAY'|'CULQI';clave:string;token?:string;instrumento?:'TARJETA'|'YAPE'})=>
     (await api.post<{operacionId:string;estado:string;izipay?:SesionIzipay}>(`/pagos/${id}/intentos`,entrada)).data,
   notificarIzipay:async(respuesta:unknown)=>{await api.post('/pagos/notificaciones/izipay',respuesta)},
   efectivo:async(id:string,entrada:RecepcionEfectivo)=>(await api.post<Pago>(`/pagos/${id}/efectivo`,entrada)).data,
-  declararTransferencia:async(id:string,entrada:{destinoId:string;referencia:string;fechaOperacion:string;clave:string;voucher:ArchivoVoucherEntrada;nombreArchivo?:string})=>
+  declararTransferencia:async(id:string,entrada:{destinoId:string;referencia:string;fechaOperacion:string;clave:string;voucher:ArchivoVoucherEntrada})=>
     (await api.post<{operacionId:string;estado:string}>(`/pagos/${id}/transferencias`,entrada)).data,
   obtenerVoucher:async(id:string,operacionId:string)=>(await api.get<Blob>(`/pagos/${id}/transferencias/${operacionId}/voucher`,{responseType:'blob'})).data,
   reponerVoucher:async(id:string,operacionId:string,entrada:{clave:string;version:number;voucher:ArchivoVoucherEntrada})=>

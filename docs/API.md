@@ -499,7 +499,7 @@ Simulación: `frontend/src/mocks/pagos.ts`. Se suma a T-25 y HU-32 (arriba).
 | `GET /api/pagos/bandeja?estado=&buscar=` | ADMIN | `200 { resumen: { enRevision, confirmadosMes, rechazadosMes }, items }`. `estado`: `EN_REVISION`, `CONFIRMADO` o `RECHAZADO`. `buscar` compara nombre, código de orden, número de operación y DNI. Primero los `EN_REVISION`, luego por fecha descendente |
 | `GET /api/pagos/pendientes?dni=` | ADMIN | Para «Registrar pago en efectivo». `200 { agremiado: { nombre, dniParcial }, pagos: [{ pagoId, codigoOrden, cursoTitulo, concepto, importeCentimos }] }`. DNI sin 8 dígitos → `422`; desconocido → `404 DNI_NO_ENCONTRADO` |
 | `GET /api/pagos/:id/comprobante` | Propietario o ADMIN | `200 application/pdf`. Si el pago no está `PAGADO` → `409 PAGO_PENDIENTE` |
-| `POST /api/pagos/:id/intentos` | Propietario | Acepta además `instrumento: "TARJETA"\|"YAPE"` para el pago en línea |
+| `POST /api/pagos/:id/intentos` | Propietario | **Pedido:** aceptar `instrumento: "TARJETA"\|"YAPE"`. Hoy el esquema es estricto y lo rechaza con 422, así que el frontend aún no lo envía |
 
 Cada `item` de la bandeja: `{ pagoId, operacionId, codigoOrden, agremiado: { nombre, dniParcial },
 cursoTitulo, concepto, importeCentimos, medio: "TRANSFERENCIA"|"IZIPAY"|"EFECTIVO", detalleMedio,

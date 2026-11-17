@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
 import type { EstadoCertificado } from './certificados'
 import type { ModalidadCurso, ModalidadSesion } from './modalidadCurso'
 
@@ -95,12 +95,31 @@ function conValoresNuevos<T extends Curso>(curso: T): T & { sesiones: SesionCurs
   return { ...curso, sesiones: enviado.sesiones ?? [], requisitoAsistencia: enviado.requisitoAsistencia ?? REQUISITO_ASISTENCIA_POR_DEFECTO }
 }
 
+/**
+ * Transición SCRUM-187: si el backend aún no tiene `GET /publico/cursos/:id` (404), arma el detalle
+ * desde el catálogo público con valores por defecto y sin sesiones. Si tampoco está ahí, propaga el 404.
+ */
+async function publicoDetalle(id: string): Promise<CursoPublicoDetalle> {
+  try {
+    return (await api.get<CursoPublicoDetalle>(`/publico/cursos/${id}`)).data
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 404) throw error
+    for (let pagina = 1; pagina <= 10; pagina++) {
+      const lista = (await api.get<PaginaCatalogo<CursoPublico>>('/publico/cursos', { params: { pagina, tamanoPagina: 50 } })).data
+      const curso = lista.items.find(item => String(item.id) === id)
+      if (curso) return { tipoCertificado: 'PARTICIPACION', notaMinima: 0, requisitoAsistencia: REQUISITO_ASISTENCIA_POR_DEFECTO, sesiones: [], ...curso }
+      if (pagina >= lista.totalPaginas) break
+    }
+    throw error
+  }
+}
+
 export const cursos = {
   actualizarCobro: async (id: string, entrada: Omit<PoliticaCobro, 'precioGeneral'> & { precioGeneral?: number; versionCobro: number }) =>
     conValoresNuevos((await api.patch<DetalleCurso>(`/cursos/${id}/cobro`, entrada)).data),
   subirPortada: async (id: string, entrada: PortadaEntrada) => (await api.put<{ portadaUrl: string }>(`/cursos/${id}/portada`, entrada)).data,
   quitarPortada: async (id: string) => { await api.delete(`/cursos/${id}/portada`) },
-  publicoDetalle: async (id: string) => (await api.get<CursoPublicoDetalle>(`/publico/cursos/${id}`)).data,
+  publicoDetalle: (id: string) => publicoDetalle(id),
   enlaceCompartir: async (id: string) => (await api.get<EnlaceCompartir>(`/publico/cursos/${id}/compartir`)).data,
   publico: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo<CursoPublico>>('/publico/cursos', { params: filtros })).data,
   catalogo: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo>('/catalogo/cursos/pagina', { params: filtros })).data,

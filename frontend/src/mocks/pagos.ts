@@ -210,14 +210,17 @@ export const handlersPagos = [
     const { respuesta, pago } = accesoPago(request, params.id as string)
     if (respuesta) return respuesta
     await delay(500)
-    const entrada = (await request.json()) as { referencia?: string; voucher?: { tipo: string; contenidoBase64: string }; nombreArchivo?: string }
+    const entrada = (await request.json()) as Record<string, unknown> & { referencia?: string; voucher?: { tipo: string; contenidoBase64: string } }
+    // Igual que el backend (esquema estricto): un campo desconocido es 422
+    const desconocidos = Object.keys(entrada).filter((clave) => !['destinoId', 'clave', 'referencia', 'fechaOperacion', 'voucher'].includes(clave))
+    if (desconocidos.length) return error(422, 'VALIDACION', `Campos no permitidos: ${desconocidos.join(', ')}.`)
     const referencia = entrada.referencia?.trim() ?? ''
     if (referencia.length < 3) return error(422, 'VALIDACION', 'Ingresa el número de operación.', { referencia: 'Ingresa el número de operación de tu voucher.' })
     if (!entrada.voucher?.contenidoBase64) return error(422, 'VALIDACION', 'Sube tu voucher.', { voucher: 'Sube tu voucher.' })
     const repetida = [...pagosSimulados.values()].some((p) => p.transferencias.some((t) => t.referencia === referencia && t.estado !== 'RECHAZADO'))
     if (repetida) return error(409, 'OPERACION_DUPLICADA', 'Este número de operación ya fue registrado en otro pago. Revisa tu voucher.', { referencia: 'Este número de operación ya fue registrado en otro pago. Revisa tu voucher.' })
     if (pago.estado === 'PAGADO') return error(409, 'PAGO_YA_CONFIRMADO', 'Este pago ya está confirmado.')
-    const transferencia = declarar(pago, referencia, entrada.voucher, entrada.nombreArchivo)
+    const transferencia = declarar(pago, referencia, entrada.voucher)
     return HttpResponse.json({ operacionId: transferencia.operacionId, estado: 'DECLARADO' }, { status: 201 })
   }),
 

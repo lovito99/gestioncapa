@@ -310,7 +310,7 @@ function PagarTransferencia({ pago }: { pago: Pago }) {
     mutationFn: async () => {
       const voucher = await leerVoucher(archivo)
       const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date())
-      return pagos.declararTransferencia(pago.id, { destinoId: destino.id, referencia: referencia.trim(), fechaOperacion: hoy, clave, voucher, nombreArchivo: archivo?.name })
+      return pagos.declararTransferencia(pago.id, { destinoId: destino.id, referencia: referencia.trim(), fechaOperacion: hoy, clave, voucher })
     },
     onSuccess: () => Promise.all([cache.invalidateQueries({ queryKey: ['pago', pago.id] }), cache.invalidateQueries({ queryKey: ['curso'] })]),
     onError: (e) => {
