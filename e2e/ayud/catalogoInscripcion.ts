@@ -55,9 +55,11 @@ export async function flujoInscripcionPublica(page: Page, administrador: Paramet
     const tarjeta = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: curso.titulo, exact: true }) })
     await expect(tarjeta).toContainText('8 horas lectivas')
     await expect(tarjeta).toContainText(curso.costo ? 'S/ 25.00' : 'Gratuito')
-    const accion = tarjeta.getByRole('link', { name: `Inscribirme en ${curso.titulo}`, exact: true })
-    await expect(accion).toHaveAttribute('href', `/login?curso=${curso.id}`)
-    await accion.click()
+    // SCRUM-187: la tarjeta abre la página pública y desde ahí «Inscribirme» pide el acceso
+    await tarjeta.getByRole('link', { name: curso.titulo, exact: true }).click()
+    await expect(page).toHaveURL(`/capacitaciones/${curso.id}`)
+    await expect(page.getByRole('heading', { level: 1, name: curso.titulo, exact: true })).toBeVisible()
+    await page.getByRole('region', { name: 'Inscripción', exact: true }).getByRole('button', { name: 'Inscribirme', exact: true }).click()
     await expect(page).toHaveURL(`/login?curso=${curso.id}`)
     solicitudes.length = 0
     await completarAcceso(page, cuentas.part)

@@ -91,3 +91,22 @@ describe('enlace para compartir', () => {
     expect((await llamar('GET', `/publico/cursos/${borrador.id}/compartir`)).status).toBe(404)
   })
 })
+
+describe('SCRUM-187 · página pública del curso', () => {
+  it('sin sesión devuelve el curso publicado con sus sesiones, sin salas ni encargados', async () => {
+    const id = await evaluacion()
+    const { status, cuerpo } = await llamar('GET', `/publico/cursos/${id}`)
+    expect(status).toBe(200)
+    expect(cuerpo).toMatchObject({ id, titulo: expect.stringContaining('Evaluación formativa'), requisitoAsistencia: expect.any(Number), tipoCertificado: expect.any(String) })
+    expect(Array.isArray(cuerpo.sesiones)).toBe(true)
+    for (const sesion of cuerpo.sesiones) expect(Object.keys(sesion).sort()).toEqual(['fecha', 'horaFin', 'horaInicio', 'id', 'lugar', 'modalidad', 'nombre'])
+    expect(cuerpo).not.toHaveProperty('modulos')
+    expect(cuerpo).not.toHaveProperty('miInscripcion')
+  })
+
+  it('un curso inexistente o en borrador responde 404 CURSO_NO_EXISTE', async () => {
+    const respuesta = await llamar('GET', '/publico/cursos/999999')
+    expect(respuesta.status).toBe(404)
+    expect(respuesta.cuerpo.code).toBe('CURSO_NO_EXISTE')
+  })
+})

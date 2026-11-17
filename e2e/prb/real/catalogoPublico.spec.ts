@@ -42,7 +42,7 @@ test('RF-07: catálogo anónimo conectado al servidor real', async ({ page, requ
   const datos = await respuesta.json()
   expect(datos.items.length).toBeGreaterThan(0)
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Catálogo de cursos' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Cursos vigentes del CPPP' })).toBeVisible()
   await expect(page.getByRole('heading', { name: datos.items[0].titulo })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Iniciar sesión', exact: true })).toBeVisible()
   expect((await request.get('/api/catalogo/cursos/pagina')).status()).toBe(401)

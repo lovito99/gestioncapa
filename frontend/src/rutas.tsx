@@ -5,6 +5,7 @@ import { RecuperarPagina } from '@/paginas/RecuperarPagina'
 import { HistorialPagina, HistorialesAdminPagina } from '@/paginas/historial/HistorialPagina'
 import { CatalogoPagina, CursosPagina } from '@/paginas/cursos/CursosPagina'
 import { CursoFormPagina } from '@/paginas/cursos/CursoFormPagina'
+import { PaginaPublicaCursoPagina } from '@/paginas/cursos/PaginaPublicaCursoPagina'
 import { SesionesCursoPagina } from '@/paginas/cursos/sesiones/SesionesCursoPagina'
 import { ProgramarSesionPagina } from '@/paginas/cursos/sesiones/ProgramarSesionPagina'
 import { CerrarCursoPagina } from '@/paginas/cursos/cierre/CerrarCursoPagina'
@@ -40,6 +41,7 @@ import { SinPermisoPagina } from '@/paginas/SinPermisoPagina'
 export const router = createBrowserRouter([
   { path: '/', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
   { path: '/capacitaciones', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
+  { path: '/capacitaciones/:id', element: <PaginaPublica><PaginaPublicaCursoPagina /></PaginaPublica> },
   { path: '/login', element: <LoginPagina /> },
   { path: '/registro', element: <RegistroPagina /> },
   { path: '/recuperar', element: <RecuperarPagina /> },

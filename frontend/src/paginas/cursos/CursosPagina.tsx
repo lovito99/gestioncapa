@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type InputHTMLAttributes } from 'react'
-import { Calendar, ChevronRight, Clock, Filter, Search, Users } from 'lucide-react'
+import { Award, BookOpen, Calendar, ChevronRight, Clock, Filter, Search, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
@@ -8,7 +8,6 @@ import { Campo } from '@/components/ui/Campo'
 import { Entrada, Selector } from '@/components/ui/Entrada'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { mensajeDeError } from '@/lib/api'
-import { accesoConCurso } from '@/lib/retornoCurso'
 import { cursos, type Curso, type CursoPublico } from '@/servicios/cursos'
 import { condicionesCobro, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
 import { BotonCompartir } from './CompartirCurso'
@@ -77,11 +76,16 @@ export function CatalogoPagina({ publico = false }: { publico?: boolean }) {
   const selector = 'sm:h-12 sm:text-base'
   const campoCategoria = <Campo etiqueta="Categoría"><Selector className={selector} value={categoria} onChange={e => actualizar('categoria', e.target.value)}><option value="">Todas</option>{[...new Set([...(consulta.data?.categorias ?? []), ...(categoria ? [categoria] : [])])].map(c => <option key={c} value={c}>{c}</option>)}</Selector></Campo>
   return <div className="mx-auto flex max-w-300 flex-col gap-4 px-4 pt-4 pb-8 wrap-anywhere sm:px-10 sm:pt-10">
-    <div className="flex flex-col gap-1">
+    {publico ? <>
+      <BienvenidaPublica />
+      <div id="proximos-cursos" className="flex scroll-mt-6 flex-col gap-1">
+        <h2 className="font-serif text-xl leading-7 font-bold text-ink sm:text-2xl sm:leading-8">Próximos cursos</h2>
+        <p className="text-sm leading-5 text-muted">Sin iniciar sesión puedes ver fechas, modalidad, horas y costo.</p>
+      </div>
+    </> : <div className="flex flex-col gap-1">
       <h1 className="font-serif text-xl leading-7 font-bold text-ink sm:text-2xl sm:leading-8">Catálogo de cursos</h1>
       <p className="text-sm leading-5 text-muted">Cursos publicados del CPPP Región Cusco. Toca una tarjeta para ver el detalle.</p>
-    </div>
-    {publico && <p className="text-sm"><Link className="text-brand underline" to="/login">Inicia sesión</Link> para consultar el detalle e inscribirte.</p>}
+    </div>}
     <form onSubmit={buscarCurso} role="search" className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_10rem_10rem_10rem] lg:items-end">
       <Campo etiqueta="Buscar curso">
         <EntradaBusqueda value={texto} onChange={e => cambiarTexto(e.target.value)} />
@@ -133,7 +137,8 @@ function EntradaBusqueda(props: InputHTMLAttributes<HTMLInputElement>) {
 function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?: boolean }; publico: boolean }) {
   const { usuario } = useAuth()
   const idTitulo = `curso-${curso.id}-titulo`
-  const destino = publico && !usuario ? accesoConCurso('/login', curso.id) : `/cursos/${curso.id}`
+  // SCRUM-187: sin sesión, la tarjeta abre la página pública del curso (S3 5.0 → 5.1)
+  const destino = publico && !usuario ? `/capacitaciones/${curso.id}` : `/cursos/${curso.id}`
   const sinCupos = curso.cuposDisponibles === 0
   return <article className="relative flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white transition-shadow has-[a:hover]:border-brand has-[a:hover]:shadow-[0_4px_12px_rgba(100,20,43,0.12)] has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-brand">
     <PortadaCurso curso={curso}>
@@ -160,10 +165,26 @@ function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?
       <div className="mt-auto border-t border-line pt-2.5">
         <PreciosCurso curso={curso} />
       </div>
-      {/* Sin sesión, la tarjeta ofrece además la acción de inscribirse (HU-22) */}
-      {publico && (sinCupos
-        ? <p className="relative rounded-lg bg-surface-2 px-4 py-2 text-center text-sm font-semibold text-muted">Sin cupos</p>
-        : <Link to={destino} aria-label={`Inscribirme en ${curso.titulo}`} className="relative z-10 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Inscribirme</Link>)}
     </div>
   </article>
+}
+
+/** SCRUM-187 · S3 5.0 · Bienvenida del subdominio público con los accesos principales. */
+function BienvenidaPublica() {
+  return <section aria-labelledby="titulo-bienvenida" className="flex items-center gap-8 overflow-hidden rounded-2xl bg-brand p-6 text-white sm:p-10">
+    <div className="flex min-w-0 flex-1 flex-col gap-3">
+      <p className="text-xs leading-4 font-medium tracking-[0.96px] text-gold-light uppercase">Capacitación docente · Región Cusco</p>
+      <h1 id="titulo-bienvenida" className="font-serif text-[28px] leading-9 font-bold sm:text-[40px] sm:leading-12">Cursos vigentes del CPPP</h1>
+      <p className="max-w-150 text-base leading-6 text-brand-soft">Elige tu curso, inscríbete y paga en línea, por transferencia o en efectivo. Al terminar, descarga tu constancia verificable.</p>
+      <div className="mt-2 flex flex-wrap gap-3">
+        <a href="#proximos-cursos" className="inline-flex h-10 items-center gap-2 rounded-lg bg-gold px-5 text-sm font-semibold text-ink hover:bg-gold-light"><BookOpen className="size-[18px]" aria-hidden />Ver cursos</a>
+        <Link to="/verificar" className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-brand hover:bg-brand-soft"><Award className="size-[18px]" aria-hidden />Consultar constancias</Link>
+      </div>
+    </div>
+    <div aria-hidden className="relative hidden h-50 w-90 shrink-0 overflow-hidden rounded-xl bg-brand-night lg:flex">
+      <span className="absolute -top-12 -right-12 size-44 rounded-full bg-white/10" />
+      <span className="absolute -bottom-8 -left-6 size-24 rounded-full bg-white/10" />
+      <Award className="m-auto size-10 text-gold" strokeWidth={1.5} />
+    </div>
+  </section>
 }

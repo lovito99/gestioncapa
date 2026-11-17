@@ -197,6 +197,15 @@ export const handlersCursos = [
     curso.portadaUrl = null
     return new HttpResponse(null, { status: 204 })
   }),
+  // ---------- SCRUM-187: página pública del curso (sin sesión) ----------
+  http.get(`${API}/publico/cursos/:id`, ({ params }) => {
+    const curso = cursosSimulados.find(c => c.id === params.id && c.estado === 'PUBLICADO')
+    if (!curso) return error(404, 'El curso no existe o ya no está disponible.', 'CURSO_NO_EXISTE')
+    const sesiones = sesionesDe(curso.id).filter(s => s.estado === 'PROGRAMADA')
+      .map(({ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }) => ({ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }))
+    return HttpResponse.json({ ...resumenPublico(disponibilidad(curso, '')), tipoCertificado: curso.tipoCertificado, notaMinima: curso.notaMinima,
+      requisitoAsistencia: curso.requisitoAsistencia, sesiones })
+  }),
   // ---------- SCRUM-185: enlace para compartir (público) ----------
   http.get(`${API}/publico/cursos/:id/compartir`, ({ request, params }) => {
     const curso = cursosSimulados.find(c => c.id === params.id && c.estado === 'PUBLICADO')

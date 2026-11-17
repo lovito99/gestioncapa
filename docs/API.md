@@ -427,3 +427,21 @@ Los campos nuevos son **opcionales**; el backend actual los ignora porque su esq
 
 **Pendiente de definir con el equipo:** si el encargado puede ser un usuario que no es instructor
 (hoy solo se ofrecen instructores), y si las sedes deben venir de una tabla (`GET /api/sedes`).
+
+## SCRUM-187 — Página pública del curso (HU-22, Figma S3 5.0–5.2)
+
+Pantallas: `/` y `/capacitaciones` (cursos vigentes, sin sesión) y `/capacitaciones/:id`
+(página pública del curso). Es la URL que entrega «Compartir» (`GET /api/publico/cursos/:id/compartir`).
+Simulación en `frontend/src/mocks/cursos.ts`; prueba en `mocks/cursosS3.test.ts`.
+
+| Método y ruta | Sesión | Respuesta |
+|---|---|---|
+| `GET /api/publico/cursos/:id` | No requiere | `200` con los campos de `GET /api/publico/cursos` (cada `item`) más `tipoCertificado`, `notaMinima`, `requisitoAsistencia` y `sesiones` |
+| | | `404 CURSO_NO_EXISTE` si no existe o no está `PUBLICADO` |
+
+- `sesiones`: solo las `PROGRAMADA`, ordenadas por fecha y hora, cada una con
+  `{ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }`. **Sin** `reunion`,
+  `encargadoId`, `sala`, inscritos ni datos personales.
+- No incluye `modulos`, material, `miInscripcion` ni `estado`.
+- «Inscribirme» sin sesión lleva a `/login?curso=:id`; al entrar se vuelve a `/cursos/:id`
+  (mismo flujo de HU-22). El botón «Iniciar sesión» del encabezado también conserva el curso.

@@ -75,6 +75,12 @@ export type PortadaEntrada = { nombre: string; tipo: 'image/jpeg' | 'image/png' 
 /** Enlace para compartir: abre la página pública del curso (SCRUM-185). */
 export type EnlaceCompartir = { url: string; enlaceCorto: string }
 export type CursoPublico = Pick<Curso, 'id' | 'titulo' | 'descripcion' | 'instructorNombre' | 'horasLectivas' | 'modalidad' | 'costo' | 'cupos' | 'cuposDisponibles' | 'categoria' | 'fechaInicio' | 'fechaFin' | 'modalidadCobro' | 'plazoPagoMinutos' | 'versionCobro' | 'precioGeneral' | 'portadaUrl'>
+/**
+ * SCRUM-187 · Detalle público del curso (sin sesión). Las sesiones no traen la sala virtual,
+ * el encargado ni datos de inscritos.
+ */
+export type CursoPublicoDetalle = CursoPublico & Pick<Curso, 'tipoCertificado' | 'notaMinima'> & { requisitoAsistencia: number
+  sesiones: Pick<SesionCurso, 'id' | 'nombre' | 'fecha' | 'horaInicio' | 'horaFin' | 'lugar' | 'modalidad'>[] }
 export type PaginaCatalogo<T = Curso> = { items: T[]; total: number; pagina: number; tamanoPagina: number; totalPaginas: number; categorias: string[] }
 /** Porcentaje de asistencia que pide el Figma cuando el curso no indica otro */
 export const REQUISITO_ASISTENCIA_POR_DEFECTO = 80
@@ -94,6 +100,7 @@ export const cursos = {
     conValoresNuevos((await api.patch<DetalleCurso>(`/cursos/${id}/cobro`, entrada)).data),
   subirPortada: async (id: string, entrada: PortadaEntrada) => (await api.put<{ portadaUrl: string }>(`/cursos/${id}/portada`, entrada)).data,
   quitarPortada: async (id: string) => { await api.delete(`/cursos/${id}/portada`) },
+  publicoDetalle: async (id: string) => (await api.get<CursoPublicoDetalle>(`/publico/cursos/${id}`)).data,
   enlaceCompartir: async (id: string) => (await api.get<EnlaceCompartir>(`/publico/cursos/${id}/compartir`)).data,
   publico: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo<CursoPublico>>('/publico/cursos', { params: filtros })).data,
   catalogo: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo>('/catalogo/cursos/pagina', { params: filtros })).data,
