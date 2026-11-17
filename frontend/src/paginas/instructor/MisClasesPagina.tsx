@@ -53,6 +53,7 @@ export function MisClasesPagina() {
                           <QrCode className="size-3.75" aria-hidden />
                           Mostrar QR
                         </Link>
+                        {clase.modalidad !== 'VIRTUAL' && <Link to={`/instructor/clases/${clase.id}/puerta`} className="ml-3 font-semibold text-brand underline">Asistencia en puerta</Link>}
                         <Link to={`/instructor/clases/${clase.id}/asistencia`} className="ml-3 font-semibold text-brand underline">Ver asistencia</Link>
                       </td>
                     </tr>

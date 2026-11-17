@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 import { cuentas } from './datos'
 import { completarAcceso, entrar } from './sesion'
+import { confirmarInscripcion, elegirCobro } from './cobroInscripcion'
 
 export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>[1], persistente: boolean) {
   await entrar(page, admin)
@@ -39,8 +40,8 @@ export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>
   await buscar(clave.normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase())
   await expect(page.getByRole('status')).toContainText('Mostrando 1–6 de 8 cursos')
   await expect(lista.getByRole('listitem')).toHaveCount(6)
-  await expect(lista.getByText('Descripción para elegir esta capacitación.', { exact: true }).first()).toBeVisible()
-  await expect(lista.getByText('Instructor: Carlos Mendoza Ríos', { exact: true }).first()).toBeVisible()
+  await expect(lista.getByText('8 horas lectivas', { exact: true }).first()).toBeVisible()
+  await expect(lista.getByText('Gratuito', { exact: true }).first()).toBeVisible()
   await expect(lista.getByText('1 feb – 28 feb 2031', { exact: true }).first()).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await page.getByRole('button', { name: 'Siguiente ›', exact: true }).click()
@@ -54,6 +55,8 @@ export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>
   await page.getByRole('combobox', { name: 'Modalidad' }).selectOption('VIRTUAL')
   await expect(page).toHaveURL(url => url.searchParams.get('modalidad') === 'VIRTUAL' && !url.searchParams.has('pagina'))
   await expect(page.getByRole('status')).toContainText('de 4 cursos')
+  const masFiltros = page.getByRole('button', { name: 'Más filtros' })
+  if (await masFiltros.isVisible()) await masFiltros.click()
   await page.getByRole('combobox', { name: 'Categoría' }).selectOption(categoria)
   await expect(page).toHaveURL(url => url.searchParams.get('modalidad') === 'VIRTUAL' && url.searchParams.get('categoria') === categoria)
   await expect(page.getByRole('status')).toContainText('de 4 cursos')
@@ -63,7 +66,7 @@ export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>
   await expect(page.getByRole('button', { name: 'Limpiar filtros' })).toHaveCount(0)
   await expect(page.getByRole('searchbox', { name: 'Buscar curso' })).toHaveValue('')
   await expect(page.getByRole('combobox', { name: 'Modalidad' })).toHaveValue('')
-  await expect(page.getByRole('combobox', { name: 'Categoría' })).toHaveValue('')
+  if (await masFiltros.isVisible()) await expect(page.getByRole('combobox', { name: 'Categoría' })).toHaveValue('')
   await buscar(fixtures[8]!.titulo)
   await expect(page.getByRole('status')).toContainText('No hay cursos que coincidan')
   await buscar(fixtures[7]!.titulo)
@@ -77,9 +80,11 @@ export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>
   await page.getByRole('link', { name: 'Catálogo', exact: true }).click()
   await buscar(fixtures[0]!.titulo)
   await page.getByRole('link', { name: fixtures[0]!.titulo, exact: true }).click()
-  await page.getByRole('button', { name: 'Inscribirme', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Ya estás inscrito(a)', exact: true })).toBeDisabled()
-  await expect(page.getByRole('status')).toContainText('Inscripción registrada')
+  await confirmarInscripcion(page, false)
+  await expect(page.getByText('Ya estás inscrito(a)', { exact: true })).toBeVisible()
+  await expect(page.getByText('Inscripción confirmada. Ya puedes ver el curso.')).toBeVisible()
+  // El aviso flotante tapa el menú en celular y se pausa si el puntero queda encima
+  await page.getByRole('button', { name: 'Close toast' }).click()
   await page.getByRole('link', { name: 'Mis cursos', exact: true }).click()
   const miCurso = page.getByRole('article').filter({ has: page.getByRole('heading', { name: fixtures[0]!.titulo, exact: true }) })
   await expect(miCurso.getByText('En curso', { exact: true })).toBeVisible()
@@ -88,11 +93,12 @@ export async function flujoCatalogo(page: Page, admin: Parameters<typeof entrar>
   await page.getByRole('link', { name: 'Catálogo', exact: true }).click()
   await buscar('Demo · Didáctica y evaluación')
   await page.getByRole('link', { name: 'Demo · Didáctica y evaluación', exact: true }).click()
-  await expect(page.locator('dl > div').filter({ hasText: 'Modalidad' })).toContainText('Presencial')
-  const sesiones = page.getByRole('region', { name: 'Sesiones del curso' })
+  // S3 4.1: la modalidad es una etiqueta y las sesiones se listan con su fecha, horario y lugar
+  await expect(page.getByText('Presencial', { exact: true }).first()).toBeVisible()
+  await expect(page.locator('dl > div').filter({ hasText: 'Certificado' })).toContainText('asistencia mínima 80 %')
+  const sesiones = page.getByRole('region', { name: 'Sesiones', exact: true })
   await expect(sesiones.getByRole('listitem')).toHaveCount(persistente ? 2 : 4)
-  await expect(sesiones).toContainText('Asistencia mínima del 80 %')
-  await expect(sesiones.getByRole('listitem').first()).toContainText(persistente ? '08:00–09:00 (hora de Lima)' : '08:00–14:00 (hora de Lima)')
+  await expect(sesiones.getByRole('listitem').first()).toContainText(persistente ? '8:00 a. m. – 9:00 a. m.' : '8:00 a. m. – 2:00 p. m.')
   await expect(sesiones.getByRole('listitem').first()).toContainText(persistente ? 'Sala demo de capacitación' : 'Auditorio principal, piso 2')
   const fechas = await sesiones.locator('time').evaluateAll(elementos => elementos.map(elemento => elemento.getAttribute('datetime')))
   expect(fechas.every(fecha => /^\d{4}-\d{2}-\d{2}$/.test(fecha ?? ''))).toBe(true)

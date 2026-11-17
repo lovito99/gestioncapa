@@ -1,0 +1,21 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="328" height="185" viewBox="0 0 328 185" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Portada 16:9 &#226;&#128;&#147; Planificaci&#195;&#179;n curricular" clip-path="url(#clip0_0_4)">
+<rect width="328" height="185" fill="url(#paint0_linear_0_4)"/>
+<circle id="Ellipse" cx="278.8" cy="27.75" r="73.8" fill="white" fill-opacity="0.1"/>
+<circle id="Ellipse_2" cx="32.8" cy="175.75" r="57.4" fill="white" fill-opacity="0.08"/>
+<circle id="Ellipse_3" cx="213.2" cy="157.25" r="29.52" fill="white" fill-opacity="0.12"/>
+<g id="&#195;&#141;cono cal">
+<path id="Vector" d="M145.625 71.5H182.375C185.274 71.5 187.625 73.8505 187.625 76.75V113.5C187.625 116.399 185.274 118.75 182.375 118.75H145.625C142.726 118.75 140.375 116.399 140.375 113.5V76.75C140.375 73.8505 142.726 71.5 145.625 71.5Z" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke="#EFD58F"/>
+<path id="Vector_2" d="M174.5 66.25V76.75M153.5 66.25V76.75M140.375 87.25H187.625" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke="#EFD58F"/>
+</g>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_4" x1="0" y1="0" x2="113.088" y2="200.501" gradientUnits="userSpaceOnUse">
+<stop stop-color="#875B0B"/>
+<stop offset="1" stop-color="#4A3205"/>
+</linearGradient>
+<clipPath id="clip0_0_4">
+<rect width="328" height="185" fill="white"/>
+</clipPath>
+</defs>
+</svg>

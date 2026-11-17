@@ -33,7 +33,8 @@ export const reuniones = {
     (await api.post<CredencialReunion>(`/reuniones/${identificador}/credencial`, opciones)).data,
   guardarPoliticas: async (identificador: string, politicas: PoliticasReunion) =>
     (await api.patch<Reunion>(`/reuniones/${identificador}/politicas`, politicas)).data,
-  retirar: async (identificador: string, usuarioIdentificador: string) =>
-    (await api.post<{ accesoRevocado: boolean }>(`/reuniones/${identificador}/participantes/${usuarioIdentificador}/retirar`)).data,
+  /** S3 9.3: `motivo` opcional queda en la auditoría (el backend actual lo ignora). */
+  retirar: async (identificador: string, usuarioIdentificador: string, motivo?: string) =>
+    (await api.post<{ accesoRevocado: boolean }>(`/reuniones/${identificador}/participantes/${usuarioIdentificador}/retirar`, motivo ? { motivo } : undefined)).data,
   asistencia: async (identificador: string) => (await api.get<AsistenciaReunion>(`/reuniones/${identificador}/asistencia`)).data,
 }

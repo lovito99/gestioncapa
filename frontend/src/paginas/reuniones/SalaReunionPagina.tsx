@@ -1,73 +1,83 @@
 import './sala.css'
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
-import { Camera, CameraOff, Check, ChevronDown, Copy, Hand, Maximize, MessageSquare, Mic, MicOff, MonitorUp, PhoneOff, Settings, Smile, UserX, Users } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { CircleDot, Hand, Lock, LogOut, MessageSquare, Mic, MicOff, MonitorUp, MoreVertical, SlidersHorizontal, UserX, Users, Video, VideoOff } from 'lucide-react'
 import { useAuth } from '@/auth/useAuth'
+import { Dialogo } from '@/components/ui/Dialogo'
+import { Boton } from '@/components/ui/Boton'
+import { ApiError } from '@/lib/api'
+import { cn } from '@/lib/cn'
 import { clasificarParticipantes } from '@/servicios/presenciaReunion'
-import { intensidadMicrofono } from '@/servicios/intensidadMicrofono'
-import { reaccionesDisponibles } from '@/servicios/interaccionesSala'
 import { moderacionInicial, mediosModerados, type EstadoModeracion } from '@/servicios/moderacionSala'
 import { reuniones } from '@/servicios/reuniones'
-import { conectarSala, type EstadoSala, type MensajeSala, type ParticipanteSala, type PoliticasSala, type ReaccionSala, type SolicitudEspera } from '@/servicios/salaJitsi'
-import { AvisoGrabacion, PanelSalaEspera } from './salaSegura'
+import { conectarSala, type EstadoSala, type MensajeSala, type ParticipanteSala, type PoliticasSala, type SolicitudEspera } from '@/servicios/salaJitsi'
+import { PanelSalaEspera } from './salaSegura'
+import { Avatar, BotonBarra, DialogoExpulsar, DialogoGrabacion, PanelPermisos, PantallaFinSala, VestibuloSala, type PermisosSala } from './piezasSala'
 
-const nombresMedios = { audio: 'Micrófono', video: 'Cámara', desktop: 'Pantalla compartida' }
 const estadoInicial: EstadoSala = { conectada: false, microfonoActivo: false, camaraActiva: false, microfonoDisponible: false, camaraDisponible: false, compartiendoPantalla: false }
-const boton = 'inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40'
-
+type Pestana = 'participantes' | 'chat' | 'manos'
 
 export function SalaReunionPagina() {
   const { identificador = '' } = useParams()
   return <ContenidoSalaReunion key={identificador} identificador={identificador} />
 }
 
+/**
+ * HU-26 · SCRUM-208 (Figma S3 9.1–9.4): vestíbulo con sala de espera, aviso de grabación,
+ * sala oscura con panel de participantes, permisos del anfitrión y expulsión con motivo.
+ */
 function ContenidoSalaReunion({ identificador }: { identificador: string }) {
   const { usuario } = useAuth()
+  const navegar = useNavigate()
   const contenedor = useRef<HTMLDivElement>(null)
-  const escenario = useRef<HTMLDivElement>(null)
   const contenedorChat = useRef<HTMLDivElement>(null)
   const sala = useRef<Awaited<ReturnType<typeof conectarSala>> | null>(null)
+  const deseoAplicado = useRef(false)
   const [moderacion, cambiarModeracion] = useState<EstadoModeracion>(moderacionInicial)
-  const [pantallaCompleta, cambiarPantallaCompleta] = useState<Element | null>(null)
   const [habilitarMedios, cambiarHabilitarMedios] = useState<boolean | null>(null)
   // Políticas guardadas al entrar: un cambio posterior en la reunión no reinicia la conexión.
   const [politicasSala, cambiarPoliticasSala] = useState<(PoliticasSala & { aceptaGrabacion: boolean }) | null>(null)
-  const [avisoAceptado, cambiarAvisoAceptado] = useState(false)
+  const [preguntaGrabacion, cambiarPreguntaGrabacion] = useState(false)
+  const [deseo, cambiarDeseo] = useState({ audio: false, video: false })
   const [enEspera, cambiarEnEspera] = useState(false)
+  const [fin, cambiarFin] = useState<'retirado' | 'rechazado' | 'sinAcceso' | null>(null)
   const [solicitudes, cambiarSolicitudes] = useState<SolicitudEspera[]>([])
   const [aviso, cambiarAviso] = useState('')
-  const [estado, cambiarEstado] = useState('Conectando…')
-  const [nivelMicrofono, cambiarNivelMicrofono] = useState(0)
+  const [estado, cambiarEstado] = useState('')
   const [medios, cambiarMedios] = useState<EstadoSala>(estadoInicial)
   const [participantes, cambiarParticipantes] = useState<ParticipanteSala[]>([])
   const [mensajes, cambiarMensajes] = useState<MensajeSala[]>([])
   const [textoMensaje, cambiarTextoMensaje] = useState('')
-  const [panel, cambiarPanel] = useState<'participantes' | 'chat' | 'opciones'>('participantes')
-  const [panelVisible, cambiarPanelVisible] = useState(false)
+  const [pestana, cambiarPestana] = useState<Pestana>('participantes')
+  const [panelVisible, cambiarPanelVisible] = useState(usuario?.rol !== 'AGREMIADO' && window.matchMedia?.('(min-width: 1024px)').matches)
+  const [permisosAbiertos, cambiarPermisosAbiertos] = useState(false)
+  const [menuPersona, cambiarMenuPersona] = useState<string | null>(null)
+  const [porExpulsar, cambiarPorExpulsar] = useState<ParticipanteSala | null>(null)
+  const [confirmarFin, cambiarConfirmarFin] = useState(false)
+  const [manoPermitida, cambiarManoPermitida] = useState<boolean | null>(null)
   const [ocupado, cambiarOcupado] = useState(false)
   const [error, cambiarError] = useState('')
-  const [selectorReacciones, cambiarSelectorReacciones] = useState(false)
-  const [reacciones, cambiarReacciones] = useState<ReaccionSala[]>([])
-  const [copiado, cambiarCopiado] = useState(false)
-  const [dispositivos, cambiarDispositivos] = useState<MediaDeviceInfo[]>([])
-  const puedeConsultarInscritos = !!usuario && usuario.rol !== 'AGREMIADO'
-  const reunion = useQuery({ queryKey: ['reunion', identificador], queryFn: () => reuniones.obtener(identificador) })
+  const esColegiado = usuario?.rol === 'AGREMIADO'
+  const puedeConsultarInscritos = !!usuario && !esColegiado
+  const reunion = useQuery({ queryKey: ['reunion', identificador], queryFn: () => reuniones.obtener(identificador), retry: false })
   const inscritos = useQuery({ queryKey: ['participantesReunion', identificador], queryFn: () => reuniones.participantes(identificador), enabled: puedeConsultarInscritos, refetchInterval: 30000 })
 
   const grabacionPrevista = !!reunion.data?.grabacionPrevista
-  const debeAceptarGrabacion = grabacionPrevista && usuario?.rol === 'AGREMIADO'
-  const entrar = (medios: boolean) => {
+  const entrar = (aceptaGrabacion = false) => {
     if (!reunion.data) return
-    const { camaraPermitida, microfonoPermitido, pantallaPermitida, manoPermitida } = reunion.data
-    cambiarPoliticasSala({ camaraPermitida, microfonoPermitido, pantallaPermitida, manoPermitida, aceptaGrabacion: debeAceptarGrabacion && avisoAceptado })
-    cambiarHabilitarMedios(medios)
+    const { camaraPermitida, microfonoPermitido, pantallaPermitida, manoPermitida: mano } = reunion.data
+    cambiarError('')
+    cambiarPoliticasSala({ camaraPermitida, microfonoPermitido, pantallaPermitida, manoPermitida: mano, aceptaGrabacion })
+    // Los dispositivos elegidos en el vestíbulo se encienden al ser admitido (ver efecto de abajo).
+    cambiarHabilitarMedios(false)
   }
+  const pedirEntrada = () => { if (grabacionPrevista && esColegiado) cambiarPreguntaGrabacion(true); else entrar() }
+
   // Revoca el acceso en el backend: sin credencial nueva, el expulsado no vuelve a entrar.
   const { refetch: refrescarInscritos } = inscritos
-  const revocar = useCallback(async (usuarioIdentificador: string) => {
-    await reuniones.retirar(identificador, usuarioIdentificador)
+  const revocar = useCallback(async (usuarioIdentificador: string, motivo?: string) => {
+    await reuniones.retirar(identificador, usuarioIdentificador, motivo)
     await refrescarInscritos()
   }, [identificador, refrescarInscritos])
 
@@ -80,210 +90,233 @@ function ContenidoSalaReunion({ identificador }: { identificador: string }) {
         usuarioIdentificador: usuario.id,
         estado: valor => { if (!cancelada) cambiarMedios(valor) },
         participantes: valor => { if (!cancelada) cambiarParticipantes(valor) },
-        nivelMicrofono: nivel => { if (!cancelada) cambiarNivelMicrofono(nivel) },
+        nivelMicrofono: () => undefined,
         moderacion: valor => { if (!cancelada) cambiarModeracion(valor) },
-        reaccion: reaccion => { if (!cancelada) cambiarReacciones(anteriores => [...anteriores.slice(-4), reaccion]) },
+        reaccion: () => undefined,
         mensaje: mensaje => { if (!cancelada) cambiarMensajes(anteriores => anteriores.some(anterior => anterior.identificador === mensaje.identificador) ? anteriores : [...anteriores.slice(-199), mensaje]) },
         espera: valor => { if (!cancelada) cambiarEnEspera(valor) },
         solicitudesEspera: valor => { if (!cancelada) cambiarSolicitudes(valor) },
+        fin: motivo => { if (!cancelada) cambiarFin(motivo) },
         infraccion: ({ usuarioIdentificador }) => {
           if (cancelada) return
           cambiarAviso('Se expulsó a una persona por compartir pantalla sin autorización.')
-          if (usuarioIdentificador) void revocar(usuarioIdentificador).catch(() => cambiarError('Se expulsó a la persona, pero no se pudo revocar su acceso. Retírala desde Personas.'))
+          if (usuarioIdentificador) void revocar(usuarioIdentificador, 'Compartió pantalla sin autorización').catch(() => cambiarError('Se expulsó a la persona, pero no se pudo revocar su acceso. Retírala desde Participantes.'))
         },
       }, { habilitarMedios, politicas: politicasSala })
       if (cancelada) await conexion.cerrar()
       else sala.current = conexion
-    }).catch(fallo => { if (!cancelada) { cambiarEstado('No se pudo entrar'); cambiarError(fallo.message) } })
+    }).catch(fallo => {
+      if (cancelada) return
+      if (fallo instanceof ApiError && (fallo.status === 403 || fallo.status === 404)) cambiarFin('sinAcceso')
+      else { cambiarHabilitarMedios(null); cambiarError((fallo as Error).message) }
+    })
     return () => { cancelada = true; void sala.current?.cerrar().catch(() => undefined); sala.current = null }
   }, [identificador, usuario, habilitarMedios, politicasSala, revocar])
 
+  // Al ser admitido, enciende el micrófono y la cámara que eligió en el vestíbulo.
   useEffect(() => {
-    const actualizar = () => { void navigator.mediaDevices?.enumerateDevices().then(cambiarDispositivos).catch(() => undefined) }
-    actualizar()
-    navigator.mediaDevices?.addEventListener('devicechange', actualizar)
-    return () => navigator.mediaDevices?.removeEventListener('devicechange', actualizar)
-  }, [medios.camaraDisponible, medios.microfonoDisponible])
-  useEffect(() => { if (panel === 'chat' && contenedorChat.current) contenedorChat.current.scrollTop = contenedorChat.current.scrollHeight }, [mensajes, panel])
+    if (!medios.conectada || deseoAplicado.current || !sala.current) return
+    deseoAplicado.current = true
+    const conexion = sala.current
+    void (async () => {
+      for (const tipo of ['audio', 'video'] as const) {
+        if (!deseo[tipo]) continue
+        try { await conexion.alternar(tipo) } catch (fallo) { cambiarAviso((fallo as Error).message) }
+      }
+    })()
+  }, [medios.conectada, deseo])
 
-  useEffect(() => {
-    if (!reacciones.length) return
-    const temporizador = window.setTimeout(() => cambiarReacciones(anteriores => anteriores.filter(reaccion => Date.now() - reaccion.recibidaEn < 5000)), Math.max(0, reacciones[0].recibidaEn + 5000 - Date.now()))
-    return () => window.clearTimeout(temporizador)
-  }, [reacciones])
-  useEffect(() => {
-    if (!selectorReacciones) return
-    const cerrarSelector = (evento: KeyboardEvent) => { if (evento.key === 'Escape') cambiarSelectorReacciones(false) }
-    document.addEventListener('keydown', cerrarSelector)
-    return () => document.removeEventListener('keydown', cerrarSelector)
-  }, [selectorReacciones])
+  useEffect(() => { if (pestana === 'chat' && contenedorChat.current) contenedorChat.current.scrollTop = contenedorChat.current.scrollHeight }, [mensajes, pestana])
 
-  useEffect(() => {
-    const actualizar = () => cambiarPantallaCompleta(document.fullscreenElement)
-    document.addEventListener('fullscreenchange', actualizar)
-    return () => document.removeEventListener('fullscreenchange', actualizar)
-  }, [])
-
-  const ejecutar = async (accion: () => Promise<unknown>) => {
+  const ejecutar = async (accion: () => Promise<unknown> | unknown) => {
     if (ocupado) return
     cambiarOcupado(true); cambiarError('')
     try { await accion() } catch (fallo) { cambiarError((fallo as Error).name === 'NotAllowedError' ? 'Se canceló la selección o no se concedió permiso al dispositivo.' : (fallo as Error).message) }
     finally { cambiarOcupado(false) }
   }
   const usarSala = () => { if (!sala.current) throw new Error('Espera a que la sala esté conectada.'); return sala.current }
+
+  if (fin) return <PantallaFinSala motivo={fin} />
+  if (reunion.isError) return <PantallaFinSala motivo="sinAcceso" />
+
   const enviarMensaje = (evento: FormEvent) => {
     evento.preventDefault()
     void ejecutar(async () => { await usarSala().enviarMensaje(textoMensaje); cambiarTextoMensaje('') })
   }
-  const copiarEnlace = () => ejecutar(async () => {
-    await navigator.clipboard.writeText(window.location.href)
-    cambiarCopiado(true)
-  })
+  const moderador = moderacion.moderador
   const sinConexion = clasificarParticipantes(inscritos.data ?? [], participantes)
-  const identidadesDesconocidas = participantes.some(persona => !persona.usuarioIdentificador)
   const colaManos = participantes.filter(persona => persona.turnoMano).sort((primera, segunda) => primera.turnoMano! - segunda.turnoMano!)
-  const manoLocal = participantes.find(persona => persona.local)
-  const mano = !!manoLocal?.manoLevantada
+  const mano = !!participantes.find(persona => persona.local)?.manoLevantada
   const bloqueado = ocupado || !medios.conectada
-  const manoOculta = politicasSala?.manoPermitida === false && !moderacion.moderador
-  const admitirInscritos = () => ejecutar(async () => {
+  const manoActual = manoPermitida ?? politicasSala?.manoPermitida ?? true
+  const manoOculta = politicasSala?.manoPermitida === false && !moderador
+  const restringido = !moderador && mediosModerados.some(medio => !moderacion.permitidos[medio])
+  const permisos: PermisosSala = { pantalla: !moderacion.restringidos.desktop, microfono: !moderacion.restringidos.audio, camara: !moderacion.restringidos.video, mano: manoActual }
+  const cambiarPermiso = (permiso: keyof PermisosSala, activo: boolean) => void ejecutar(async () => {
+    if (permiso === 'mano') {
+      if (!reunion.data) return
+      const { camaraPermitida, microfonoPermitido, pantallaPermitida, porcentajeMinimo, grabacionPrevista: grabacion } = reunion.data
+      await reuniones.guardarPoliticas(identificador, { camaraPermitida, microfonoPermitido, pantallaPermitida, porcentajeMinimo, grabacionPrevista: grabacion, manoPermitida: activo })
+      cambiarManoPermitida(activo)
+      return
+    }
+    usarSala().configurarModeracion(({ pantalla: 'desktop', microfono: 'audio', camara: 'video' } as const)[permiso], !activo)
+  })
+  const admitirInscritos = () => ejecutar(() => {
     const vigentes = new Set((inscritos.data ?? []).filter(persona => persona.rol === 'participante' && persona.estado === 'autorizado').map(persona => String(persona.identificador)))
     usarSala().admitirInscritos(vigentes)
   })
-  const expulsar = (persona: ParticipanteSala) => {
-    if (!persona.usuarioIdentificador || !window.confirm(`¿Expulsar a ${persona.nombre}? No podrá volver a entrar a esta sesión.`)) return
-    void ejecutar(async () => { await revocar(persona.usuarioIdentificador!); usarSala().expulsar(persona.usuarioIdentificador!); cambiarAviso(`${persona.nombre} fue expulsado de la sesión.`) })
+  const expulsar = (motivo: string) => {
+    const persona = porExpulsar
+    if (!persona?.usuarioIdentificador) return
+    void ejecutar(async () => {
+      await revocar(persona.usuarioIdentificador!, motivo || undefined)
+      usarSala().expulsar(persona.usuarioIdentificador!)
+      cambiarAviso(`${persona.nombre} fue expulsado de la sesión.`)
+      cambiarPorExpulsar(null)
+    })
   }
-  const intensidad = intensidadMicrofono(nivelMicrofono, medios.microfonoActivo && medios.conectada)
-  const reaccionesVisibles = (<div className="salaReacciones" role="status" aria-live="polite" aria-label="Reacciones de la sala">
-      {reacciones.map(reaccion => <div className="salaReaccion" key={reaccion.identificador} style={{ left: `${10 + parseInt(reaccion.identificador.slice(0, 8), 16) % 80}%` }}><span className="salaEmoji" aria-hidden>{reaccion.emoji}</span><span className="salaReaccionNombre">{reaccion.nombre}</span><span className="sr-only">{reaccionesDisponibles.find(opcion => opcion.emoji === reaccion.emoji)?.nombre}</span></div>)}
-    </div>)
-  return <main className="salaVentana bg-slate-950 text-slate-100">
-    {habilitarMedios === null && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4">
-      <section role="dialog" aria-modal="true" aria-labelledby="permisos-titulo" aria-describedby="permisos-descripcion" className="w-full max-w-md rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-xl">
-        <h2 id="permisos-titulo" className="mb-3 text-xl font-semibold">Habilitar micrófono y cámara</h2>
-        <p id="permisos-descripcion" className="mb-5 text-sm text-slate-300">Para participar con audio y vídeo, permite el acceso cuando el navegador lo solicite. Puedes apagar los dispositivos en cualquier momento.</p>
-        {debeAceptarGrabacion && <AvisoGrabacion aceptado={avisoAceptado} alCambiar={cambiarAvisoAceptado} />}
-        {reunion.isPending && <p role="status" className="mb-3 text-sm text-slate-300">Cargando la sesión…</p>}
-        {reunion.isError && <p role="alert" className="mb-3 text-sm text-red-200">No se pudo cargar la sesión. Vuelve a Reuniones e inténtalo de nuevo.</p>}
-        <div className="flex flex-col gap-3">
-          <button autoFocus disabled={!reunion.data || (debeAceptarGrabacion && !avisoAceptado)} className={boton} onClick={() => entrar(true)}><Mic size={18} /><Camera size={18} />Habilitar y entrar</button>
-          <button disabled={!reunion.data || (debeAceptarGrabacion && !avisoAceptado)} className={boton} onClick={() => entrar(false)}>Entrar sin micrófono ni cámara</button>
-        </div>
-        <p className="mt-4 text-xs text-slate-400">Si ya diste permiso, el navegador no volverá a preguntarlo. Si lo bloqueaste, puedes cambiarlo desde el icono de permisos junto a la dirección.</p>
-      </section>
-    </div>}
-    {pantallaCompleta ? createPortal(reaccionesVisibles, pantallaCompleta) : reaccionesVisibles}
-    <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-2">
-      <div className="min-w-0"><Link to="/reuniones" className="text-xs text-slate-400 hover:text-white">← Reuniones · GestionCapa</Link>
-        <h1 className="truncate text-base font-semibold text-white">{reunion.data?.titulo ?? 'Sala de videoconferencia'}</h1>
-        <p role="status" className="flex items-center gap-2 text-xs text-slate-300"><span className={`size-2 rounded-full ${medios.conectada ? 'bg-emerald-400' : 'bg-amber-400'}`} />{estado}{medios.compartiendoPantalla && <span className="text-emerald-300"> · Compartiendo pantalla</span>}</p></div>
-      <button className={boton} onClick={() => void copiarEnlace()}>{copiado ? <Check size={17} /> : <Copy size={17} />}{copiado ? 'Enlace copiado' : 'Copiar invitación'}</button>
-    </header>
-    {!moderacion.moderador && mediosModerados.some(medio => !moderacion.permitidos[medio]) && <p role="status" className="shrink-0 bg-amber-950 px-4 py-2 text-xs text-amber-100">Para activar los dispositivos restringidos, levanta la mano y espera la autorización del anfitrión.</p>}
-    {enEspera && <p role="status" className="shrink-0 bg-sky-950 px-4 py-3 text-sm text-sky-100">Estás en la sala de espera. El instructor te admitirá en breve; no cierres esta ventana.</p>}
-    {grabacionPrevista && <p className="shrink-0 bg-red-950 px-4 py-1 text-xs text-red-100">● Sesión con grabación anunciada</p>}
-    {aviso && <div role="status" className="m-4 flex items-center justify-between gap-3 rounded-xl border border-sky-800 bg-sky-950 p-3 text-sm text-sky-100">{aviso}<button onClick={() => cambiarAviso('')} aria-label="Cerrar aviso">×</button></div>}
-    {error && <div role="alert" className="m-4 flex items-center justify-between gap-3 rounded-xl border border-red-800 bg-red-950 p-4 text-sm text-red-100">{error}<button onClick={() => cambiarError('')} aria-label="Cerrar aviso">×</button></div>}
-    <div className="salaContenido" data-panel-visible={panelVisible}>
-      <section ref={escenario} aria-label="Vídeos de la reunión" className="salaEscenario relative bg-slate-950">
-        <div ref={contenedor} className="salaMedios flex-1" />
+  const finalizar = () => void ejecutar(async () => { await reuniones.cambiarEstado(identificador, 'finalizar'); navegar('/reuniones') })
+  const abrirPanel = (valor: Pestana) => { cambiarPestana(valor); cambiarPanelVisible(!(panelVisible && pestana === valor)) }
+  const conectados = inscritos.data ? `${participantes.length} conectados de ${inscritos.data.filter(persona => persona.rol === 'participante').length} inscritos` : `${participantes.length} conectados`
 
-        {!medios.camaraActiva && !medios.compartiendoPantalla && <p className="my-4 text-center text-sm text-slate-400">Tu cámara está apagada o no está disponible. Puedes participar con audio y chat.</p>}
-        <div className="mt-2 flex shrink-0 items-center justify-between text-xs text-slate-400"><span>{participantes.length} conexiones en la sala</span><button className="inline-flex items-center gap-2" onClick={() => void ejecutar(async () => { if (document.fullscreenElement) await document.exitFullscreen(); else await escenario.current?.requestFullscreen() })}><Maximize size={16} />Pantalla completa</button></div>
+  return <main className="salaVentana bg-visor text-white">
+    {!medios.conectada && <VestibuloSala reunion={reunion.data} nombre={usuario?.nombre ?? ''} moderador={!esColegiado} esperando={enEspera}
+      conectando={habilitarMedios !== null && !enEspera} microfono={deseo.audio} camara={deseo.video}
+      alMicrofono={() => cambiarDeseo(actual => ({ ...actual, audio: !actual.audio }))} alCamara={() => cambiarDeseo(actual => ({ ...actual, video: !actual.video }))}
+      alEntrar={habilitarMedios === null ? pedirEntrada : undefined} />}
+    {!medios.conectada && error && <div role="alert" className="fixed inset-x-4 bottom-4 z-[60] mx-auto max-w-150 rounded-lg border border-danger bg-danger-soft p-4 text-sm text-danger">{error}</div>}
+    <DialogoGrabacion abierto={preguntaGrabacion} alNoEntrar={() => cambiarPreguntaGrabacion(false)} alEntrar={() => { cambiarPreguntaGrabacion(false); entrar(true) }} />
+
+    <header className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
+      <div className="min-w-0 flex-1 basis-56">
+        <h1 className="truncate font-sans text-sm font-semibold sm:text-base">{reunion.data?.titulo ?? 'Sala virtual'}</h1>
+        <p className="text-xs text-white/70">Sala virtual del CPPP · solo inscritos</p>
+      </div>
+      <div className="flex shrink-0 items-center gap-2 text-xs">
+        {grabacionPrevista && <span className="inline-flex items-center gap-1.5 rounded-full bg-danger-strong/30 px-2.5 py-1 font-semibold text-danger-on-dark"><span className="size-2 rounded-full bg-danger-strong" aria-hidden />REC</span>}
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1"><Users className="size-3.5" aria-hidden />{conectados}</span>
+      </div>
+    </header>
+    {aviso && <div role="status" className="mx-4 mb-2 flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2 text-sm text-ink">{aviso}<button onClick={() => cambiarAviso('')} aria-label="Cerrar aviso" className="text-muted">×</button></div>}
+    {medios.conectada && error && <div role="alert" className="mx-4 mb-2 flex items-center justify-between gap-3 rounded-lg border border-danger bg-danger-soft px-3 py-2 text-sm text-danger">{error}<button onClick={() => cambiarError('')} aria-label="Cerrar aviso">×</button></div>}
+
+    <div className="salaContenido gap-3 px-3 sm:px-4" data-panel-visible={panelVisible}>
+      <section aria-label="Vídeos de la reunión" className="salaEscenario relative rounded-xl bg-white/5">
+        <div ref={contenedor} className="salaMedios flex-1" />
+        {!medios.camaraActiva && !medios.compartiendoPantalla && medios.conectada && <p className="my-3 text-center text-xs text-white/60">Tu cámara está apagada. Puedes participar con audio y chat.</p>}
+        {medios.compartiendoPantalla && <p className="mx-auto mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs"><MonitorUp className="size-3.5" aria-hidden />Estás compartiendo tu pantalla</p>}
       </section>
-      <aside hidden={!panelVisible} className="salaPanel border-l border-slate-800 bg-slate-900" aria-label="Herramientas de la reunión">
-        <button onClick={() => cambiarPanelVisible(false)} className="self-end px-3 py-2 text-xs text-slate-300" aria-label="Ocultar panel lateral">Ocultar panel ×</button>
-        <div className="flex border-b border-slate-700" role="tablist" aria-label="Panel de sala">
-          {([['participantes', Users, 'Personas'], ['chat', MessageSquare, 'Chat'], ['opciones', Settings, 'Opciones']] as const).map(([valor, Icono, titulo]) =>
-            <button key={valor} id={`pestana-${valor}`} role="tab" aria-selected={panel === valor} aria-controls="panel-sala" onClick={() => cambiarPanel(valor)} className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-2 py-4 text-sm ${panel === valor ? 'border-amber-400 text-amber-300' : 'border-transparent text-slate-400'}`}><Icono size={16} />{titulo}</button>)}
+
+      <aside hidden={!panelVisible} aria-label="Panel de la sala" className="salaPanel rounded-xl bg-white text-ink max-lg:fixed max-lg:inset-x-2 max-lg:top-14 max-lg:bottom-24 max-lg:z-40 max-lg:shadow-2xl">
+        <div className="m-3 flex rounded-lg bg-surface-3 p-1" role="tablist" aria-label="Panel de la sala">
+          {([['participantes', `Participantes (${participantes.length})`], ['chat', 'Chat'], ['manos', `Manos (${colaManos.length})`]] as const).map(([valor, titulo]) =>
+            <button key={valor} role="tab" id={`pestana-${valor}`} aria-selected={pestana === valor} aria-controls="panel-sala" onClick={() => cambiarPestana(valor)}
+              className={cn('flex-1 rounded-md px-1.5 py-1.5 text-xs font-semibold whitespace-nowrap', pestana === valor ? 'bg-white text-ink shadow-sm' : 'text-muted')}>{titulo}</button>)}
         </div>
-        <div role="tabpanel" id="panel-sala" aria-labelledby={`pestana-${panel}`} className="flex min-h-0 flex-1 flex-col overflow-auto p-4">
-          {panel === 'participantes' && <>
-            {moderacion.moderador && solicitudes.length > 0 && <PanelSalaEspera solicitudes={solicitudes} inscritos={inscritos.data ?? []} ocupado={ocupado}
-              alAdmitir={identificadorEspera => void ejecutar(async () => usarSala().admitir(identificadorEspera))}
-              alRechazar={identificadorEspera => void ejecutar(async () => usarSala().rechazar(identificadorEspera))}
+        <div role="tabpanel" id="panel-sala" aria-labelledby={`pestana-${pestana}`} className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-3 pb-3">
+          {pestana === 'participantes' && <>
+            {moderador && solicitudes.length > 0 && <PanelSalaEspera solicitudes={solicitudes} inscritos={inscritos.data ?? []} ocupado={ocupado}
+              alAdmitir={id => void ejecutar(() => usarSala().admitir(id))}
+              alRechazar={id => void ejecutar(() => usarSala().rechazar(id))}
               alAdmitirInscritos={() => void admitirInscritos()} />}
-            {colaManos.length > 0 && <section aria-label="Cola de manos levantadas" className="mb-5 rounded-xl border border-amber-400/60 bg-amber-400/10 p-3">
-              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-200"><Hand size={17} />Turnos para participar</h2>
-              <ol className="space-y-3">{colaManos.map(persona => <li key={persona.identificador} className="flex items-center gap-2 text-sm"><span className="salaNumeroTurno" aria-label={`Turno ${persona.turnoMano}`}>{persona.turnoMano}</span><span>{persona.nombre}{persona.local ? ' (tú)' : ''}</span></li>)}</ol>
-            </section>}
-            <h2 className="mb-4 text-sm font-semibold">En la sala ({participantes.length})</h2>
-            {!participantes.length && <p className="text-sm text-slate-400">Esperando conexión…</p>}
-            <ul className="space-y-4">{participantes.map(persona => <li key={persona.identificador} className="flex flex-wrap items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-slate-700 font-semibold">{persona.nombre.slice(0, 1).toUpperCase()}</span>
-              <span className="flex-1 text-sm">{persona.nombre}{persona.local ? ' (tú)' : ''}</span>
-              {persona.turnoMano && <span className="salaNumeroTurno" aria-label={`Mano levantada, turno ${persona.turnoMano}`}><Hand size={13} />{persona.turnoMano}</span>}
-              {persona.microfonoActivo ? <Mic size={15} aria-label="Micrófono activo" /> : <MicOff size={15} className="text-slate-500" aria-label="Micrófono apagado" />}
-              {persona.camaraActiva ? <Camera size={15} aria-label="Vídeo activo" /> : <CameraOff size={15} className="text-slate-500" aria-label="Vídeo apagado" />}
-              {moderacion.moderador && !persona.local && <div className="flex w-full flex-wrap gap-2 pl-12">
-                {mediosModerados.filter(medio => moderacion.restringidos[medio]).map(medio => {
-                  const autorizado = !!moderacion.autorizaciones[persona.identificador]?.[medio]
-                  return <button key={medio} disabled={ocupado || (!autorizado && !persona.manoLevantada)} className="rounded-lg border border-slate-600 px-2 py-1 text-xs text-amber-200 disabled:opacity-40" aria-label={`${autorizado ? 'Retirar permiso de' : 'Autorizar'} ${nombresMedios[medio].toLowerCase()} a ${persona.nombre}`} onClick={() => void ejecutar(() => usarSala().autorizarParticipante(medio, persona.identificador, !autorizado))}>{autorizado ? 'Retirar' : 'Autorizar'} {nombresMedios[medio].toLowerCase()}</button>
-                })}
-                {persona.usuarioIdentificador && !persona.moderador && <button disabled={ocupado} className="inline-flex items-center gap-1 rounded-lg border border-red-700 px-2 py-1 text-xs text-red-200 disabled:opacity-40" aria-label={`Expulsar a ${persona.nombre} de la sesión`} onClick={() => expulsar(persona)}><UserX size={13} />Expulsar</button>}
-              </div>}
-            </li>)}</ul>
-            {puedeConsultarInscritos && <div className="mt-7 border-t border-slate-700 pt-5">
-              <h2 className="mb-3 text-sm font-semibold">Sin conexión detectada ({sinConexion.length})</h2>
-              <p className="mb-4 text-xs leading-5 text-slate-400">Compara los inscritos con las conexiones actuales. No representa la asistencia acumulada ni quién estuvo antes.</p>
-              {inscritos.isPending && <p className="text-sm">Cargando inscritos…</p>}
-              {inscritos.isError && <p role="alert" className="text-sm text-amber-200">No se pudo consultar la lista de inscritos.</p>}
-              {identidadesDesconocidas && <p className="mb-3 text-xs text-amber-200">Hay conexiones sin identidad verificable; pueden aparecer también en esta lista.</p>}
-              <ul className="space-y-3">{sinConexion.map(persona => <li key={persona.identificador} className="text-sm text-slate-300">{persona.nombre}<span className="ml-2 text-xs text-slate-500">Sin conexión</span></li>)}</ul>
-            </div>}
+            <h2 className="text-xs font-medium text-muted">En la sala</h2>
+            {!participantes.length && <p className="text-sm text-muted">Esperando conexión…</p>}
+            <ul className="flex flex-col">{participantes.map(persona => {
+              const autorizadoAudio = !!moderacion.autorizaciones[persona.identificador]?.audio
+              const opciones = moderador && !persona.local
+              return <li key={persona.identificador} className="relative">
+                <div className="flex items-center gap-2 rounded-lg px-1 py-2 hover:bg-page">
+                  <Avatar nombre={persona.nombre} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm leading-5">{persona.nombre}{persona.local ? ' (tú)' : ''}</p>
+                    <p className="text-xs leading-4 text-muted">{(persona.local ? moderador : persona.moderador) ? 'Instructor · Anfitrión' : 'Colegiado'}</p>
+                  </div>
+                  {persona.manoLevantada && <Hand className="size-4 text-gold-ink" aria-label={`Mano levantada${persona.turnoMano ? `, turno ${persona.turnoMano}` : ''}`} />}
+                  {persona.microfonoActivo ? <Mic className="size-4 text-success" aria-label="Micrófono activo" /> : <MicOff className="size-4 text-muted" aria-label="Micrófono apagado" />}
+                  {opciones && <button type="button" onClick={() => cambiarMenuPersona(menuPersona === persona.identificador ? null : persona.identificador)} aria-expanded={menuPersona === persona.identificador}
+                    aria-label={`Opciones de ${persona.nombre}`} className="rounded p-1 text-muted hover:bg-surface-3"><MoreVertical className="size-4" /></button>}
+                </div>
+                {opciones && menuPersona === persona.identificador && <div role="menu" className="z-10 my-1 flex flex-col rounded-lg border border-line bg-white py-1 shadow-lg">
+                  {persona.microfonoActivo && <button role="menuitem" disabled={ocupado} onClick={() => { cambiarMenuPersona(null); void ejecutar(() => usarSala().silenciar(persona.identificador)) }}
+                    className="flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-page"><MicOff className="size-4" aria-hidden />Silenciar micrófono</button>}
+                  {moderacion.restringidos.audio && <button role="menuitem" disabled={ocupado} onClick={() => { cambiarMenuPersona(null); void ejecutar(() => usarSala().autorizarParticipante('audio', persona.identificador, !autorizadoAudio)) }}
+                    className="flex items-center gap-2 px-3 py-2 text-left text-sm hover:bg-page"><Mic className="size-4" aria-hidden />{autorizadoAudio ? 'Quitar la palabra' : 'Dar la palabra'}</button>}
+                  {persona.usuarioIdentificador && !persona.moderador && <button role="menuitem" disabled={ocupado} onClick={() => { cambiarMenuPersona(null); cambiarPorExpulsar(persona) }}
+                    className="flex items-center gap-2 px-3 py-2 text-left text-sm text-danger hover:bg-danger-soft"><UserX className="size-4" aria-hidden />Expulsar de la sesión</button>}
+                </div>}
+              </li>
+            })}</ul>
+            {puedeConsultarInscritos && sinConexion.length > 0 && <details className="border-t border-line pt-3 text-sm">
+              <summary className="cursor-pointer text-xs font-medium text-muted">Inscritos sin conexión ({sinConexion.length})</summary>
+              <ul className="mt-2 flex flex-col gap-1.5">{sinConexion.map(persona => <li key={persona.identificador} className="text-muted">{persona.nombre}</li>)}</ul>
+            </details>}
           </>}
-          {panel === 'chat' && <>
-            <p className="mb-4 text-xs text-slate-400">Mensajes de esta conferencia. El historial visible se limpia al salir.</p>
-            <div ref={contenedorChat} role="log" aria-live="polite" aria-label="Mensajes de la reunión" className="min-h-40 flex-1 space-y-4 overflow-auto">
-              {mensajes.length === 0 && <p className="text-sm text-slate-400">Aún no hay mensajes.</p>}
-              {mensajes.map(mensaje => <article key={mensaje.identificador} className="rounded-xl bg-slate-800 p-3"><div className="mb-1 flex justify-between gap-3 text-xs text-slate-400"><strong className="text-slate-200">{mensaje.nombre}</strong><time>{new Date(mensaje.hora).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</time></div><p className="whitespace-pre-wrap break-words text-sm">{mensaje.texto}</p></article>)}
+          {pestana === 'chat' && <>
+            <div ref={contenedorChat} role="log" aria-live="polite" aria-label="Mensajes de la reunión" className="flex min-h-40 flex-1 flex-col gap-3 overflow-auto">
+              {mensajes.length === 0 && <p className="text-sm text-muted">Aún no hay mensajes. El historial se limpia al salir.</p>}
+              {mensajes.map(mensaje => <article key={mensaje.identificador} className="rounded-lg bg-page p-3">
+                <div className="mb-1 flex justify-between gap-3 text-xs text-muted"><strong className="text-ink">{mensaje.nombre}</strong><time>{new Date(mensaje.hora).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</time></div>
+                <p className="text-sm break-words whitespace-pre-wrap">{mensaje.texto}</p>
+              </article>)}
             </div>
-            <form onSubmit={enviarMensaje} className="mt-4 flex flex-col gap-2"><label htmlFor="mensaje-sala" className="text-xs text-slate-300">Mensaje para todos</label><textarea id="mensaje-sala" value={textoMensaje} onChange={evento => cambiarTextoMensaje(evento.target.value)} maxLength={2000} rows={3} className="rounded-lg border border-slate-600 bg-slate-950 p-3 text-sm text-white" placeholder="Escribe un mensaje…" /><button className={boton} disabled={bloqueado || !textoMensaje.trim()}>Enviar mensaje</button></form>
+            <form onSubmit={enviarMensaje} className="flex flex-col gap-2">
+              <label htmlFor="mensaje-sala" className="text-xs font-semibold">Mensaje para todos</label>
+              <textarea id="mensaje-sala" value={textoMensaje} onChange={evento => cambiarTextoMensaje(evento.target.value)} maxLength={2000} rows={3} placeholder="Escribe un mensaje…"
+                className="rounded-lg p-3 text-sm ring-1 ring-muted-3 ring-inset outline-none focus-visible:ring-2 focus-visible:ring-brand-light" />
+              <Boton type="submit" disabled={bloqueado || !textoMensaje.trim()}>Enviar mensaje</Boton>
+            </form>
           </>}
-          {panel === 'opciones' && <div className="space-y-6">
-            <section aria-label="Permisos de los asistentes" className="space-y-4 border-b border-slate-700 pb-5">
-              <h2 className="font-semibold">Permisos de los asistentes</h2>
-              {moderacion.moderador && moderacion.disponible ? <>
-                <p className="text-xs leading-5 text-slate-400">En modo autorización, el asistente levanta la mano y el anfitrión concede el permiso desde Personas. Se aplica a nuevas activaciones y detiene las transmisiones actuales de asistentes. Estos cambios valen para la llamada actual; la configuración guardada se edita en Reuniones › Configurar sala.</p>
-                {mediosModerados.map(medio => <label key={medio} className="block text-sm">{nombresMedios[medio]}<select aria-label={`Permiso de ${nombresMedios[medio].toLowerCase()}`} value={moderacion.restringidos[medio] ? 'autorizar' : 'libre'} disabled={bloqueado} onChange={evento => { const restringido = evento.target.value === 'autorizar'; void ejecutar(() => usarSala().configurarModeracion(medio, restringido)) }} className="mt-2 block w-full rounded-lg border border-slate-600 bg-slate-800 p-2"><option value="libre">Permitir a todos</option><option value="autorizar">Levantar mano y autorizar</option></select></label>)}
-              </> : <p className="text-xs leading-5 text-slate-400">{moderacion.disponible ? 'El anfitrión gestiona estos permisos. Puedes levantar la mano para solicitar autorización.' : 'La moderación requiere un servidor Jitsi compatible y un anfitrión con rol de moderador.'}</p>}
-            </section>
-            <h2 className="font-semibold">Mis dispositivos</h2>
-            <div className="salaEstadoMicrofono" role="meter" aria-label="Intensidad del micrófono" aria-valuemin={0} aria-valuemax={100} aria-valuenow={intensidad} aria-valuetext={!medios.microfonoActivo ? 'Micrófono silenciado' : intensidad > 0 ? 'Captando audio' : 'Micrófono activo, sin sonido detectado'}>
-              <MedidorMicrofono intensidad={intensidad} /><span>{!medios.microfonoActivo ? 'Micrófono silenciado' : intensidad > 0 ? 'Captando audio' : 'Sin sonido detectado'}</span>
-            </div>
-            {(['audio', 'video'] as const).map(tipo => <label key={tipo} className="block text-sm">{tipo === 'audio' ? 'Micrófono' : 'Cámara'}<select defaultValue="" disabled={bloqueado} onChange={evento => { const valor = evento.target.value; void ejecutar(() => usarSala().cambiarDispositivo(tipo, valor)) }} className="mt-2 block w-full rounded-lg border border-slate-600 bg-slate-800 p-3"><option value="" disabled>Seleccionar dispositivo</option>{dispositivos.filter(dispositivo => dispositivo.kind === (tipo === 'audio' ? 'audioinput' : 'videoinput')).map((dispositivo, indice) => <option key={dispositivo.deviceId || indice} value={dispositivo.deviceId}>{dispositivo.label || `${tipo === 'audio' ? 'Micrófono' : 'Cámara'} ${indice + 1}`}</option>)}</select></label>)}
-            <p className="text-xs leading-5 text-slate-400">Si no aparecen dispositivos, permite su uso desde el candado del navegador. Compartir pantalla requiere un navegador compatible.</p>
-            <button className={boton} onClick={() => void copiarEnlace()}><Copy size={16} />Copiar enlace de la sala</button>
-          </div>}
+          {pestana === 'manos' && <>
+            {colaManos.length === 0 && <p className="text-sm text-muted">Nadie ha levantado la mano.</p>}
+            <ol className="flex flex-col gap-2">{colaManos.map(persona => {
+              const autorizado = !!moderacion.autorizaciones[persona.identificador]?.audio
+              return <li key={persona.identificador} className="flex items-center gap-2">
+                <span className="flex size-6 items-center justify-center rounded-full bg-gold-soft text-xs font-bold text-gold-ink" aria-label={`Turno ${persona.turnoMano}`}>{persona.turnoMano}</span>
+                <span className="flex-1 text-sm">{persona.nombre}{persona.local ? ' (tú)' : ''}</span>
+                {moderador && !persona.local && moderacion.restringidos.audio && <button type="button" disabled={ocupado} onClick={() => void ejecutar(() => usarSala().autorizarParticipante('audio', persona.identificador, !autorizado))}
+                  className="h-8 rounded-lg bg-brand px-3 text-xs font-semibold text-white hover:bg-brand-ink disabled:opacity-50">{autorizado ? 'Quitar la palabra' : 'Dar la palabra'}</button>}
+              </li>
+            })}</ol>
+          </>}
         </div>
       </aside>
     </div>
-    <footer className="relative flex shrink-0 flex-wrap items-center justify-center gap-2 border-t border-slate-700 bg-slate-900 p-2">
-      <Control activo={medios.microfonoActivo} disabled={bloqueado || (!moderacion.permitidos.audio && !medios.microfonoActivo)} onClick={() => void ejecutar(() => usarSala().alternar('audio'))} icono={<span className="salaIconoMicrofono">{medios.microfonoActivo ? <Mic size={20} /> : <MicOff size={20} />}<MedidorMicrofono intensidad={intensidad} /></span>}>{medios.microfonoActivo ? 'Silenciar' : 'Activar micrófono'}</Control>
-      <Control activo={medios.camaraActiva} disabled={bloqueado || (!moderacion.permitidos.video && !medios.camaraActiva)} onClick={() => void ejecutar(() => usarSala().alternar('video'))} icono={medios.camaraActiva ? <Camera size={20} /> : <CameraOff size={20} />}>{medios.camaraActiva ? 'Apagar cámara' : 'Activar cámara'}</Control>
-      <Control activo={medios.compartiendoPantalla} disabled={bloqueado || (!moderacion.permitidos.desktop && !medios.compartiendoPantalla)} onClick={() => void ejecutar(() => usarSala().compartirPantalla())} icono={<MonitorUp size={20} />}>{medios.compartiendoPantalla ? 'Dejar de compartir' : 'Compartir pantalla'}</Control>
-      {!manoOculta && <Control activo={mano} disabled={bloqueado} onClick={() => void ejecutar(() => usarSala().levantarMano())} icono={<Hand size={20} />}>{mano ? 'Bajar mano' : 'Levantar mano'}</Control>}
-      <button className={`${boton} salaControl`} aria-pressed={panelVisible && panel === 'participantes'} onClick={() => { cambiarPanel('participantes'); cambiarPanelVisible(!(panelVisible && panel === 'participantes')) }}><Users size={18} />Personas</button>
-      <button className={`${boton} salaControl`} aria-pressed={panelVisible && panel === 'chat'} onClick={() => { cambiarPanel('chat'); cambiarPanelVisible(!(panelVisible && panel === 'chat')) }}><MessageSquare size={18} />Chat</button>
-      <button className={`${boton} salaControl`} aria-pressed={panelVisible && panel === 'opciones'} onClick={() => { cambiarPanel('opciones'); cambiarPanelVisible(!(panelVisible && panel === 'opciones')) }}><Settings size={20} /><ChevronDown size={14} /><span className="sr-only">Opciones de dispositivos</span></button>
-      <div className="relative">
-        <button className={`${boton} salaControl`} aria-pressed={selectorReacciones} aria-expanded={selectorReacciones} aria-controls="selector-reacciones" onClick={() => cambiarSelectorReacciones(!selectorReacciones)} disabled={!medios.conectada}><Smile size={20} /><span>Reacciones</span></button>
-        {selectorReacciones && <div id="selector-reacciones" role="group" aria-label="Elegir reacción" className="absolute right-0 bottom-full z-30 mb-3 flex gap-1 rounded-2xl border border-slate-500 bg-slate-800 p-2 shadow-2xl">
-          {reaccionesDisponibles.map(reaccion => <button key={reaccion.emoji} aria-label={`Enviar ${reaccion.nombre}`} title={reaccion.nombre} disabled={bloqueado} className="rounded-xl p-2 text-3xl transition-transform hover:scale-125 hover:bg-slate-600 disabled:opacity-40" onClick={() => void ejecutar(async () => { await usarSala().enviarReaccion(reaccion.emoji); cambiarSelectorReacciones(false) })}>{reaccion.emoji}</button>)}
-        </div>}
+
+    {restringido && <p role="status" className="mx-auto mt-2 flex max-w-[calc(100%-1rem)] items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs text-ink sm:text-sm">
+      <Lock className="size-4 shrink-0 text-danger" aria-hidden />Solo el instructor puede compartir pantalla y activar micrófonos. Levanta la mano para pedir la palabra.
+    </p>}
+    <footer className="relative shrink-0 overflow-x-auto px-2 py-3">
+      <div className="mx-auto flex w-max items-start gap-0.5 sm:gap-3">
+      <BotonBarra etiqueta="Micrófono" activo={medios.microfonoActivo} presionado={medios.microfonoActivo} disabled={bloqueado || (!moderacion.permitidos.audio && !medios.microfonoActivo)}
+        onClick={() => void ejecutar(() => usarSala().alternar('audio'))} icono={medios.microfonoActivo ? <Mic className="size-5" /> : <MicOff className="size-5" />} />
+      <BotonBarra etiqueta="Cámara" activo={medios.camaraActiva} presionado={medios.camaraActiva} disabled={bloqueado || (!moderacion.permitidos.video && !medios.camaraActiva)}
+        onClick={() => void ejecutar(() => usarSala().alternar('video'))} icono={medios.camaraActiva ? <Video className="size-5" /> : <VideoOff className="size-5" />} />
+      <BotonBarra etiqueta={medios.compartiendoPantalla ? 'Dejar de compartir' : 'Compartir'} activo={medios.compartiendoPantalla} presionado={medios.compartiendoPantalla}
+        disabled={bloqueado || (!moderacion.permitidos.desktop && !medios.compartiendoPantalla)} onClick={() => void ejecutar(() => usarSala().compartirPantalla())} icono={<MonitorUp className="size-5" />} />
+      {moderador ? <>
+        {grabacionPrevista && <BotonBarra etiqueta="Grabación anunciada" disabled className="max-sm:hidden" icono={<CircleDot className="size-5" />} />}
+        <BotonBarra etiqueta="Silenciar a todos" disabled={bloqueado} onClick={() => void ejecutar(() => { const silenciados = usarSala().silenciarTodos(); cambiarAviso(silenciados ? `Se silenció a ${silenciados} ${silenciados === 1 ? 'persona' : 'personas'}.` : 'Nadie tenía el micrófono activo.') })} icono={<MicOff className="size-5" />} />
+        <BotonBarra etiqueta="Permisos" activo={permisosAbiertos} presionado={permisosAbiertos} disabled={!medios.conectada} onClick={() => cambiarPermisosAbiertos(!permisosAbiertos)} icono={<SlidersHorizontal className="size-5 rotate-90" />} />
+        <BotonBarra etiqueta="Participantes" activo={panelVisible && pestana === 'participantes'} presionado={panelVisible && pestana === 'participantes'} onClick={() => abrirPanel('participantes')} icono={<Users className="size-5" />} />
+        <BotonBarra etiqueta="Chat" activo={panelVisible && pestana === 'chat'} presionado={panelVisible && pestana === 'chat'} onClick={() => abrirPanel('chat')} icono={<MessageSquare className="size-5" />} />
+        <BotonBarra etiqueta="Finalizar sesión" peligro onClick={() => cambiarConfirmarFin(true)} icono={<LogOut className="size-5" />} />
+      </> : <>
+        {!manoOculta && <BotonBarra etiqueta={mano ? 'Bajar la mano' : 'Levantar la mano'} activo={mano} presionado={mano} disabled={bloqueado} onClick={() => void ejecutar(() => usarSala().levantarMano())} icono={<Hand className="size-5" />} />}
+        <BotonBarra etiqueta="Chat" activo={panelVisible && pestana === 'chat'} presionado={panelVisible && pestana === 'chat'} onClick={() => abrirPanel('chat')} icono={<MessageSquare className="size-5" />} />
+        <BotonBarra etiqueta="Salir" peligro onClick={() => navegar(-1)} icono={<LogOut className="size-5" />} />
+      </>}
       </div>
-      <Link to="/reuniones" className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-500"><PhoneOff size={20} />Salir</Link>
     </footer>
+    {estado && <p className="sr-only" role="status">{estado}</p>}
+    {moderador && permisosAbiertos && <PanelPermisos valor={permisos} disponible={moderacion.disponible} ocupado={ocupado} alCambiar={cambiarPermiso} alCerrar={() => cambiarPermisosAbiertos(false)} />}
+
+    <DialogoExpulsar key={porExpulsar?.identificador ?? 'nadie'} nombre={porExpulsar?.nombre ?? null} ocupado={ocupado} alCancelar={() => cambiarPorExpulsar(null)} alExpulsar={expulsar} />
+    <Dialogo abierto={confirmarFin} onCerrar={() => cambiarConfirmarFin(false)} titulo="¿Finalizar la sesión?" acciones={<>
+      <button type="button" onClick={() => cambiarConfirmarFin(false)} className="h-10 rounded-lg px-5 text-sm font-semibold text-brand hover:bg-brand-soft">Seguir en la sala</button>
+      <Boton variante="peligro" cargando={ocupado} onClick={finalizar}>Finalizar sesión</Boton>
+    </>}>
+      <p className="text-sm text-ink">Se cerrará la sala para todos y se calculará la asistencia virtual con el tiempo conectado de cada colegiado.</p>
+    </Dialogo>
   </main>
-}
-
-function Control({ activo, disabled, onClick, icono, children }: { activo: boolean; disabled: boolean; onClick: () => void; icono: ReactNode; children: ReactNode }) {
-  return <button aria-pressed={activo} disabled={disabled} onClick={onClick} className={`${boton} salaControl`}>{icono}{children}</button>
-}
-
-
-function MedidorMicrofono({ intensidad }: { intensidad: number }) {
-  return <span className="salaMedidorMicrofono" aria-hidden="true">{[1, 2, 3, 4, 5].map(barra => <i key={barra} data-activa={intensidad > (barra - 1) * 20} style={{ height: `${4 + barra * 3}px` }} />)}</span>
 }

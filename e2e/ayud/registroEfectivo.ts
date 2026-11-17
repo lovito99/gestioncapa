@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 
 export async function registrarEfectivo(page: Page, pagoId: string) {
-  await page.goto(`/admin/pagos?pago=${pagoId}`)
+  await page.goto(`/admin/pagos/conciliar?pago=${pagoId}`)
   await expect(page.getByRole('heading', { name: 'Registrar efectivo', exact: true })).toBeVisible()
   await page.getByLabel('Referencia del recibo interno').fill(`CAJA-E2E-${pagoId}`)
   const importe = await page.locator('dl div').filter({ has: page.locator('dt', { hasText: 'Importe completo' }) }).locator('dd').innerText()

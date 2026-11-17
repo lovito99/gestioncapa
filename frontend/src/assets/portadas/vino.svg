@@ -1,0 +1,23 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="328" height="185" viewBox="0 0 328 185" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Portada 16:9 &#226;&#128;&#147; Evaluaci&#195;&#179;n formativa en el aula" clip-path="url(#clip0_0_57)">
+<rect width="328" height="185" fill="url(#paint0_linear_0_57)"/>
+<circle id="Ellipse" cx="278.8" cy="27.75" r="73.8" fill="white" fill-opacity="0.1"/>
+<circle id="Ellipse_2" cx="32.8" cy="175.75" r="57.4" fill="white" fill-opacity="0.08"/>
+<circle id="Ellipse_3" cx="213.2" cy="157.25" r="29.52" fill="white" fill-opacity="0.12"/>
+<g id="&#195;&#141;cono grid">
+<path id="Vector" d="M140.375 68.875H158.75V87.25H140.375V68.875Z" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke="#EFD58F"/>
+<path id="Vector_2" d="M169.25 68.875H187.625V87.25H169.25V68.875Z" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke="#EFD58F"/>
+<path id="Vector_3" d="M169.25 97.75H187.625V116.125H169.25V97.75Z" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke="#EFD58F"/>
+<path id="Vector_4" d="M140.375 97.75H158.75V116.125H140.375V97.75Z" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke="#EFD58F"/>
+</g>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_57" x1="0" y1="0" x2="113.088" y2="200.501" gradientUnits="userSpaceOnUse">
+<stop stop-color="#64142B"/>
+<stop offset="1" stop-color="#310712"/>
+</linearGradient>
+<clipPath id="clip0_0_57">
+<rect width="328" height="185" fill="white"/>
+</clipPath>
+</defs>
+</svg>

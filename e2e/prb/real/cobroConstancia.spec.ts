@@ -27,11 +27,11 @@ test('HU53: retiene la constancia hasta pagar y emite gratis sin obligación', a
       const enlace = fila.getByRole('link', { name: /pago/i })
       const pagoId = new URL((await enlace.getAttribute('href'))!, 'http://localhost').searchParams.get('pago')!
       await participante.goto(`/cursos/${curso.id}`)
-      await expect(participante.getByText(/Constancia retenida:/)).toBeVisible()
+      await expect(participante.getByText('Constancia retenida', { exact: true })).toBeVisible()
       await participante.screenshot({ path: test.info().outputPath('constanciaRetenida.png'), fullPage: true })
       await registrarEfectivo(page, pagoId)
-      await expect(participante.getByRole('heading', { name: 'Pago confirmado', exact: true })).toBeVisible({ timeout: 10000 })
-      await expect(participante.getByText(/Constancia retenida:|Estamos preparando/)).toHaveCount(0, { timeout: 40000 })
+      // El detalle consulta cada 3 s mientras la constancia está retenida y la libera al confirmar el pago
+      await expect(participante.getByText(/^Constancia retenida$|Estamos preparando/)).toHaveCount(0, { timeout: 40000 })
       await participante.getByRole('link', { name: 'Mis cursos', exact: true }).click()
       const tarjeta = participante.getByRole('article').filter({ has: participante.getByRole('heading', { name: curso.titulo, exact: true }) })
       await expect(tarjeta.getByRole('link', { name: /constancia|certificado/i }).first()).toBeVisible()

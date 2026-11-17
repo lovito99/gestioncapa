@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 import { cuentas } from './datos'
 import { completarAcceso, entrar } from './sesion'
+import { confirmarInscripcion, elegirCobro } from './cobroInscripcion'
 
 export async function flujoInscripcionCurso(page: Page, admin: Parameters<typeof entrar>[1]) {
   await entrar(page, admin)
@@ -25,15 +26,17 @@ export async function flujoInscripcionCurso(page: Page, admin: Parameters<typeof
   await page.getByRole('button', { name: 'Buscar', exact: true }).click()
   await page.getByRole('link', { name: titulo, exact: true }).click()
   const respuesta = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/cursos/${id}/inscribirme`))
-  await page.getByRole('button', { name: 'Inscribirme', exact: true }).click()
+  await confirmarInscripcion(page, true)
   expect((await respuesta).status()).toBe(201)
-  await expect(page.getByRole('button', { name: 'Pendiente de pago', exact: true })).toBeDisabled()
-  await expect(page.getByRole('status').filter({ hasText: 'aún no está confirmada' })).toBeVisible()
+  // S3 7.1: tras confirmar se elige la forma de pago; la reserva queda pendiente
+  await expect(page).toHaveURL(`/cursos/${id}/pagar`)
+  await expect(page.getByText('Pendiente de pago', { exact: true }).first()).toBeVisible()
   await page.getByRole('link', { name: 'Mis cursos', exact: true }).click()
   const tarjeta = page.getByRole('article').filter({ has: page.getByRole('heading', { name: titulo, exact: true }) })
   await expect(tarjeta.getByText('Pendiente de pago', { exact: true })).toBeVisible()
   await expect(tarjeta.getByText('En curso', { exact: true })).toHaveCount(0)
   await tarjeta.getByRole('link', { name: titulo, exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Pendiente de pago', exact: true })).toBeDisabled()
+  await expect(page.getByText('Inscripción pendiente de pago', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Ir a pagar', exact: true })).toHaveAttribute('href', `/cursos/${id}/pagar`)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 }

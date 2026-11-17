@@ -14,6 +14,15 @@
 
   --color-gold: #d1aa4b;
   --color-gold-light: #efd58f;
+  /* Fondo del visor de cámara del encargado (Figma S3 1.4) */
+  --color-visor: #1d1a1b;
+  /* Etiqueta «Híbrido / Presencial y virtual» (Figma S3) */
+  --color-gold-soft: #fbf1d6;
+  --color-gold-ink: #7a5a14;
+  /* Vista previa de WhatsApp y botones de redes en «Compartir curso» (Figma S3 4.1c) */
+  --color-whatsapp-soft: #e7f7ec;
+  --color-whatsapp: #1f8f4e;
+  --color-facebook: #1f4e9e;
 
   --color-ink: #20232a;
   --color-ink-2: #20232a;

@@ -15,7 +15,7 @@ test('HU22-P3: visitante elige e inicia inscripción gratuita o reserva con cost
 
 test('HU22-P1: login conserva selección tras error y recarga sin inscribir automáticamente',async({page})=>{
   await page.goto('/')
-  await expect(page.getByRole('heading',{name:'Catálogo de cursos',exact:true})).toBeVisible()
+  await expect(page.getByRole('heading',{name:'Cursos vigentes del CPPP',exact:true})).toBeVisible()
   const curso=await page.evaluate(async()=>{
     const pagina=await(await fetch('/api/publico/cursos')).json()
     return pagina.items.find((item:{cuposDisponibles:number})=>item.cuposDisponibles>0) as {id:string;titulo:string}
@@ -32,7 +32,8 @@ test('HU22-P1: login conserva selección tras error y recarga sin inscribir auto
   expect(inscripciones).toEqual([])
   await page.goto('/')
   const tarjeta=page.getByRole('listitem').filter({has:page.getByRole('heading',{name:curso.titulo,exact:true})})
-  const accion=tarjeta.getByRole('link',{name:`Inscribirme en ${curso.titulo}`,exact:true})
+  // Con sesión, la tarjeta del catálogo público lleva directo al curso
+  const accion=tarjeta.getByRole('link',{name:curso.titulo,exact:true})
   await expect(accion).toHaveAttribute('href',`/cursos/${curso.id}`)
   await accion.click()
   await expect(page).toHaveURL(`/cursos/${curso.id}`)
@@ -57,7 +58,7 @@ test('HU22-P5: conserva QR y maneja curso inexistente sin bucles ni redirección
 test('RF-07: explorar cursos sin sesión desde 360 px', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Catálogo de cursos' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Cursos vigentes del CPPP' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Iniciar sesión', exact: true })).toBeVisible()
   await expect(page.getByRole('status')).toContainText(/Mostrando|No hay cursos/)
   await page.getByRole('searchbox').fill('curso-inexistente-publico')

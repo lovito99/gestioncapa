@@ -91,6 +91,8 @@ export interface RegistroAsistencia {
   estado: EstadoAsistencia
   /** Fecha-hora ISO 8601 del registro, `null` si está ausente */
   horaRegistro: string | null
+  /** HU-39: cómo se registró. `QR` incluye el QR personal y el rotatorio; ausente en respuestas antiguas */
+  metodo?: 'QR' | 'DNI' | null
 }
 
 export interface Asistencia {
@@ -136,6 +138,61 @@ export interface MarcarAsistenciaRespuesta {
   horaRegistro: string
 }
 
+// ---------- HU-39: QR personal y asistencia en la puerta ----------
+
+/** Agremiado tal como lo ve el encargado: nunca el DNI completo */
+export interface AgremiadoPuerta {
+  id: string
+  nombre: string
+  /** DNI enmascarado con sus 4 últimos dígitos, p. ej. `•••• 5678` */
+  dniParcial: string | null
+}
+
+/** Próxima sesión presencial del agremiado, para la tarjeta de «Mi QR» */
+export interface SesionPresencialResumen {
+  id: string
+  /** Título del curso, o el nombre de la sesión si no pertenece a un curso */
+  titulo: string
+  /** Fecha `YYYY-MM-DD` y horas `HH:mm`, hora de Lima */
+  fecha: string
+  horaInicio: string
+  horaFin: string
+  lugar: string
+}
+
+/** Respuesta de `GET /api/participante/mi-qr` */
+export interface MiQr {
+  /** Token firmado y permanente; es el contenido del QR. No incluye datos personales */
+  token: string
+  nombre: string
+  dniParcial: string | null
+  /** Colegiado habilitado en el CPPP */
+  habilitado: boolean
+  proximaSesion: SesionPresencialResumen | null
+}
+
+/** Cuerpo de `POST /api/clases/:id/asistencia/puerta`: se envía uno de los dos */
+export type RegistroPuertaEntrada = { token: string; participanteId?: never } | { participanteId: string; token?: never }
+
+export interface RegistroPuertaRespuesta {
+  participante: AgremiadoPuerta
+  /** Fecha-hora ISO 8601 del registro */
+  horaRegistro: string
+  metodo: 'QR' | 'DNI'
+}
+
+/** Un inscrito cuyo DNI empieza con los dígitos buscados */
+export interface CoincidenciaDni {
+  participante: AgremiadoPuerta
+  /** Hora en que ya se registró su asistencia, o `null` */
+  horaRegistro: string | null
+}
+
+/** Respuesta de `GET /api/clases/:id/asistencia/puerta?dni=` (mínimo 4 dígitos) */
+export interface BusquedaDniRespuesta {
+  resultados: CoincidenciaDni[]
+}
+
 /** Respuesta de `GET /api/health` (ya implementada en el backend) */
 export interface EstadoSalud {
   ok: boolean
@@ -171,4 +228,6 @@ export const CODIGOS_ERROR = {
   QR_OTRA_CLASE: 'QR_OTRA_CLASE',
   NO_INSCRITO: 'NO_INSCRITO',
   ASISTENCIA_YA_REGISTRADA: 'ASISTENCIA_YA_REGISTRADA',
+  QR_PERSONAL_INVALIDO: 'QR_PERSONAL_INVALIDO',
+  DNI_NO_ENCONTRADO: 'DNI_NO_ENCONTRADO',
 } as const

@@ -1,4 +1,4 @@
-import { LogOut } from 'lucide-react'
+import { Award, LogOut, UserRound } from 'lucide-react'
 import { Link, useNavigate,useLocation } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
 import { inicioPorRol } from '@/auth/inicioPorRol'
@@ -68,8 +68,13 @@ export function Encabezado() {
               Ir a la web del CPPP ↗
             </a>
             {!usuario && <>
-              <Link to="/verificar" className="inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-brand underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Consultar constancias</Link>
-              <Link to={loginDelCursoActual(ubicacion.pathname,ubicacion.search)} className="inline-flex min-h-11 items-center rounded-sm text-sm font-semibold text-brand underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Iniciar sesión</Link>
+              {/* S3 5.0/5.1: en celular son dos botones del mismo ancho; en escritorio, enlace con ícono y botón */}
+              <Link to="/verificar" className="inline-flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg px-2 text-[13px] font-semibold whitespace-nowrap text-brand ring-1 ring-brand ring-inset sm:gap-1.5 sm:px-0 sm:text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-10 sm:flex-none sm:ring-0 sm:hover:underline">
+                <Award className="size-4 shrink-0 sm:size-[18px]" aria-hidden />Consultar constancias
+              </Link>
+              <Link to={loginDelCursoActual(ubicacion.pathname,ubicacion.search)} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-10 sm:flex-none">
+                <UserRound className="size-[18px] shrink-0 max-sm:hidden" aria-hidden />Iniciar sesión
+              </Link>
             </>}
             {usuario && (
               <>

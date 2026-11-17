@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 import { cuentas } from './datos'
 import { completarAcceso, entrar } from './sesion'
+import { confirmarInscripcion, elegirCobro } from './cobroInscripcion'
 
 export async function flujoInscripcionPublica(page: Page, administrador: Parameters<typeof entrar>[1], persistente: boolean) {
   const errores: string[] = []
@@ -19,17 +20,11 @@ export async function flujoInscripcionPublica(page: Page, administrador: Paramet
     await page.getByLabel('Nombre del curso').fill(titulo)
     await page.getByRole('textbox', { name: 'Descripción', exact: true }).fill('Curso público para elegir e inscribirse.')
     await page.getByLabel('Categoría').selectOption('Educación')
-    await page.getByRole('combobox', { name: 'Modalidad', exact: true }).selectOption('PRESENCIAL')
     await page.getByLabel('Instructor asignado').selectOption({ label: 'Carlos Mendoza Ríos' })
     await page.getByLabel('Fecha de inicio').fill('2031-02-01')
     await page.getByLabel('Fecha de fin').fill('2031-02-28')
     await page.getByLabel('Horas lectivas').fill('8')
-    const modalidadCobro = costo === 0 ? 'GRATUITO' : 'PREVIO'
-    await page.getByRole('combobox', { name: 'Modalidad de cobro', exact: true }).selectOption(modalidadCobro)
-    if (modalidadCobro === 'PREVIO') {
-      await page.getByLabel('Costo (S/)').fill(String(costo))
-      await page.getByLabel('Plazo para pagar (minutos)').fill('60')
-    }
+    await elegirCobro(page, costo === 0 ? 'GRATUITO' : 'PREVIO', costo)
     await page.getByLabel('Cupos').fill('1')
     await page.getByRole('button', { name: '+ Agregar módulo', exact: true }).click()
     await page.getByLabel('Nombre del módulo 1').fill('Contenido de prueba')
@@ -60,9 +55,11 @@ export async function flujoInscripcionPublica(page: Page, administrador: Paramet
     const tarjeta = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: curso.titulo, exact: true }) })
     await expect(tarjeta).toContainText('8 horas lectivas')
     await expect(tarjeta).toContainText(curso.costo ? 'S/ 25.00' : 'Gratuito')
-    const accion = tarjeta.getByRole('link', { name: `Inscribirme en ${curso.titulo}`, exact: true })
-    await expect(accion).toHaveAttribute('href', `/login?curso=${curso.id}`)
-    await accion.click()
+    // SCRUM-187: la tarjeta abre la página pública y desde ahí «Inscribirme» pide el acceso
+    await tarjeta.getByRole('link', { name: curso.titulo, exact: true }).click()
+    await expect(page).toHaveURL(`/capacitaciones/${curso.id}`)
+    await expect(page.getByRole('heading', { level: 1, name: curso.titulo, exact: true })).toBeVisible()
+    await page.getByRole('region', { name: 'Inscripción', exact: true }).getByRole('button', { name: 'Inscribirme', exact: true }).click()
     await expect(page).toHaveURL(`/login?curso=${curso.id}`)
     solicitudes.length = 0
     await completarAcceso(page, cuentas.part)
@@ -70,13 +67,22 @@ export async function flujoInscripcionPublica(page: Page, administrador: Paramet
     await expect(page.getByRole('heading', { name: curso.titulo, exact: true })).toBeVisible()
     expect(solicitudes).toEqual([])
     const inscripcion = page.waitForResponse(respuesta => respuesta.request().method() === 'POST' && respuesta.url().endsWith(`/cursos/${curso.id}/inscribirme`))
-    await page.getByRole('button', { name: 'Inscribirme', exact: true }).click()
+    await confirmarInscripcion(page, curso.costo > 0)
     const resultado = await inscripcion
     expect(resultado.status()).toBe(201)
     expect((await resultado.json()).estado).toBe(curso.costo ? 'PENDIENTE_PAGO' : 'EN_CURSO')
-    await expect(page.getByRole('button', { name: curso.costo ? 'Pendiente de pago' : 'Ya estás inscrito(a)', exact: true })).toBeDisabled()
+    // S3 7.1: con pago previo se pasa a «¿Cómo quieres pagar?»; gratis, el curso queda confirmado
+    if (curso.costo) {
+      await expect(page).toHaveURL(`/cursos/${curso.id}/pagar`)
+      await expect(page.getByRole('heading', { name: '¿Cómo quieres pagar?', exact: true })).toBeVisible()
+      // Sin recargar: en la demo, recargar reinicia los datos simulados
+      await page.getByRole('link', { name: 'Volver a mis cursos', exact: true }).click()
+      await page.getByRole('article').filter({ has: page.getByRole('heading', { name: curso.titulo, exact: true }) }).getByRole('link', { name: curso.titulo, exact: true }).click()
+    }
+    const estado = curso.costo ? 'Inscripción pendiente de pago' : 'Ya estás inscrito(a)'
+    await expect(page.getByText(estado, { exact: true })).toBeVisible()
     if (persistente) await page.reload()
-    await expect(page.getByRole('button', { name: curso.costo ? 'Pendiente de pago' : 'Ya estás inscrito(a)', exact: true })).toBeDisabled()
+    await expect(page.getByText(estado, { exact: true })).toBeVisible()
     expect(solicitudes).toHaveLength(1)
     await cerrarSesion()
   }

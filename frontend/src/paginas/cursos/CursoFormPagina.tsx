@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { Alerta } from '@/components/ui/Alerta'
+import { Aviso, AvisoInfo } from '@/components/ui/Aviso'
 import { Boton } from '@/components/ui/Boton'
 import { Campo } from '@/components/ui/Campo'
 import { Dialogo } from '@/components/ui/Dialogo'
@@ -18,15 +19,16 @@ import { esApiError, mensajeDeError } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { fechaCorta, rangoHorario } from '@/lib/formato'
 import { CobroCursoFormulario, EditarCobroCurso } from './CobroCursoFormulario'
+import { CampoPortada } from './CampoPortada'
+import { precioGeneralDe, precioGeneralParaEnviar, validarCobro, type CambioPortada, type ErroresCobro } from './reglasCurso'
 import { ETIQUETA_MODALIDAD_SESION } from './formatoCurso'
-import { modalidadesCurso } from '@/servicios/modalidadCurso'
 import {
   CATEGORIAS_CURSO,
   CERTIFICADOS_CURSO,
-  MODALIDADES_CURSO,
   cursos,
   leerPdfBase64,
   type CursoEntrada,
+  type PoliticaCobro,
   type DetalleCurso,
   type MaterialCurso,
   type MaterialEntrada,
@@ -39,21 +41,13 @@ const esquema = z
     titulo: z.string().trim().min(1, 'Ingresa el nombre del curso.').max(160),
     descripcion: z.string().trim().min(1, 'Ingresa la descripción del curso.').max(5000),
     categoria: z.string().min(1, 'Selecciona una categoría.'),
-    modalidad: z.enum(modalidadesCurso, { error: 'Selecciona la modalidad.' }),
     instructorId: z.string().min(1, 'Selecciona un instructor.'),
     fechaInicio: z.string().min(1, 'Ingresa la fecha de inicio.'),
     fechaFin: z.string().min(1, 'Ingresa la fecha de fin.'),
     horasLectivas: numero('Ingresa las horas lectivas.').gt(0, 'Las horas lectivas deben ser mayores que 0.').max(10000),
-    costo: numero('Ingresa el costo; usa 0.00 si es gratuito.').min(0, 'El costo no puede ser negativo.').multipleOf(0.01, 'Usa como máximo dos decimales.'),
-    modalidadCobro: z.enum(['PREVIO', 'CERTIFICADO', 'GRATUITO'], { error: 'Selecciona la modalidad de cobro.' }),
-    plazoPagoMinutos: z.number().int().min(1).max(525600).nullable(),
     cupos: numero('Ingresa los cupos.').int('Los cupos deben ser un número entero.').min(1, 'Debe haber al menos 1 cupo.').max(1000000),
     tipoCertificado: z.enum(['PARTICIPACION', 'APROBACION'], { error: 'Selecciona el tipo de certificado.' }),
     notaMinima: numero('Ingresa la nota mínima.').min(0, 'La nota mínima va de 0 a 20.').max(20, 'La nota mínima va de 0 a 20.'),
-  })
-  .superRefine((datos, contexto) => {
-    if ((datos.modalidadCobro === 'GRATUITO') !== (datos.costo === 0)) contexto.addIssue({ code: 'custom', path: ['costo'], message: 'El importe debe ser cero solo si es gratuito.' })
-    if ((datos.modalidadCobro === 'PREVIO') !== (datos.plazoPagoMinutos !== null)) contexto.addIssue({ code: 'custom', path: ['plazoPagoMinutos'], message: 'Indica un plazo válido solo para pago previo.' })
   })
   .refine((d) => !d.fechaInicio || !d.fechaFin || d.fechaFin >= d.fechaInicio, {
     path: ['fechaFin'],
@@ -70,21 +64,37 @@ const valoresDe = (curso?: DetalleCurso): Partial<Formulario> =>
         titulo: curso.titulo,
         descripcion: curso.descripcion,
         categoria: curso.categoria,
-        modalidad: curso.modalidad,
         instructorId: curso.instructorId,
         fechaInicio: curso.fechaInicio ?? '',
         fechaFin: curso.fechaFin ?? '',
         horasLectivas: curso.horasLectivas,
-        costo: curso.costo,
-        modalidadCobro: curso.modalidadCobro ?? '' as Formulario['modalidadCobro'],
-        plazoPagoMinutos: curso.plazoPagoMinutos ?? null,
         cupos: curso.cupos,
         tipoCertificado: curso.tipoCertificado,
         notaMinima: curso.notaMinima,
       }
     : // Selectores sin opción elegida, como en el Figma; zod rechaza el valor vacío
-      { categoria: '', modalidad: '' as Formulario['modalidad'], instructorId: '', tipoCertificado: 'PARTICIPACION', notaMinima: 14,
-        modalidadCobro: '' as Formulario['modalidadCobro'], plazoPagoMinutos: null }
+      { categoria: '', instructorId: '', tipoCertificado: 'PARTICIPACION', notaMinima: 14 }
+
+const cobroDe = (curso?: DetalleCurso): PoliticaCobro => ({
+  modalidadCobro: curso?.modalidadCobro ?? '',
+  costo: curso?.costo ?? Number.NaN,
+  precioGeneral: curso ? precioGeneralDe(curso) : Number.NaN,
+  plazoPagoMinutos: curso?.plazoPagoMinutos ?? null,
+})
+
+/** Frase corta de cada campo para el aviso «Revisa N campos antes de guardar» (Figma S3 2.1). */
+const FRASES: Record<string, string> = {
+  titulo: 'falta el nombre del curso', descripcion: 'falta la descripción', categoria: 'falta la categoría',
+  instructorId: 'falta el instructor', fechaInicio: 'falta la fecha de inicio', fechaFin: 'revisa la fecha de fin',
+  horasLectivas: 'revisa las horas lectivas', cupos: 'revisa los cupos', tipoCertificado: 'falta el tipo de certificado',
+  notaMinima: 'revisa la nota mínima', modalidadCobro: 'falta la modalidad de cobro', costo: 'falta el precio para colegiados',
+  precioGeneral: 'falta el precio general', plazoPagoMinutos: 'falta el plazo para pagar', modulos: 'revisa los módulos',
+}
+function resumenErrores(campos: string[], portadaPesada: boolean) {
+  const frases = campos.map((c) => (c === 'portada' ? (portadaPesada ? 'la imagen de portada supera 1 MB' : 'revisa la imagen de portada') : FRASES[c] ?? `revisa «${c}»`))
+  const texto = frases.length > 1 ? `${frases.slice(0, -1).join(', ')} y ${frases.at(-1)}` : frases[0] ?? ''
+  return `${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`
+}
 
 const modulosDe = (curso?: DetalleCurso): ModuloBorrador[] =>
   (curso?.modulos ?? []).toSorted((a, b) => a.orden - b.orden).map((m) => ({ clave: m.id, id: m.id, titulo: m.titulo }))
@@ -109,7 +119,7 @@ function SesionesCurso({ curso }: { curso: DetalleCurso }) {
           </p>
         </div>
         {curso.estado !== 'CERRADO' && (
-          <Link to={`/admin/clases/nueva?curso=${curso.id}`} className={enlaceSecundario}>
+          <Link to={`/admin/cursos/${curso.id}/sesiones`} className={enlaceSecundario}>
             Programar sesión
           </Link>
         )}
@@ -161,28 +171,45 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
   const instructores = useQuery({ queryKey: ['cursos', 'instructores'], queryFn: cursos.instructores })
   const [modulos, cambiarModulos] = useState<ModuloBorrador[]>(() => modulosDe(curso))
   const [errorModulos, cambiarErrorModulos] = useState('')
+  const [cobro, cambiarCobro] = useState<PoliticaCobro>(() => cobroDe(curso))
+  const [erroresCobro, cambiarErroresCobro] = useState<ErroresCobro>({})
+  const [portada, cambiarPortada] = useState<CambioPortada>({ tipo: 'sin-cambios' })
+  const [errorPortada, cambiarErrorPortada] = useState<string>()
   const {
     register,
     handleSubmit,
     reset,
     setError,
-    setValue,
     control,
     formState: { errors },
   } = useForm<Formulario>({ resolver: zodResolver(esquema), defaultValues: valoresDe(curso) })
-  const [modalidadCobro, costo, plazoPagoMinutos] = useWatch({ control, name: ['modalidadCobro', 'costo', 'plazoPagoMinutos'] })
-  // HU-36: con sesiones programadas, la modalidad se calcula y no se elige a mano.
-  const modalidadCalculada = curso?.sesiones.some(sesion => sesion.estado === 'PROGRAMADA') ? curso.modalidad : null
+  // La vista previa de la portada por defecto cambia con el nombre y la categoría
+  const [titulo, categoria] = useWatch({ control, name: ['titulo', 'categoria'] })
 
   const guardar = useMutation({
     mutationFn: async ({ datos, publicar }: { datos: Formulario; publicar: boolean }) => {
-      const entrada: CursoEntrada = { ...datos, modulos: modulos.map(({ id, titulo }) => ({ id, titulo: titulo.trim() })) }
-      const guardado = curso ? await cursos.actualizar(curso.id, entrada) : await cursos.crear(entrada)
+      // El cobro de un curso existente se guarda en su propia sección («Cobro»)
+      const condiciones = curso ? cobroDe(curso) : cobro
+      const entrada: CursoEntrada = {
+        ...datos,
+        // HU-36: la modalidad se calcula por las sesiones; se conserva la planificada
+        modalidad: curso?.modalidad ?? 'PRESENCIAL',
+        modalidadCobro: condiciones.modalidadCobro || undefined,
+        costo: condiciones.modalidadCobro === 'GRATUITO' ? 0 : condiciones.costo,
+        ...precioGeneralParaEnviar(condiciones),
+        plazoPagoMinutos: condiciones.plazoPagoMinutos,
+        modulos: modulos.map(({ id, titulo: nombre }) => ({ id, titulo: nombre.trim() })),
+      }
+      let guardado = curso ? await cursos.actualizar(curso.id, entrada) : await cursos.crear(entrada)
+      if (portada.tipo === 'nueva') await cursos.subirPortada(guardado.id, portada.entrada)
+      if (portada.tipo === 'quitar') await cursos.quitarPortada(guardado.id)
+      if (portada.tipo !== 'sin-cambios') guardado = await cursos.obtener(guardado.id)
       return publicar ? cursos.publicar(guardado.id) : guardado
     },
     onSuccess: async (guardado, { publicar }) => {
       cache.setQueryData(['curso', guardado.id], guardado)
       await cache.invalidateQueries({ queryKey: ['cursos'] })
+      cambiarPortada({ tipo: 'sin-cambios' })
       if (!curso) {
         toast.success('Curso guardado como borrador.')
         navegar(`/admin/cursos/${guardado.id}/editar`, { replace: true })
@@ -197,18 +224,16 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
       if (!esApiError(error)) return
       for (const [campo, mensaje] of Object.entries(error.fields)) {
         if (campo in esquema.shape) setError(campo as keyof Formulario, { message: mensaje })
+        if (campo === 'portada') cambiarErrorPortada(mensaje)
+        if (campo === 'precioGeneral' || campo === 'costo') cambiarErroresCobro((e) => ({ ...e, [campo]: mensaje }))
       }
     },
   })
 
-  const enviar = (publicar: boolean) =>
-    handleSubmit(
-      (datos) => {
-        if (validarModulos()) guardar.mutate({ datos, publicar })
-      },
-      () => validarModulos(),
-    )
-  const validarModulos = () => {
+  /** Lo que no valida zod: módulos y, en un curso nuevo, la sección «Cobro». */
+  const validarExtra = () => {
+    const nuevosCobro = curso ? {} : validarCobro(cobro)
+    cambiarErroresCobro(nuevosCobro)
     const mensaje =
       modulos.length === 0
         ? 'Agrega al menos un módulo.'
@@ -216,30 +241,45 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
           ? 'Escribe el nombre de cada módulo.'
           : ''
     cambiarErrorModulos(mensaje)
-    return !mensaje
+    return !mensaje && Object.keys(nuevosCobro).length === 0 && !errorPortada
   }
+  const enviar = (publicar: boolean) =>
+    handleSubmit(
+      (datos) => {
+        if (validarExtra()) guardar.mutate({ datos, publicar })
+      },
+      () => validarExtra(),
+    )
 
-  const hayErrores = Object.keys(errors).length > 0 || !!errorModulos
+  const camposConError = [
+    ...Object.keys(errors),
+    ...(errorPortada ? ['portada'] : []),
+    ...Object.keys(erroresCobro),
+    ...(errorModulos ? ['modulos'] : []),
+  ]
+  const hayErrores = camposConError.length > 0
   const errorServidor = guardar.isError && !hayErrores ? mensajeDeError(guardar.error, 'No pudimos guardar el curso.') : null
   const publicado = curso?.estado === 'PUBLICADO'
   const cerrado = curso?.estado === 'CERRADO'
   const estado = (campo: keyof Formulario) => (errors[campo] ? 'error' : 'normal')
 
   return (
-    <div className="mx-auto flex max-w-200 flex-col gap-6 px-4 pt-8 pb-16 wrap-anywhere sm:pt-12">
+    <div className="mx-auto flex max-w-200 flex-col gap-6 px-4 pt-4 pb-8 wrap-anywhere sm:pt-12 sm:pb-16">
       <EnlaceVolver to="/cursos">Volver a cursos</EnlaceVolver>
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-bold text-ink">{curso ? 'Editar curso' : 'Nuevo curso'}</h1>
+          <h1 className="font-serif text-xl leading-7 font-bold text-ink sm:text-2xl sm:leading-8">{curso ? 'Editar curso' : 'Nuevo curso'}</h1>
           {curso && <EtiquetaEstadoCurso estado={curso.estado} />}
         </div>
-        <p className="text-sm text-muted">
-          {curso ? 'Modifica los datos y los módulos del curso.' : 'Completa los datos del curso. Se guardará como borrador.'}
+        <p className="text-sm leading-5 text-muted">
+          {curso ? 'Modifica los datos y los módulos del curso.' : 'Completa los datos del curso. Se guardará como borrador hasta que lo publiques.'}
         </p>
       </div>
 
       {hayErrores ? (
-        <Alerta tipo="error">No se pudo guardar el curso. Revisa los campos marcados.</Alerta>
+        <Aviso tipo="error" titulo={camposConError.length === 1 ? 'Revisa 1 campo antes de guardar' : `Revisa ${camposConError.length} campos antes de guardar`}>
+          {resumenErrores(camposConError, !!errorPortada?.includes('MB'))}
+        </Aviso>
       ) : errorServidor ? (
         <Alerta tipo="error">{errorServidor}</Alerta>
       ) : curso ? (
@@ -259,14 +299,19 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
         )
       ) : null}
 
-      {curso && <EditarCobroCurso key={`${curso.id}-${curso.versionCobro}`} curso={curso} />}
-
       <form id="formulario-curso" noValidate onSubmit={enviar(false)} className="contents">
         <fieldset disabled={guardar.isPending} className={cn(tarjeta, 'min-w-0 gap-4')}>
-          <h2 className="font-serif text-xl font-bold text-ink">Datos del curso</h2>
+          <h2 className="font-serif text-xl leading-7 font-bold text-ink">Datos del curso</h2>
           <Campo etiqueta="Nombre del curso" obligatorio error={errors.titulo?.message}>
             <Entrada placeholder="Ej.: Evaluación formativa en el aula" maxLength={160} estado={estado('titulo')} {...register('titulo')} />
           </Campo>
+          <CampoPortada
+            curso={{ titulo: titulo?.trim() || 'Curso', categoria: categoria || 'General', portadaUrl: curso?.portadaUrl ?? null }}
+            cambio={portada}
+            alCambiar={cambiarPortada}
+            error={errorPortada}
+            alError={cambiarErrorPortada}
+          />
           <Campo etiqueta="Descripción" obligatorio error={errors.descripcion?.message}>
             <Entrada placeholder="Describe de qué trata el curso" maxLength={5000} estado={estado('descripcion')} {...register('descripcion')} />
           </Campo>
@@ -284,37 +329,19 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
                 ))}
               </Selector>
             </Campo>
-            {modalidadCalculada ? (
-              <Campo etiqueta="Modalidad" ayuda="Se calcula por las sesiones programadas del curso.">
-                <p className="flex min-h-11 items-center font-medium text-ink">{MODALIDADES_CURSO[modalidadCalculada]}</p>
-              </Campo>
-            ) : (
-            <Campo etiqueta="Modalidad" obligatorio error={errors.modalidad?.message}>
-              <Selector estado={estado('modalidad')} {...register('modalidad')}>
+            <Campo etiqueta="Instructor asignado" obligatorio error={errors.instructorId?.message}>
+              <Selector estado={estado('instructorId')} disabled={instructores.isPending || instructores.isError} {...register('instructorId')}>
                 <option value="" disabled>
-                  Selecciona la modalidad
+                  {instructores.isPending ? 'Cargando instructores…' : 'Selecciona un instructor'}
                 </option>
-                {Object.entries(MODALIDADES_CURSO).map(([valor, texto]) => (
-                  <option key={valor} value={valor}>
-                    {texto}
+                {instructores.data?.map((i) => (
+                  <option key={i.id} value={i.id}>
+                    {i.nombre}
                   </option>
                 ))}
               </Selector>
             </Campo>
-            )}
           </div>
-          <Campo etiqueta="Instructor asignado" obligatorio error={errors.instructorId?.message}>
-            <Selector estado={estado('instructorId')} disabled={instructores.isPending || instructores.isError} {...register('instructorId')}>
-              <option value="" disabled>
-                {instructores.isPending ? 'Cargando instructores…' : 'Selecciona un instructor'}
-              </option>
-              {instructores.data?.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.nombre}
-                </option>
-              ))}
-            </Selector>
-          </Campo>
           {instructores.isError && (
             <p role="alert" className="-mt-2 text-xs text-danger">
               No pudimos cargar los instructores.{' '}
@@ -331,36 +358,45 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
               <Entrada type="date" estado={estado('fechaFin')} {...register('fechaFin')} />
             </Campo>
           </div>
-          {!curso && <CobroCursoFormulario valor={{ modalidadCobro, costo, plazoPagoMinutos }}
-            alCambiar={valor => {
-              setValue('modalidadCobro', valor.modalidadCobro as Formulario['modalidadCobro'])
-              setValue('costo', valor.costo)
-              setValue('plazoPagoMinutos', valor.plazoPagoMinutos)
-            }} errores={{ modalidadCobro: errors.modalidadCobro?.message, costo: errors.costo?.message, plazoPagoMinutos: errors.plazoPagoMinutos?.message }} />}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Campo etiqueta="Horas lectivas" obligatorio error={errors.horasLectivas?.message} ayuda="Debe ser mayor que 0.">
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Campo etiqueta="Horas lectivas" obligatorio error={errors.horasLectivas?.message}>
               <Entrada type="number" inputMode="decimal" min="0" step="any" placeholder="Ej.: 24" estado={estado('horasLectivas')} {...register('horasLectivas', { valueAsNumber: true })} />
             </Campo>
             <Campo etiqueta="Cupos" obligatorio error={errors.cupos?.message}>
               <Entrada type="number" inputMode="numeric" min="1" step="1" placeholder="Ej.: 30" estado={estado('cupos')} {...register('cupos', { valueAsNumber: true })} />
             </Campo>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Campo etiqueta="Tipo de certificado" obligatorio error={errors.tipoCertificado?.message}>
-              <Selector estado={estado('tipoCertificado')} {...register('tipoCertificado')}>
-                {Object.entries(CERTIFICADOS_CURSO).map(([valor, texto]) => (
-                  <option key={valor} value={valor}>
-                    {texto}
-                  </option>
-                ))}
-              </Selector>
-            </Campo>
-            <Campo etiqueta="Nota mínima" obligatorio error={errors.notaMinima?.message} ayuda="Escala de 0 a 20. Si no la cambias, se usa 14.">
+            <Campo etiqueta="Nota mínima" error={errors.notaMinima?.message}>
               <Entrada type="number" inputMode="decimal" min="0" max="20" step="any" estado={estado('notaMinima')} {...register('notaMinima', { valueAsNumber: true })} />
             </Campo>
           </div>
+          <Campo etiqueta="Tipo de certificado" obligatorio error={errors.tipoCertificado?.message}>
+            <Selector estado={estado('tipoCertificado')} {...register('tipoCertificado')}>
+              {Object.entries(CERTIFICADOS_CURSO).map(([valor, texto]) => (
+                <option key={valor} value={valor}>
+                  {texto}
+                </option>
+              ))}
+            </Selector>
+          </Campo>
+          <AvisoInfo titulo="La modalidad (presencial, virtual o híbrido) se calcula sola">Se define en cada sesión, en «Programar sesión».</AvisoInfo>
         </fieldset>
+
+        {!curso && (
+          <fieldset disabled={guardar.isPending} className={cn(tarjeta, 'min-w-0 gap-4')}>
+            <h2 className="font-serif text-xl leading-7 font-bold text-ink">Cobro</h2>
+            <CobroCursoFormulario
+              valor={cobro}
+              alCambiar={(valor) => {
+                cambiarCobro(valor)
+                if (Object.keys(erroresCobro).length) cambiarErroresCobro(validarCobro(valor))
+              }}
+              errores={erroresCobro}
+            />
+          </fieldset>
+        )}
       </form>
+
+      {curso && <EditarCobroCurso key={`${curso.id}-${curso.versionCobro}`} curso={curso} />}
 
       <Modulos
         curso={curso}
@@ -375,7 +411,7 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
 
       {curso && <SesionesCurso curso={curso} />}
 
-      <div className="flex flex-wrap justify-end gap-3">
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
         {/* 2.3 → 2.4: el curso publicado se cierra para emitir los certificados */}
         {publicado && (
           <Link to={`/admin/cursos/${curso.id}/cerrar`} className={enlaceSecundario}>
@@ -387,11 +423,11 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
             Ver certificados
           </Link>
         )}
-        <Boton variante="secundario" onClick={() => navegar('/cursos')}>
+        <Boton variante="secundario" onClick={() => navegar('/cursos')} className="h-12 bg-transparent text-base text-brand ring-0 hover:bg-brand-soft sm:h-10 sm:text-sm">
           Cancelar
         </Boton>
         {!curso ? (
-          <Boton type="submit" form="formulario-curso" cargando={guardar.isPending}>
+          <Boton type="submit" form="formulario-curso" cargando={guardar.isPending} className="h-12 text-base sm:h-10 sm:text-sm">
             Guardar borrador
           </Boton>
         ) : publicado || cerrado ? (

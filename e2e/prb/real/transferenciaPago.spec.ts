@@ -4,6 +4,8 @@ import { test,expect } from '../../ayud/prueba'
 import { cuentaReal,cuentas } from '../../ayud/datos'
 import { entrar } from '../../ayud/sesion'
 import { entornoBackendReal } from '../../ayud/entornoReal'
+import { confirmarInscripcion } from '../../ayud/cobroInscripcion'
+import { declararTransferencia } from '../../ayud/pagoCurso'
 
 test('HU32/T25: sube voucher, descarga, rechaza y confirma una transferencia con API y BD reales',async({page,context})=>{
   test.setTimeout(90000)
@@ -19,27 +21,22 @@ test('HU32/T25: sube voucher, descarga, rechaza y confirma una transferencia con
   await entrar(participante,cuentas.part)
   await participante.goto(`/cursos/${curso.id}`)
   const alta=participante.waitForResponse(respuesta=>respuesta.url().endsWith(`/cursos/${curso.id}/inscribirme`))
-  await participante.getByRole('button',{name:'Inscribirme',exact:true}).click()
+  await confirmarInscripcion(participante,true)
   const {pagoId}=await (await alta).json() as {pagoId:string}
-  await expect(participante.getByRole('button',{name:'Pagar con Culqi'})).toHaveCount(0)
-  await expect(participante.getByText('BANCO FICTICIO E2E',{exact:true})).toBeVisible()
-  await participante.screenshot({path:test.info().outputPath('declararTransferencia.png'),fullPage:true})
+  await expect(participante).toHaveURL(`/cursos/${curso.id}/pagar`)
+  const motivo='No se encuentra el abono en la cuenta de pruebas.'
   for(const numero of [1,2]) {
     const referencia=`ABONO-E2E-${pagoId}-${numero}`
-    const formulario=participante.getByRole('form',{name:'Declarar transferencia bancaria'})
-    await expect(formulario).toBeVisible()
-    await formulario.getByRole('textbox',{name:'Referencia de la transferencia',exact:true}).fill(referencia)
-    await formulario.getByLabel('Fecha de la operación bancaria').fill('2026-01-01')
-    await formulario.getByLabel('Voucher (JPG, PNG o PDF)').setInputFiles({name:'voucher-prueba.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=','base64')})
-    await formulario.getByRole('checkbox',{name:/Ya realicé la transferencia/}).check()
-    const declaracion=participante.waitForResponse(respuesta=>respuesta.request().method()==='POST'&&respuesta.url().endsWith(`/pagos/${pagoId}/transferencias`))
-    await formulario.getByRole('button',{name:'Declarar transferencia',exact:true}).click()
-    expect((await declaracion).status()).toBe(201)
-    await expect(participante.getByRole('status').filter({hasText:`Transferencia ${referencia} · En revisión`})).toBeVisible()
-    await participante.reload()
-    await expect(participante.getByRole('button',{name:'Pagar con Izipay'})).toBeDisabled()
+    await participante.goto(`/cursos/${curso.id}/pagar`)
+    // S3 7.1: tras un rechazo, la pantalla de pago muestra el motivo antes de subir otro voucher
+    if(numero===2) await expect(participante.getByText(motivo,{exact:true})).toBeVisible()
+    await declararTransferencia(participante,pagoId,referencia,async()=>{
+      await expect(participante.getByText(/BANCO FICTICIO E2E/).first()).toBeVisible()
+      await participante.screenshot({path:test.info().outputPath(`declararTransferencia-${numero}.png`),fullPage:true})
+    })
+    await participante.goto(`/cursos/${curso.id}`)
     await expect(participante.getByRole('heading',{name:'1. Contenido tras transferencia'})).toHaveCount(0)
-    await page.goto(`/admin/pagos?pago=${pagoId}`)
+    await page.goto(`/admin/pagos/conciliar?pago=${pagoId}`)
     const revision=page.getByRole('region',{name:`Transferencia ${referencia}`,exact:true})
     await expect(revision.getByText('BANCO FICTICIO E2E',{exact:false})).toBeVisible()
     const descarga=page.waitForEvent('download')
@@ -47,10 +44,9 @@ test('HU32/T25: sube voucher, descarga, rechaza y confirma una transferencia con
     expect((await descarga).suggestedFilename()).toBe('voucher.png')
     expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
     if(numero===1) {
-      await revision.getByLabel('Motivo del rechazo').fill('No se encuentra el abono en la cuenta de pruebas.')
+      await revision.getByLabel('Motivo del rechazo').fill(motivo)
       await revision.getByRole('button',{name:'Rechazar transferencia',exact:true}).click()
       await expect(revision.getByRole('status')).toContainText('Transferencia rechazada')
-      await expect(participante.getByText('No se encuentra el abono en la cuenta de pruebas.',{exact:true})).toBeVisible({timeout:10000})
     } else {
       await expect(revision.getByRole('button',{name:'Confirmar abono bancario'})).toBeDisabled()
       await revision.getByLabel('Importe abonado (S/)').fill('30.50')
@@ -63,7 +59,9 @@ test('HU32/T25: sube voucher, descarga, rechaza y confirma una transferencia con
       await expect(page.getByText(/Comprobante de pago · Correo pendiente de envío/)).toBeVisible()
     }
   }
-  await expect(participante.getByRole('heading',{name:'Pago confirmado',exact:true})).toBeVisible({timeout:10000})
+  await participante.goto(`/cursos/${curso.id}/pagar`)
+  await expect(participante.getByRole('heading',{name:'¡Pago confirmado!',exact:true})).toBeVisible({timeout:10000})
+  await participante.getByRole('link',{name:'Ir al curso',exact:true}).click()
   await expect(participante.getByRole('heading',{name:'1. Contenido tras transferencia'})).toBeVisible()
   for(const ancho of [320,768,1024,1440]) {
     await participante.setViewportSize({width:ancho,height:900})
