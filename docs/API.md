@@ -445,3 +445,22 @@ Simulación en `frontend/src/mocks/cursos.ts`; prueba en `mocks/cursosS3.test.ts
 - No incluye `modulos`, material, `miInscripcion` ni `estado`.
 - «Inscribirme» sin sesión lleva a `/login?curso=:id`; al entrar se vuelve a `/cursos/:id`
   (mismo flujo de HU-22). El botón «Iniciar sesión» del encabezado también conserva el curso.
+
+## SCRUM-208 — Sala de espera y controles del anfitrión (HU-26, Figma S3 9.1–9.4)
+
+La sala (`/reuniones/:identificador`) usa las rutas de HU-26 ya existentes. Cambios pedidos:
+
+| Método y ruta | Cambio |
+|---|---|
+| `POST /api/reuniones/:id/participantes/:usuario/retirar` | Cuerpo opcional `{ motivo?: string ≤ 300 }`. Guardarlo en la auditoría junto a `retiradoEn` (hoy el backend lo ignora sin fallar) |
+| `POST /api/reuniones/:id/credencial` | Para quien no está inscrito o no tiene acceso, responder `403` (o `404` si la reunión no existe): el frontend muestra «No puedes entrar a esta sala» |
+| `PATCH /api/reuniones/:id/politicas` | El interruptor «Levantar la mano» del panel de permisos lo usa en plena sesión con `manoPermitida`; debe aceptarse con la reunión `iniciada` |
+
+Lo resuelve el frontend con Jitsi, sin backend: admitir y rechazar desde la sala de espera,
+«Admitir a todos» (solo inscritos vigentes), silenciar a una persona o a todos, «Dar la palabra»
+(moderación de audio), y los permisos de pantalla, micrófono y cámara en la llamada.
+Al ser retirado (`KICKED`) o no admitido, el colegiado ve su pantalla final.
+
+**Pendiente de definir:** el interruptor «Usar el chat» del Figma y el contador «REC 00:42:10»
+necesitan soporte del servidor (permiso de chat y estado real de la grabación); por ahora la
+sala muestra «REC» cuando la grabación está anunciada y no ofrece apagar el chat.

@@ -25,6 +25,8 @@ export type ObservadoresSala = {
   espera?: (enEspera: boolean) => void
   /** Moderador: solicitudes de la sala de espera con la identidad del JWT. */
   solicitudesEspera?: (solicitudes: SolicitudEspera[]) => void
+  /** Colegiado: el instructor lo retiró (KICKED) o no lo admitió desde la sala de espera (S3 9.1). */
+  fin?: (motivo: 'retirado' | 'rechazado') => void
   /** Moderador: el vigilante expulsó a alguien por compartir pantalla sin autorización. */
   infraccion?: (infraccion: { participanteIdentificador: string; usuarioIdentificador?: string }) => void
 }
@@ -315,7 +317,7 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
         expulsado = true
         conectada = false
         publicarEstado()
-        if (!cerrada) informar('El instructor no te admitió en esta sesión.')
+        if (!cerrada) { informar('El instructor no te admitió en esta sesión.'); observadores.fin?.('rechazado') }
         return
       }
       desconectada()
@@ -324,7 +326,7 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
       expulsado = true
       conectada = false
       publicarEstado()
-      if (!cerrada) informar('El instructor te retiró de la sesión.')
+      if (!cerrada) { informar('El instructor te retiró de la sesión.'); observadores.fin?.('retirado') }
     })
     conferencia.on(eventos.LOBBY_USER_JOINED, (identificador: string, nombre?: string) => { solicitudes.set(identificador, { identificador, nombre: nombre || 'Participante' }); publicarSolicitudes() })
     conferencia.on(eventos.LOBBY_USER_UPDATED, (identificador: string, datos?: { name?: string }) => {
@@ -432,6 +434,15 @@ export async function conectarSala(credencial: CredencialReunion, contenedor: HT
       const admitidas = listarSolicitudes().filter(solicitud => solicitud.usuarioIdentificador && permitidos.has(solicitud.usuarioIdentificador))
       for (const solicitud of admitidas) conferencia!.lobbyApproveAccess(solicitud.identificador)
       return admitidas.length
+    },
+    /** S3 9.3 «Silenciar micrófono»: apaga el micrófono de una conexión; para volver a hablar necesita la palabra. */
+    silenciar: (identificador: string) => { exigirModeradorSala(); conferencia!.muteParticipant(identificador, 'audio') },
+    /** S3 9.3 «Silenciar a todos»: apaga el micrófono de todas las conexiones remotas. */
+    silenciarTodos: () => {
+      exigirModeradorSala()
+      const remotas = conferencia!.getParticipants().filter(persona => !persona.isAudioMuted())
+      for (const persona of remotas) conferencia!.muteParticipant(persona.getId(), 'audio')
+      return remotas.length
     },
     /** Expulsa todas las conexiones de la cuenta y rechaza sus solicitudes de reingreso. */
     expulsar: (usuarioIdentificador: string) => {
