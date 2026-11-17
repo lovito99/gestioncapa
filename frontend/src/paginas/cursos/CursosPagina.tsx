@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type InputHTMLAttributes } from 'react'
-import { Calendar, ChevronRight, Search, User } from 'lucide-react'
+import { Calendar, ChevronRight, Clock, Filter, Search, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/auth/useAuth'
@@ -11,7 +11,9 @@ import { mensajeDeError } from '@/lib/api'
 import { accesoConCurso } from '@/lib/retornoCurso'
 import { cursos, type Curso, type CursoPublico } from '@/servicios/cursos'
 import { condicionesCobro, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
-import { DatoCurso, EtiquetasCurso } from './presentacion'
+import { BotonCompartir } from './CompartirCurso'
+import { EtiquetaCobro, EtiquetaModalidad, EtiquetaSinCupos, FilaDato, PortadaCurso, PreciosCurso } from './piezasCurso'
+import { TEXTO_COBRO } from './reglasCurso'
 
 export function FechasCurso({ curso }: { curso: Pick<Curso, 'fechaInicio' | 'fechaFin'> }) {
   const fecha = (valor: string) => valor.split('-').reverse().join('/')
@@ -55,13 +57,15 @@ export function CatalogoPagina({ publico = false }: { publico?: boolean }) {
   const buscar = parametros.get('buscar') ?? ''
   const modalidad = parametros.get('modalidad') ?? ''
   const categoria = parametros.get('categoria') ?? ''
+  const cobro = parametros.get('cobro') ?? ''
   const numero = Number(parametros.get('pagina') ?? 1)
   const pagina = Number.isInteger(numero) && numero > 0 && numero <= 100000 ? numero : 1
   const tamanoPagina = 6
   const [texto, cambiarTexto] = useState(buscar)
+  const [masFiltros, cambiarMasFiltros] = useState(!!categoria)
   useEffect(() => cambiarTexto(buscar), [buscar])
-  const consulta = useQuery({ queryKey: ['cursos', publico ? 'publico' : 'catalogo', usuario?.id, buscar, modalidad, categoria, pagina],
-    queryFn: () => (publico ? cursos.publico : cursos.catalogo)({ buscar, ...(modalidad ? { modalidad } : {}), ...(categoria ? { categoria } : {}), pagina, tamanoPagina }) })
+  const consulta = useQuery({ queryKey: ['cursos', publico ? 'publico' : 'catalogo', usuario?.id, buscar, modalidad, categoria, cobro, pagina],
+    queryFn: () => (publico ? cursos.publico : cursos.catalogo)({ buscar, ...(modalidad ? { modalidad } : {}), ...(categoria ? { categoria } : {}), ...(cobro ? { cobro } : {}), pagina, tamanoPagina }) })
   const actualizar = (campo: string, valor: string) => {
     const siguientes = new URLSearchParams(parametros)
     if (valor) siguientes.set(campo, valor); else siguientes.delete(campo)
@@ -69,77 +73,97 @@ export function CatalogoPagina({ publico = false }: { publico?: boolean }) {
   }
   const buscarCurso = (evento: FormEvent) => { evento.preventDefault(); actualizar('buscar', texto.trim()) }
   const irPagina = (valor: number) => { const siguientes = new URLSearchParams(parametros); siguientes.set('pagina', String(valor)); cambiarParametros(siguientes) }
-  const hayFiltros = !!(buscar || modalidad || categoria)
-  return <div className="mx-auto flex max-w-240 flex-col gap-4 px-4 pt-6 pb-8 wrap-anywhere sm:pt-10">
-    <h1 className="text-[22px] font-bold text-ink">Catálogo de cursos</h1>
-    <p className="text-sm text-muted">Cursos publicados del CPPP Región Cusco.</p>
+  const hayFiltros = !!(buscar || modalidad || categoria || cobro)
+  const selector = 'sm:h-12 sm:text-base'
+  const campoCategoria = <Campo etiqueta="Categoría"><Selector className={selector} value={categoria} onChange={e => actualizar('categoria', e.target.value)}><option value="">Todas</option>{[...new Set([...(consulta.data?.categorias ?? []), ...(categoria ? [categoria] : [])])].map(c => <option key={c} value={c}>{c}</option>)}</Selector></Campo>
+  return <div className="mx-auto flex max-w-300 flex-col gap-4 px-4 pt-4 pb-8 wrap-anywhere sm:px-10 sm:pt-10">
+    <div className="flex flex-col gap-1">
+      <h1 className="font-serif text-xl leading-7 font-bold text-ink sm:text-2xl sm:leading-8">Catálogo de cursos</h1>
+      <p className="text-sm leading-5 text-muted">Cursos publicados del CPPP Región Cusco. Toca una tarjeta para ver el detalle.</p>
+    </div>
     {publico && <p className="text-sm"><Link className="text-brand underline" to="/login">Inicia sesión</Link> para consultar el detalle e inscribirte.</p>}
-    <form onSubmit={buscarCurso} role="search" className="flex flex-col gap-4">
+    <form onSubmit={buscarCurso} role="search" className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_10rem_10rem_10rem] lg:items-end">
       <Campo etiqueta="Buscar curso">
         <EntradaBusqueda value={texto} onChange={e => cambiarTexto(e.target.value)} />
       </Campo>
-      <div className="grid grid-cols-2 gap-3">
-        <Campo etiqueta="Modalidad"><Selector className="sm:h-12 sm:text-base" value={modalidad} onChange={e => actualizar('modalidad', e.target.value)}><option value="">Todas</option>{Object.entries(ETIQUETA_MODALIDAD).map(([valor, nombre]) => <option value={valor} key={valor}>{nombre}</option>)}</Selector></Campo>
-        <Campo etiqueta="Categoría"><Selector className="sm:h-12 sm:text-base" value={categoria} onChange={e => actualizar('categoria', e.target.value)}><option value="">Todas</option>{[...new Set([...(consulta.data?.categorias ?? []), ...(categoria ? [categoria] : [])])].map(c => <option key={c} value={c}>{c}</option>)}</Selector></Campo>
+      <div className="flex items-end gap-3 lg:contents">
+        <Campo etiqueta="Modalidad" className="min-w-0 flex-1"><Selector className={selector} value={modalidad} onChange={e => actualizar('modalidad', e.target.value)}><option value="">Todas</option>{Object.entries(ETIQUETA_MODALIDAD).map(([valor, nombre]) => <option value={valor} key={valor}>{nombre}</option>)}</Selector></Campo>
+        <Campo etiqueta="Cobro" className="min-w-0 flex-1"><Selector className={selector} value={cobro} onChange={e => actualizar('cobro', e.target.value)}><option value="">Todos</option>{Object.entries(TEXTO_COBRO).map(([valor, nombre]) => <option value={valor} key={valor}>{nombre}</option>)}</Selector></Campo>
+        <button type="button" aria-expanded={masFiltros} aria-controls="mas-filtros" aria-label={masFiltros ? 'Ocultar más filtros' : 'Más filtros'} onClick={() => cambiarMasFiltros(v => !v)}
+          className={`flex size-12 shrink-0 items-center justify-center rounded-lg ring-1 ring-muted-3 ring-inset hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-brand lg:hidden ${masFiltros ? 'bg-brand-soft text-brand' : 'bg-white text-ink'}`}>
+          <Filter className="size-5" aria-hidden />
+        </button>
+        <div className="hidden lg:block">{campoCategoria}</div>
       </div>
+      {masFiltros && <div id="mas-filtros" className="lg:hidden">{campoCategoria}</div>}
     </form>
     {consulta.isPending ? <Cargando texto="Buscando cursos…" /> : consulta.isError ? <ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar el catálogo.')} onReintentar={consulta.refetch} /> : <>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p role="status" className="text-sm text-muted">{consulta.data.items.length
+        <p role="status" className="text-sm leading-5 text-muted">{consulta.data.items.length
           ? `Mostrando ${(pagina - 1) * tamanoPagina + 1}–${(pagina - 1) * tamanoPagina + consulta.data.items.length} de ${consulta.data.total} ${consulta.data.total === 1 ? 'curso' : 'cursos'}`
           : 'No hay cursos que coincidan. Cambia la búsqueda o limpia los filtros.'}</p>
         {hayFiltros && <button type="button" className="text-sm font-semibold text-brand hover:underline" onClick={() => { cambiarTexto(''); cambiarParametros({}) }}>Limpiar filtros</button>}
       </div>
-      {consulta.data.items.length > 0 && <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4">{consulta.data.items.map(curso => <li key={curso.id} className="min-w-0"><TarjetaCatalogo curso={curso} publico={publico} /></li>)}</ul>}
+      {consulta.data.items.length > 0 && <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">{consulta.data.items.map(curso => <li key={curso.id} className="min-w-0"><TarjetaCatalogo curso={curso} publico={publico} /></li>)}</ul>}
       {pagina > consulta.data.totalPaginas && consulta.data.total > 0 && <Boton variante="secundario" onClick={() => irPagina(1)}>Volver a la primera página</Boton>}
-      {consulta.data.totalPaginas > 0 && <nav aria-label="Paginación de cursos" className="flex items-center justify-between gap-3 sm:justify-center sm:gap-6">
-        <Boton variante="secundario" disabled={pagina <= 1} onClick={() => irPagina(pagina - 1)}>‹ Anterior</Boton>
-        <span className="text-sm font-medium text-ink">Página {pagina} de {consulta.data.totalPaginas}</span>
-        <Boton variante="secundario" disabled={pagina >= consulta.data.totalPaginas} onClick={() => irPagina(pagina + 1)}>Siguiente ›</Boton>
+      {consulta.data.totalPaginas > 0 && <nav aria-label="Paginación de cursos" className="flex items-center justify-center gap-2 sm:gap-6">
+        <Boton variante="secundario" className="h-12 text-base sm:h-10 sm:text-sm" disabled={pagina <= 1} onClick={() => irPagina(pagina - 1)}>‹ Anterior</Boton>
+        <span className="text-sm leading-5 text-muted">Página {pagina} de {consulta.data.totalPaginas}</span>
+        <Boton variante="secundario" className="h-12 text-base text-brand ring-brand sm:h-10 sm:text-sm" disabled={pagina >= consulta.data.totalPaginas} onClick={() => irPagina(pagina + 1)}>Siguiente ›</Boton>
       </nav>}
     </>}
   </div>
 }
 
-/** Buscador con la lupa dentro del campo; la lupa también envía la búsqueda. */
+/** Buscador con la lupa dentro del campo, a la izquierda como en el Figma S3 3.1. */
 function EntradaBusqueda(props: InputHTMLAttributes<HTMLInputElement>) {
   return <div className="relative">
-    <Entrada {...props} type="search" maxLength={160} placeholder="Escribe el nombre del curso" className="pr-12 sm:h-12 sm:text-base" />
-    <button type="submit" aria-label="Buscar" className="absolute top-1/2 right-1.5 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-light">
-      <Search className="size-4" aria-hidden />
+    <Entrada {...props} type="search" maxLength={160} placeholder="Escribe el nombre del curso" className="pl-10 sm:h-12 sm:text-base" />
+    {/* La lupa del Figma también envía la búsqueda */}
+    <button type="submit" aria-label="Buscar" className="absolute top-1/2 left-1 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-light">
+      <Search className="size-4.5" aria-hidden />
     </button>
   </div>
 }
 
-/** Conserva el enlace de título y presenta una acción de inscripción independiente. */
+/**
+ * S3 3.1 · Tarjeta del catálogo: portada 16:9, modalidad, compartir, cobro, datos y precios.
+ * Toda la tarjeta lleva al curso; el botón «Compartir» queda por encima del enlace.
+ */
 function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?: boolean }; publico: boolean }) {
   const { usuario } = useAuth()
-  // El enlace se anuncia solo con el título, no con todo el texto de la tarjeta
   const idTitulo = `curso-${curso.id}-titulo`
-  const destino=publico&&!usuario?accesoConCurso('/login',curso.id):`/cursos/${curso.id}`
-  const estilo="flex h-full flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)] hover:border-brand/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-  const contenido=<>
-    <div className="flex items-center gap-2">
-      <h2 id={idTitulo} className="min-w-0 flex-1 text-base font-semibold text-ink">{curso.titulo}</h2>
-      <ChevronRight className="size-5 shrink-0 text-muted" aria-hidden />
-    </div>
-    <EtiquetasCurso curso={curso} />
-    <p className="text-sm text-muted">{curso.descripcion || 'Sin descripción disponible.'}</p>
-    <div className="mt-auto flex flex-col gap-1.5 border-t border-line pt-2.5">
-      <p className="flex items-center gap-2 text-sm text-muted"><User className="size-4 shrink-0 text-brand" aria-hidden />Instructor: {curso.instructorNombre}</p>
-      <p className="flex items-center gap-2 text-sm text-muted"><Calendar className="size-4 shrink-0 text-brand" aria-hidden />{fechasCurso(curso)}</p>
+  const destino = publico && !usuario ? accesoConCurso('/login', curso.id) : `/cursos/${curso.id}`
+  const sinCupos = curso.cuposDisponibles === 0
+  return <article className="relative flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white transition-shadow has-[a:hover]:border-brand has-[a:hover]:shadow-[0_4px_12px_rgba(100,20,43,0.12)] has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-brand">
+    <PortadaCurso curso={curso}>
+      <span className="absolute top-3 left-3"><EtiquetaModalidad modalidad={curso.modalidad} /></span>
+      <span className="absolute top-3 right-3 z-10"><BotonCompartir curso={curso} /></span>
+      {sinCupos && <span className="absolute bottom-3 left-3"><EtiquetaSinCupos /></span>}
+    </PortadaCurso>
+    <div className="flex flex-1 flex-col gap-2.5 p-4">
+      <div className="flex items-start gap-2">
+        <h2 id={idTitulo} className="min-w-0 flex-1 text-base leading-6 font-semibold text-ink">
+          <Link to={destino} className="outline-none after:absolute after:inset-0">{curso.titulo}</Link>
+        </h2>
+        <ChevronRight className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden />
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        <EtiquetaCobro curso={curso} />
+        {curso.inscrito && <span className="inline-flex items-center rounded-md bg-success-soft px-2 py-0.5 text-xs leading-4 font-medium text-success">Inscrito(a)</span>}
+      </div>
       <dl className="flex flex-col gap-1.5">
-        <DatoCurso termino="Horas">{curso.horasLectivas} horas lectivas</DatoCurso>
-        <DatoCurso termino="Cobro">{condicionesCobro(curso)}</DatoCurso>
-        <DatoCurso termino="Cupos" alerta={curso.cuposDisponibles === 0}>{cuposCurso(curso)}</DatoCurso>
+        <FilaDato icono={Calendar} etiqueta="Fechas">{fechasCurso(curso)}</FilaDato>
+        <FilaDato icono={Clock} etiqueta="Horas">{curso.horasLectivas} horas lectivas</FilaDato>
+        <FilaDato icono={Users} etiqueta="Cupos" alerta={sinCupos}>{cuposCurso(curso)}</FilaDato>
       </dl>
+      <div className="mt-auto border-t border-line pt-2.5">
+        <PreciosCurso curso={curso} />
+      </div>
+      {/* Sin sesión, la tarjeta ofrece además la acción de inscribirse (HU-22) */}
+      {publico && (sinCupos
+        ? <p className="relative rounded-lg bg-surface-2 px-4 py-2 text-center text-sm font-semibold text-muted">Sin cupos</p>
+        : <Link to={destino} aria-label={`Inscribirme en ${curso.titulo}`} className="relative z-10 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Inscribirme</Link>)}
     </div>
-  </>
-  if(!publico) return <Link to={destino} aria-labelledby={idTitulo} className={estilo}>{contenido}</Link>
-  return <article className={estilo}>
-    <Link to={destino} aria-labelledby={idTitulo} className="flex flex-1 flex-col gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">{contenido}</Link>
-    {curso.cuposDisponibles>0
-      ? <Link to={destino} aria-label={`Inscribirme en ${curso.titulo}`} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Inscribirme</Link>
-      : <p className="rounded-lg bg-surface-2 px-4 py-2 text-center text-sm font-semibold text-muted">Sin cupos</p>}
   </article>
 }

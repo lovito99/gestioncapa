@@ -1,12 +1,10 @@
-import { SesionesCurso } from './SesionesCurso'
-import { FechasCurso } from './CursosPagina'
-import { condicionesCobro, ETIQUETA_MODALIDAD } from './formatoCurso'
-import { PagoCurso } from './PagoCurso'
+import { Award, Calendar, Clock, MapPin, UserRound, Users, Video } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '@/auth/useAuth'
-import { Alerta } from '@/components/ui/Alerta'
+import { Aviso } from '@/components/ui/Aviso'
 import { Boton } from '@/components/ui/Boton'
 import { Campo } from '@/components/ui/Campo'
 import { Entrada, Selector } from '@/components/ui/Entrada'
@@ -14,62 +12,171 @@ import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { EtiquetaEstadoCurso } from '@/components/ui/Etiqueta'
 import { mensajeDeError } from '@/lib/api'
-import { cursos, leerPdfBase64 as leerPdf, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
+import { fechaConAnio, hora12 } from '@/lib/formato'
+import { cursos, leerPdfBase64 as leerPdf, type DetalleCurso, type MaterialEntrada, type ModuloCurso, type SesionCurso } from '@/servicios/cursos'
+import { BotonCompartir } from './CompartirCurso'
+import { ConfirmarInscripcion } from './ConfirmarInscripcion'
+import { cuposCurso, fechasCurso } from './formatoCurso'
+import { PagoCurso } from './PagoCurso'
+import { EtiquetaCategoria, EtiquetaCobro, EtiquetaModalidad, EtiquetaModalidadSesion, FilaDato, PortadaCurso, PreciosCurso } from './piezasCurso'
+import { modalidadCobroDe, precioPara, soles, textoPlazo } from './reglasCurso'
+import { SesionesCurso } from './SesionesCurso'
 
 export function DetalleCursoPagina() {
   const { id = '' } = useParams()
   const { usuario } = useAuth()
   const cache = useQueryClient()
+  const navegar = useNavigate()
+  const [confirmando, cambiarConfirmando] = useState(false)
   const consulta = useQuery({ queryKey: ['curso', id], queryFn: () => cursos.obtener(id),
     refetchInterval:query=>query.state.data?.miInscripcion?.estadoEntrega==='RETENIDA' && query.state.data.miInscripcion.estadoFinanciero==='PAGADO'?3000:false })
-  const inscripcion = useMutation({ mutationFn: () => cursos.inscribirme(id,consulta.data?.versionCobro), onSuccess: async () => {
+  const inscripcion = useMutation({ mutationFn: () => cursos.inscribirme(id,consulta.data?.versionCobro), onSuccess: async (resultado) => {
     await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] }), cache.invalidateQueries({ queryKey: ['historial'] }), cache.invalidateQueries({ queryKey: ['participante', 'clases'] })])
+    cambiarConfirmando(false)
+    if (resultado.estado === 'PENDIENTE_PAGO') navegar(`/cursos/${id}/pagar`)
+    else toast.success('Inscripción confirmada. Ya puedes ver el curso.')
   }, onError: async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] })]) } })
   const publicar = useMutation({ mutationFn: () => cursos.publicar(id), onSuccess: async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] })]) } })
   if (consulta.isPending) return <Cargando texto="Cargando curso…" />
   if (consulta.isError) return <ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar el curso.')} onReintentar={consulta.refetch} />
   const curso = consulta.data
-  const pendiente = curso.estadoInscripcion === 'PENDIENTE_PAGO'
   const gestion = usuario?.rol === 'ADMIN' || usuario?.rol === 'INSTRUCTOR'
+  const agremiado = usuario?.rol === 'AGREMIADO'
   const puedeAgregar = usuario?.rol === 'INSTRUCTOR' && usuario.id === curso.instructorId
-  return <div className="mx-auto max-w-240 space-y-5 px-4 py-6 wrap-anywhere">
+  const sesiones = curso.sesiones.filter(s => s.estado === 'PROGRAMADA')
+
+  return <div className="mx-auto flex max-w-300 flex-col gap-4 px-4 pt-4 pb-8 wrap-anywhere sm:px-10 sm:pt-10">
     <EnlaceVolver to={gestion ? '/cursos' : '/catalogo'}>{gestion ? 'Volver a mis cursos' : 'Volver al catálogo'}</EnlaceVolver>
-    <header className="space-y-2 rounded-xl border border-line bg-white p-5">
-      <EtiquetaEstadoCurso estado={curso.estado} />
-      <h1 className="text-2xl font-semibold">{curso.titulo}</h1>
-      <p className="whitespace-pre-wrap">{curso.descripcion}</p>
-      <dl className="grid gap-3 py-3 text-sm sm:grid-cols-2">
-        <div><dt className="font-semibold">Instructor</dt><dd>{curso.instructorNombre}</dd></div>
-        <div><dt className="font-semibold">Horas lectivas</dt><dd>{curso.horasLectivas}</dd></div>
-        <div><dt className="font-semibold">Modalidad</dt><dd>{ETIQUETA_MODALIDAD[curso.modalidad]}</dd></div>
-        <div><dt className="font-semibold">Cobro</dt><dd>{condicionesCobro(curso)}</dd></div>
-        <div><dt className="font-semibold">Cupos disponibles</dt><dd>{curso.cuposDisponibles === 0 ? 'Sin cupos' : curso.cuposDisponibles}</dd></div>
-        <div><dt className="font-semibold">Categoría</dt><dd>{curso.categoria}</dd></div>
-        <div><dt className="font-semibold">Fechas</dt><dd><FechasCurso curso={curso} /></dd></div>
-        <div><dt className="font-semibold">Certificado</dt><dd>{curso.tipoCertificado === 'APROBACION' ? 'Aprobación' : 'Participación'}</dd></div>
-        <div><dt className="font-semibold">Nota mínima</dt><dd>{curso.notaMinima}</dd></div>
-      </dl>
-      {usuario?.rol === 'ADMIN' && curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()}>Publicar en catálogo</Boton>}
-      {usuario?.rol === 'AGREMIADO' && curso.estado === 'PUBLICADO' && <div className="space-y-2">
-        <Boton disabled={curso.inscrito || curso.cuposDisponibles === 0} cargando={inscripcion.isPending} onClick={() => inscripcion.mutate()}>{curso.inscrito ? pendiente ? 'Pendiente de pago' : 'Ya estás inscrito(a)' : curso.cuposDisponibles === 0 ? 'Sin cupos' : 'Inscribirme'}</Boton>
-        {pendiente ? <p role="status">Tu vacante está reservada. La inscripción está pendiente de pago y aún no está confirmada.</p> : inscripcion.isSuccess && <p role="status">Inscripción registrada y confirmada.</p>}
-        {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.')}</Alerta>}
-      </div>}
-      {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
-    </header>
-    {curso.miInscripcion && usuario?.rol==='AGREMIADO' && <section className="space-y-2 rounded-xl border border-line bg-white p-4" aria-label="Condiciones de mi inscripción">
-      <h2 className="font-semibold">Condiciones de tu inscripción</h2>
-      <p>{condicionesCobro({costo:curso.miInscripcion.importeCentimos/100,modalidadCobro:curso.miInscripcion.modalidadCobro,plazoPagoMinutos:curso.miInscripcion.plazoPagoMinutos})}</p>
-      {curso.miInscripcion.venceEn && <p>Plazo hasta el {new Date(curso.miInscripcion.venceEn).toLocaleString('es-PE',{timeZone:'America/Lima'})} (hora de Lima).</p>}
-      {curso.miInscripcion.estado==='CANCELADA' && <p role="status">Tu reserva venció y el cupo se liberó. Puedes solicitar otra inscripción si hay disponibilidad.</p>}
-      {curso.miInscripcion.estadoEntrega==='RETENIDA' && <p role="status">{curso.miInscripcion.estadoFinanciero==='PAGADO'?'Pago confirmado. Estamos preparando tu constancia.':'Constancia retenida: cumples los requisitos académicos y falta confirmar el pago.'}</p>}
-    </section>}
-    {usuario?.rol==='AGREMIADO' && curso.miInscripcion?.pagoId && <PagoCurso pagoId={curso.miInscripcion.pagoId} />}
-    <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO'} participante={usuario?.rol === 'AGREMIADO'} />
-    <h2 className="text-xl font-semibold">Módulos y material</h2>
-    {curso.accesoContenido===false && <p>El contenido estará disponible cuando tengas una inscripción confirmada.</p>}
-    <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
+    <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_21.25rem] lg:items-start lg:gap-8">
+      <div className="flex min-w-0 flex-col gap-5">
+        <PortadaCurso curso={curso} className="rounded-xl" />
+        <div className="flex flex-wrap gap-2">
+          <EtiquetaModalidad modalidad={curso.modalidad} />
+          <EtiquetaCobro curso={curso} />
+          <EtiquetaCategoria categoria={curso.categoria} />
+          {gestion && <EtiquetaEstadoCurso estado={curso.estado} />}
+        </div>
+        <div className="flex items-start gap-3">
+          <h1 className="min-w-0 flex-1 font-serif text-2xl leading-8 font-bold text-ink">{curso.titulo}</h1>
+          {curso.estado === 'PUBLICADO' && <>
+            <span className="sm:hidden"><BotonCompartir curso={curso} grande /></span>
+            <span className="hidden sm:inline-flex"><BotonCompartir curso={curso} conTexto /></span>
+          </>}
+        </div>
+        {curso.descripcion && <p className="text-base leading-6 whitespace-pre-wrap text-muted">{curso.descripcion}</p>}
+        <dl className="flex flex-col gap-2.5 rounded-xl border border-line bg-white p-5">
+          <FilaDato icono={UserRound} etiqueta="Instructor">{curso.instructorNombre}</FilaDato>
+          <FilaDato icono={Calendar} etiqueta="Fechas">{fechasCurso(curso)}</FilaDato>
+          <FilaDato icono={Clock} etiqueta="Horas">{curso.horasLectivas} horas lectivas</FilaDato>
+          <FilaDato icono={Users} etiqueta="Cupos" alerta={curso.cuposDisponibles === 0}>{cuposCurso(curso)}</FilaDato>
+          <FilaDato icono={Award} etiqueta="Certificado">
+            {curso.tipoCertificado === 'APROBACION' ? `Certificado de aprobación · nota mínima ${curso.notaMinima}` : 'Constancia de participación'} · asistencia mínima {curso.requisitoAsistencia} %
+          </FilaDato>
+        </dl>
+        <SesionesDetalle sesiones={sesiones} />
+      </div>
+
+      <aside className="flex flex-col gap-4 lg:sticky lg:top-32">
+        {agremiado && curso.estado === 'PUBLICADO' && <TarjetaInscripcion curso={curso} alInscribirme={() => { inscripcion.reset(); cambiarConfirmando(true) }} />}
+        {usuario?.rol === 'ADMIN' && <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-6">
+          <p className="text-xs leading-4 font-semibold text-brand">Gestión del curso</p>
+          <PreciosCurso curso={curso} />
+          {curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()} className="h-12 w-full text-base">Publicar en catálogo</Boton>}
+          <Link to={`/admin/cursos/${curso.id}/editar`} className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Editar curso</Link>
+          {publicar.isError && <p role="alert" className="text-sm text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
+        </div>}
+      </aside>
+    </div>
+
+    <ConfirmarInscripcion curso={curso} abierto={confirmando} onCerrar={() => cambiarConfirmando(false)} onConfirmar={() => inscripcion.mutate()}
+      confirmando={inscripcion.isPending} error={inscripcion.isError ? mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.') : undefined} />
+
+    {curso.miInscripcion && agremiado && curso.miInscripcion.estadoEntrega === 'RETENIDA' && <Aviso tipo="advertencia" titulo={curso.miInscripcion.estadoFinanciero === 'PAGADO' ? 'Pago confirmado' : 'Constancia retenida'}>
+      {curso.miInscripcion.estadoFinanciero === 'PAGADO' ? 'Estamos preparando tu constancia.' : 'Cumples los requisitos académicos y falta confirmar el pago de la constancia.'}
+    </Aviso>}
+    {agremiado && curso.miInscripcion?.pagoId && curso.estadoInscripcion !== 'PENDIENTE_PAGO' && <PagoCurso pagoId={curso.miInscripcion.pagoId} />}
+    {/* La asistencia, los requisitos y el material son para quien gestiona el curso o ya está inscrito */}
+    {(gestion || curso.inscrito) && <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO'} participante={agremiado} sinLista />}
+    {(gestion || (curso.inscrito && curso.accesoContenido !== false)) && <>
+      <h2 className="font-serif text-xl leading-7 font-bold text-ink">Módulos y material</h2>
+      <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
+    </>}
   </div>
+}
+
+/** S3 4.1 · Tarjeta «Tu precio» con el aviso del cobro y el botón «Inscribirme». */
+function TarjetaInscripcion({ curso, alInscribirme }: { curso: DetalleCurso; alInscribirme: () => void }) {
+  const cobro = modalidadCobroDe(curso)
+  const precio = precioPara(curso)
+  const pendiente = curso.estadoInscripcion === 'PENDIENTE_PAGO'
+  const sinCupos = curso.cuposDisponibles === 0
+  const plazo = curso.plazoPagoMinutos ? textoPlazo(curso.plazoPagoMinutos) : 'unos días'
+  return <section aria-label="Inscripción" className="flex flex-col gap-3.5 rounded-xl border border-line bg-white p-6">
+    {cobro === 'GRATUITO' ? <>
+      <p className="text-xs leading-4 font-semibold text-brand">Precio</p>
+      <p className="font-serif text-[28px] leading-9 font-bold text-success">Gratuito</p>
+    </> : <>
+      <p className="text-xs leading-4 font-semibold text-brand">{cobro === 'CERTIFICADO' ? 'Tu constancia' : 'Tu precio'}</p>
+      <p className="flex flex-wrap items-end gap-x-2">
+        <span className="font-serif text-[28px] leading-9 font-bold text-ink">{soles(precio.importe)}</span>
+        <span className="text-sm leading-5 text-muted">{precio.tipo === 'COLEGIADO' ? 'precio de colegiado' : 'precio general'}</span>
+      </p>
+      {precio.otro !== precio.importe && <p className="text-xs leading-4 text-muted">{precio.tipo === 'COLEGIADO' ? 'Precio general' : 'Precio de colegiado'}: {soles(precio.otro)}</p>}
+    </>}
+    {curso.inscrito ? (
+      pendiente ? <>
+        <Aviso tipo="advertencia" titulo="Inscripción pendiente de pago">Tu cupo está reservado. Paga antes de que venza el plazo para acceder al curso.</Aviso>
+        <Link to={`/cursos/${curso.id}/pagar`} className="inline-flex h-12 items-center justify-center rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink">Ir a pagar</Link>
+      </> : <Aviso tipo="exito" titulo="Ya estás inscrito(a)">Revisa las sesiones y el material del curso.</Aviso>
+    ) : <>
+      {cobro === 'PREVIO' && <Aviso tipo="advertencia" titulo="Pago antes de llevar el curso">Al inscribirte tendrás {plazo} para pagar. Mientras tanto no podrás ver el contenido ni registrar asistencia.</Aviso>}
+      {cobro === 'CERTIFICADO' && <Aviso titulo="Pagas solo el certificado">Llevas el curso gratis. Pagas la constancia al terminar, si cumples los requisitos.</Aviso>}
+      {cobro === 'GRATUITO' && <Aviso tipo="exito" titulo="Curso gratuito">Ni la inscripción ni la constancia requieren pago.</Aviso>}
+      <Boton onClick={alInscribirme} disabled={sinCupos} className="h-12 w-full text-base">{sinCupos ? 'Sin cupos' : 'Inscribirme'}</Boton>
+      {cobro !== 'GRATUITO' && <p className="text-xs leading-4 text-muted">Formas de pago: tarjeta o Yape (en línea), transferencia BCP o efectivo en la sede.</p>}
+    </>}
+  </section>
+}
+
+const MESES = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SET', 'OCT', 'NOV', 'DIC']
+
+/** S3 4.1 · Sesiones con su fecha, horario, modalidad y lugar. */
+function SesionesDetalle({ sesiones }: { sesiones: SesionCurso[] }) {
+  const virtuales = sesiones.filter(s => s.modalidad === 'VIRTUAL').length
+  const presenciales = sesiones.filter(s => s.modalidad === 'PRESENCIAL').length
+  const ambas = sesiones.length - virtuales - presenciales
+  const resumen = [virtuales && `${virtuales} ${virtuales === 1 ? 'virtual' : 'virtuales'}`, presenciales && `${presenciales} ${presenciales === 1 ? 'presencial' : 'presenciales'}`, ambas && `${ambas} ${ambas === 1 ? 'híbrida' : 'híbridas'}`].filter(Boolean)
+  return <section aria-labelledby="sesiones-detalle" className="flex flex-col rounded-xl border border-line bg-white p-5">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pb-1">
+      <h2 id="sesiones-detalle" className="flex-1 font-serif text-xl leading-7 font-bold text-ink">Sesiones</h2>
+      {sesiones.length > 0 && <p className="text-xs leading-4 text-muted">{sesiones.length} {sesiones.length === 1 ? 'sesión' : 'sesiones'} · {resumen.length > 1 ? `${resumen.slice(0, -1).join(', ')} y ${resumen.at(-1)}` : resumen[0]}</p>}
+    </div>
+    {sesiones.length === 0 ? <p className="border-t border-line pt-3 text-sm leading-5 text-muted">Aún no hay sesiones programadas.</p> :
+      <ol>{sesiones.map((s, i) => {
+        const [anio, mes, dia] = s.fecha.split('-').map(Number) as [number, number, number]
+        const semana = fechaConAnio(s.fecha).split(' ')[0]
+        const lugar = s.modalidad === 'VIRTUAL' ? 'Sala virtual del CPPP' : s.modalidad === 'AMBAS' ? `${s.lugar} y sala virtual` : s.lugar
+        return <li key={s.id} className="flex items-start gap-3 border-t border-line py-3">
+          <time dateTime={s.fecha} className="flex w-14 shrink-0 flex-col items-center rounded-lg bg-brand-soft px-2 py-1.5 text-center text-brand">
+            <span className="font-serif text-xl leading-7 font-bold">{dia}</span>
+            <span className="text-xs leading-4 font-semibold">{MESES[mes - 1]}</span>
+            <span className="sr-only">{anio}</span>
+          </time>
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm leading-5 font-semibold text-ink">{s.nombre.trim() || `Sesión ${i + 1}`} · {semana}</p>
+              <EtiquetaModalidadSesion modalidad={s.modalidad} />
+            </div>
+            <p className="text-sm leading-5 text-muted">{hora12(s.horaInicio)} – {hora12(s.horaFin)}</p>
+            <p className="flex items-start gap-1.5 text-xs leading-4 text-muted">
+              {s.modalidad === 'VIRTUAL' ? <Video className="mt-px size-3.5 shrink-0" aria-hidden /> : <MapPin className="mt-px size-3.5 shrink-0" aria-hidden />}
+              {lugar}
+            </p>
+            {s.modalidad !== 'PRESENCIAL' && s.reunion?.estado === 'iniciada' && <Link to={`/reuniones/${s.reunion.identificador}`} className="mt-1 inline-flex h-10 items-center self-start rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-ink">Entrar a la sala</Link>}
+          </div>
+        </li>
+      })}</ol>}
+  </section>
 }
 
 function Modulo({ cursoId, modulo, puedeAgregar }: { cursoId: string; modulo: ModuloCurso; puedeAgregar: boolean }) {

@@ -1,6 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 import { cuentas } from './datos'
 import { completarAcceso, entrar } from './sesion'
+import { confirmarInscripcion, elegirCobro } from './cobroInscripcion'
 
 export async function flujoCurso(page: Page, admin: Parameters<typeof entrar>[1]) {
   const titulo = `HU-13 Curso ${Date.now()}`
@@ -12,14 +13,12 @@ export async function flujoCurso(page: Page, admin: Parameters<typeof entrar>[1]
   await page.getByRole('textbox', { name: 'Nombre del curso' }).fill(titulo)
   await page.getByRole('textbox', { name: 'Descripción', exact: true }).fill('Curso de formación para colegiados.')
   await page.getByLabel('Categoría').selectOption('Educación')
-  await page.getByRole('combobox', { name:'Modalidad', exact:true }).selectOption('PRESENCIAL')
   await page.getByLabel('Instructor asignado').selectOption({ label: 'Carlos Mendoza Ríos' })
   await page.getByLabel('Fecha de inicio').fill('2031-03-02')
   await page.getByLabel('Fecha de fin').fill('2031-03-27')
   await page.getByLabel('Horas lectivas').fill('24')
-  await page.getByRole('combobox', { name:'Modalidad', exact:true }).selectOption('PRESENCIAL')
-  await page.getByRole('combobox', { name:'Modalidad de cobro', exact:true }).selectOption('CERTIFICADO')
-  await page.getByLabel('Importe de la constancia (S/)').fill('150.50')
+  // S3 2.1: la modalidad se calcula por las sesiones; el cobro se elige con tarjetas
+  await elegirCobro(page, 'CERTIFICADO', 150.5)
   await page.getByLabel('Cupos').fill('30')
   await page.getByLabel('Tipo de certificado').selectOption('APROBACION')
   for (const [numero, nombre] of [['1', 'Práctica'], ['2', 'Introducción']]) {
@@ -36,7 +35,7 @@ export async function flujoCurso(page: Page, admin: Parameters<typeof entrar>[1]
   await page.getByRole('link', { name: titulo, exact: true }).click()
   await expect(page.getByRole('heading', { level: 1, name: titulo, exact: true })).toBeVisible()
   await expect(page.getByText('Borrador', { exact: true })).toBeVisible()
-  await expect(page.locator('dl > div').filter({ hasText: 'Nota mínima' })).toContainText('14')
+  await expect(page.locator('dl > div').filter({ hasText: 'Certificado' })).toContainText('nota mínima 14')
   await expect(page.getByRole('heading', { level: 3 })).toHaveText(['1. Introducción', '2. Práctica'])
   // El menú del administrador no tiene «Catálogo»; se navega dentro de la SPA porque recargar
   // reiniciaría los datos simulados en memoria.
@@ -51,19 +50,28 @@ export async function flujoCurso(page: Page, admin: Parameters<typeof entrar>[1]
   await page.getByRole('navigation', { name: 'Navegación principal' }).getByRole('link', { name: 'Cursos', exact: true }).click()
   await page.getByRole('link', { name: titulo, exact: true }).click()
   const fechaSesion = new Date(Date.UTC(2040, 0, 1) + Math.floor(Math.random() * 36500) * 86400000).toISOString().slice(0, 10)
-  await page.getByLabel('Nombre de la sesión').fill('Práctica en auditorio')
-  await page.getByLabel('Fecha de la sesión').fill(fechaSesion)
-  await page.getByLabel('Lugar de la sesión').fill('Auditorio CPPP')
-  await page.getByLabel('Hora de inicio de la sesión').fill('10:00')
-  await page.getByLabel('Hora de fin de la sesión').fill('09:00')
+  // S3 6.1: «Programar sesión» es una página propia con modalidad, lugar y encargado
+  await page.getByRole('link', { name: 'Programar sesión', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Programar sesión 1', exact: true })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Fecha', exact: true }).fill(fechaSesion)
+  await page.getByRole('textbox', { name: 'Hora de inicio', exact: true }).fill('10:00')
+  await page.getByRole('textbox', { name: 'Hora de fin', exact: true }).fill('09:00')
   await page.getByRole('button', { name: 'Guardar sesión', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText(/sesión|datos|fin/)
-  await page.getByLabel('Hora de fin de la sesión').fill('11:00')
+  await expect(page.getByRole('alert').filter({ hasText: 'Falta completar el lugar' })).toBeVisible()
+  await page.getByRole('combobox', { name: 'Sede', exact: true }).selectOption('Sede CPPP Cusco · Av. La Cultura 1112')
+  await page.getByRole('textbox', { name: 'Aula o referencia', exact: true }).fill('Auditorio CPPP')
   await page.getByRole('button', { name: 'Guardar sesión', exact: true }).click()
-  await expect(page.getByRole('status')).toContainText('Sesión programada.')
-  await expect(page.getByText('Práctica en auditorio', { exact: true })).toBeVisible()
-  await expect(page.getByText('Auditorio CPPP', { exact: true })).toBeVisible()
-  await expect(page.getByText('10:00–11:00 (hora de Lima)', { exact: false })).toBeVisible()
+  await expect(page.getByText('Debe ser posterior a la hora de inicio.', { exact: true })).toBeVisible()
+  await page.getByRole('textbox', { name: 'Hora de fin', exact: true }).fill('11:00')
+  await page.getByRole('button', { name: 'Guardar sesión', exact: true }).click()
+  // S3 6.3: vuelve a la lista de sesiones con su modalidad y lugar
+  await expect(page.getByText('Sesión programada.', { exact: true })).toBeVisible()
+  const sesionesCurso = page.getByRole('region', { name: 'Sesiones', exact: true })
+  await expect(sesionesCurso).toContainText('Sesión 1')
+  await expect(sesionesCurso).toContainText('Auditorio CPPP, Sede CPPP Cusco · Av. La Cultura 1112')
+  await expect(sesionesCurso.getByText('10:00 a. m. – 11:00 a. m.', { exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Volver a cursos', exact: true }).click()
+  await page.getByRole('link', { name: titulo, exact: true }).click()
   await page.getByRole('button', { name: 'Publicar en catálogo', exact: true }).click()
   await expect(page.getByText('Publicado', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Cerrar sesión', exact: true }).click()
@@ -95,9 +103,10 @@ export async function flujoCurso(page: Page, admin: Parameters<typeof entrar>[1]
   await expect(page.getByRole('heading', { level: 1, name: titulo, exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Guardar material', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Publicar en catálogo', exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Inscribirme', exact: true }).click()
+  await confirmarInscripcion(page, false)
   await expect(page.getByRole('button', { name: 'Descargar PDF: Guía PDF' })).toBeVisible()
-  await expect(page.getByText('Práctica en auditorio', { exact: true })).toBeVisible()
+  // S3 4.1: cada sesión muestra su nombre con el día («Sesión 1 · Lun.»)
+  await expect(page.getByRole('region', { name: 'Sesiones', exact: true })).toContainText('Sesión 1')
   await expect(page.getByText(/Tu asistencia: 0 de 1 sesiones/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Guardar sesión', exact: true })).toHaveCount(0)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

@@ -73,3 +73,21 @@ it('HU-36 demo: la modalidad por sesión clasifica el curso y el grabado no admi
   expect(intento.status).toBe(409)
   expect(intento.datos.code).toBe('CURSO_GRABADO')
 })
+
+it('SCRUM-202 demo: guarda sede, aula, encargado y reglas de la sala, y edita la sesión', async () => {
+  const id = await crear()
+  const sala = { grabacionPrevista: true, pantallaPermitida: false, microfonoPermitido: false, manoPermitida: true, porcentajeMinimo: 70 }
+  const nueva = { nombre: 'Sesión 1', fecha: '2038-08-01', horaInicio: '09:00', horaFin: '13:00', modalidad: 'AMBAS', lugar: 'Aula 3, Sede CPPP Cusco · Av. La Cultura 1112',
+    sede: 'Sede CPPP Cusco · Av. La Cultura 1112', aula: 'Aula 3', encargadoId: 'i-1', qrRotatorio: true, sala }
+  expect((await llamar('POST', `/cursos/${id}/sesiones`, 'u-admin-1', { ...nueva, sala: { ...sala, porcentajeMinimo: 0 } })).status).toBe(422)
+  const creada = await llamar('POST', `/cursos/${id}/sesiones`, 'u-admin-1', nueva)
+  expect(creada.status).toBe(201)
+  expect((await llamar('GET', `/cursos/${id}`)).datos.sesiones[0]).toMatchObject({ sede: nueva.sede, aula: 'Aula 3', encargadoId: 'i-1', qrRotatorio: true, sala })
+  const cambio = { ...nueva, cursoId: id, instructorId: 'i-1', modalidad: 'VIRTUAL', lugar: '' }
+  expect((await llamar('PUT', `/clases/${creada.datos.id}`, 'i-1', cambio)).status).toBe(403)
+  expect((await llamar('PUT', `/clases/${creada.datos.id}`, 'u-admin-1', cambio)).status).toBe(200)
+  const editada = (await llamar('GET', `/cursos/${id}`)).datos
+  expect(editada.sesiones[0]).toMatchObject({ modalidad: 'VIRTUAL', lugar: 'Aula virtual', sala })
+  expect(editada.sesiones[0].sede).toBeUndefined()
+  expect(editada.modalidad).toBe('VIRTUAL')
+})

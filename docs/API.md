@@ -346,3 +346,84 @@ del certificado; una asistencia QR previa se conserva. Detalle y evidencia:
 Las respuestas de clases añaden `modalidad`. El backend no tiene edición general del curso
 (`PUT /api/cursos/:id` sigue pendiente): la modalidad planificada se fija al crear; la demo
 rechaza con 422 `MODALIDAD_CALCULADA` cambiarla a mano cuando hay sesiones programadas.
+
+## HU-39 — QR personal y asistencia en la puerta
+
+Contrato que usa el frontend (SCRUM-207, diseño Figma «S3 · SCRUM-205»). Hoy lo responde
+la simulación (`frontend/src/mocks/asistenciaPuerta.ts`); sus pruebas en
+`asistenciaPuerta.test.ts` son la especificación ejecutable para el backend (SCRUM-206).
+
+**Quién toma la asistencia:** mientras el CPPP no confirme el rol de encargado,
+pueden hacerlo el administrador y el instructor asignado a la sesión. El agremiado
+y el instructor ajeno reciben `403 SIN_PERMISO`.
+
+| Método y ruta | Rol | Respuesta |
+|---|---|---|
+| `GET /api/participante/mi-qr` | Agremiado | `200 { token, nombre, dniParcial, habilitado, proximaSesion }` |
+| `GET /api/participante/mi-qr/pdf` | Agremiado | `200 application/pdf` con el QR, nombre y DNI parcial |
+| `GET /api/clases/:id/asistencia/puerta?dni=` | Admin, instructor asignado | `200 { resultados: [{ participante, horaRegistro }] }` |
+| `POST /api/clases/:id/asistencia/puerta` | Admin, instructor asignado | `201 { participante, horaRegistro, metodo }` |
+| `DELETE /api/clases/:id/asistencia/puerta/:participanteId` | Admin, instructor asignado | `204` («Deshacer este registro») |
+
+- `token` es el contenido del QR: firmado (HMAC) y **permanente**, sin DNI ni otros
+  datos personales. El mismo agremiado recibe siempre el mismo token.
+- `participante` es `{ id, nombre, dniParcial }`. `dniParcial` muestra solo los
+  **4 últimos dígitos** con el formato `•••• 5678`; el DNI completo nunca sale en estas respuestas.
+- `habilitado` indica si el colegiado está habilitado en el CPPP (etiqueta verde de «Mi QR»).
+- `proximaSesion` es `{ id, titulo, fecha, horaInicio, horaFin, lugar }` de la próxima
+  sesión presencial programada en la que está inscrito, o `null`. `titulo` es el del curso.
+- La búsqueda recibe de **4 a 8 dígitos** y devuelve los **inscritos de la sesión** cuyo DNI
+  **empieza** con ellos (`horaRegistro` es `null` si aún no tienen asistencia). No registra nada.
+  Quien no está inscrito no aparece: la pantalla muestra «No encontramos ese DNI entre los inscritos».
+- El cuerpo del `POST` lleva **uno** de dos campos: `{ token }` (escaneo, `metodo: "QR"`)
+  o `{ participanteId }` (elegido en la búsqueda, `metodo: "DNI"`).
+- `GET /clases/:id/asistencia` añade `metodo: "QR" | "DNI" | null` en cada registro, para el
+  panel «Últimos registros» (el QR rotatorio del instructor cuenta como `QR`).
+
+Errores (formato común `{ code, message, details? }`):
+
+| Código | HTTP | Cuándo |
+|---|---|---|
+| `QR_PERSONAL_INVALIDO` | 422 | Firma incorrecta, token alterado o QR de otro sistema |
+| `VALIDACION` | 422 | DNI con menos de 4 o más de 8 dígitos, o cuerpo sin `token` ni `participanteId` |
+| `PARTICIPANTE_NO_EXISTE` | 404 | `participanteId` desconocido |
+| `NO_INSCRITO` | 409 | No está inscrito en el curso de la sesión. `details.participante` |
+| `ASISTENCIA_YA_REGISTRADA` | 409 | Ya tenía asistencia; no se duplica. `details.participante`, `details.horaRegistro` |
+| `ASISTENCIA_NO_REGISTRADA` | 404 | `DELETE` sobre alguien sin asistencia en la sesión |
+| `SESION_VIRTUAL` | 409 | La sesión es solo virtual |
+| `CLASE_CANCELADA` | 409 | La sesión está cancelada |
+
+El registro debe ser idempotente ante dos lecturas simultáneas del mismo QR
+(restricción única por sesión y agremiado). Conviene auditar quién deshace un registro.
+La lista `GET /clases/:id/asistencia` refleja estas marcas como `PRESENTE`, igual que las del QR rotatorio.
+
+## SCRUM-202 — «Programar sesión» con modalidad, lugar y sala (HU-36, Figma S3 6.1–6.4)
+
+Pantallas: `/admin/cursos/:id/sesiones` (lista con «Editar») y
+`/admin/cursos/:id/sesiones/nueva` o `/:sesionId/editar` (formulario). La simulación está en
+`frontend/src/mocks/cursos.ts` y su prueba en `mocks/sesionesCurso.test.ts`.
+
+**Hoy ya funciona con el backend actual:** el frontend sigue enviando `nombre` («Sesión N»),
+`fecha`, `horaInicio`, `horaFin`, `modalidad` y `lugar` (`"<aula>, <sede>"`, vacío si es virtual).
+Los campos nuevos son **opcionales**; el backend actual los ignora porque su esquema no es estricto.
+
+| Método y ruta | Cambio pedido |
+|---|---|
+| `POST /api/cursos/:id/sesiones` | Aceptar y guardar los campos nuevos de la tabla de abajo |
+| `PUT /api/clases/:id` | Igual. El frontend edita la sesión de un curso con esta ruta, enviando además `cursoId` e `instructorId` (el del curso) |
+| `GET /api/cursos/:id` | Cada elemento de `sesiones` devuelve los campos nuevos que tenga guardados |
+
+| Campo | Tipo | Cuándo se envía | Regla |
+|---|---|---|---|
+| `sede` | texto ≤ 120 | `PRESENCIAL` y `AMBAS` | Una de las sedes del CPPP (hoy la lista está fija en `paginas/cursos/sesiones/reglasSesion.ts`) |
+| `aula` | texto ≤ 100 | `PRESENCIAL` y `AMBAS` | Aula o referencia, obligatoria si hay sede |
+| `encargadoId` | id de usuario | `PRESENCIAL` y `AMBAS` | Quien registra la asistencia en la puerta (HU-39). Por defecto, el instructor del curso. La lista sale de `GET /api/cursos/instructores` |
+| `qrRotatorio` | booleano | `PRESENCIAL` y `AMBAS` | `true`: también vale el QR rotatorio que proyecta el instructor |
+| `sala` | objeto | `VIRTUAL` y `AMBAS` | `{ grabacionPrevista, pantallaPermitida, microfonoPermitido, manoPermitida, porcentajeMinimo: 1..100 }`, con las mismas claves de `PATCH /api/reuniones/:id/politicas`. Al crear la sala de la sesión se usan estos valores |
+
+- Una sesión `VIRTUAL` no guarda `sede`, `aula`, `encargadoId` ni `qrRotatorio`; una `PRESENCIAL` no guarda `sala`.
+- Valores por defecto de `sala` (HU-26): sin grabación, sin compartir pantalla, sin micrófono, mano levantada permitida, 70 %.
+- Datos inválidos → `422 VALIDACION` con `fields` por campo, como hoy.
+
+**Pendiente de definir con el equipo:** si el encargado puede ser un usuario que no es instructor
+(hoy solo se ofrecen instructores), y si las sedes deben venir de una tabla (`GET /api/sedes`).
