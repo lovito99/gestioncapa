@@ -121,11 +121,11 @@ para explorar el producto, no contenido formativo oficial.
 - Administrador: ingresar con la cuenta `ADMIN_EMAIL` y clave configuradas en
   `backend/.env`, abrir **Mis cursos**, revisar el borrador y pulsar **Publicar
   en catálogo**. En modo demo: `admin@gestioncapa.local` / `demo123`.
-- Carlos: `carlos.mendoza@organizacion.pe` / `demo123`, abrir **Mis cursos** y
+- Carlos: `carlos.mendoza@cpppregion-cusco.com` / `demo123`, abrir **Mis cursos** y
   agregar PDF, enlaces o videos a sus dos cursos.
-- Lucía: `lucia.paredes@organizacion.pe` / `demo123`, abrir **Mis cursos** para
+- Lucía: `lucia.paredes@cpppregion-cusco.com` / `demo123`, abrir **Mis cursos** para
   ver únicamente su curso asignado. No puede modificar los de Carlos.
-- Colegiado: `maria.quispe@demo.pe` / `demo123`, abrir **Catálogo de cursos**:
+- Colegiado: `maria.quispe@demo.cpppregion-cusco.com` / `demo123`, abrir **Catálogo de cursos**:
   inicialmente aparecen tres cursos; el borrador aparece al publicarse.
 
 La migración `0007-identidadCursosDemo.sql` da a las semillas una identidad que

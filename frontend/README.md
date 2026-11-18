@@ -21,11 +21,14 @@ Las [rutas y el acceso real](../docs/rutas.md) y las
 
 | Rol | Correo | Contraseña |
 |---|---|---|
-| Coordinadora | `ana.torres@organizacion.pe` | `demo123` |
-| Instructor | `carlos.mendoza@organizacion.pe` | `demo123` |
-| Participante (inscrita en 2 clases) | `maria.quispe@demo.pe` | `demo123` |
-| Participante (inscrita en 1 clase) | `luz.apaza@demo.pe` | `demo123` |
+| Coordinadora | `ana.torres@cpppregion-cusco.com` | `demo123` |
+| Instructor | `carlos.mendoza@cpppregion-cusco.com` | `demo123` |
+| Participante (inscrita en 2 clases) | `maria.quispe@demo.cpppregion-cusco.com` | `demo123` |
+| Participante (inscrita en 1 clase) | `luz.apaza@demo.cpppregion-cusco.com` | `demo123` |
 | Administrador | `admin@gestioncapa.local` | `demo123` |
+
+Con el backend real, el administrador usa `ADMIN_EMAIL` y `ADMIN_PASSWORD` de
+`backend/.env`; las demás cuentas solo existen fuera de producción tras `npm run seed`.
 
 ### Navegación por rol
 
@@ -43,8 +46,8 @@ Todas las pantallas usan los servicios reales con `VITE_USE_MOCKS=false`.
 | Nueva clase con errores en los campos | Guardar sin instructor ni fecha |
 | Nueva clase con conflicto de horario | Carlos Mendoza Ríos, 12/10/2026, 10:30–11:30 |
 | Confirmar cancelación | Ícono ⊗ en la lista de clases |
-| Detalle: ya inscrito | Inscribir `maria.quispe@demo.pe` en «Seguridad y salud en el trabajo» |
-| Detalle: no existe | Inscribir `luis.ramos@demo.pe` |
+| Detalle: ya inscrito | Inscribir `maria.quispe@demo.cpppregion-cusco.com` en «Seguridad y salud en el trabajo» |
+| Detalle: no existe | Inscribir `luis.ramos@demo.cpppregion-cusco.com` |
 | Asistencia vacía | Asistencia de «Atención al cliente» |
 
 ### Scripts

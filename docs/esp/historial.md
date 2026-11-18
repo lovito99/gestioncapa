@@ -69,10 +69,10 @@ Pantallas: `/historial` (propio), `/historial/:usuarioId` (acceso por objeto) y
 
 Aplicar migraciones y ejecutar `npm run seed`. Solo fuera de producción:
 
-- María (`maria.quispe@demo.pe` / `demo123`) tiene Seguridad y primeros auxilios
+- María (`maria.quispe@demo.cpppregion-cusco.com` / `demo123`) tiene Seguridad y primeros auxilios
   terminado con asistencia del 50 % y un certificado **DEMO sin validez oficial**;
   Didáctica y evaluación está en curso, con una sesión asistida y otra futura.
-- Luz (`luz.apaza@demo.pe` / `demo123`) tiene Seguridad y primeros auxilios en
+- Luz (`luz.apaza@demo.cpppregion-cusco.com` / `demo123`) tiene Seguridad y primeros auxilios en
   curso, con un registro de asistencia y sin certificado. También ocupa la única
   plaza del taller demo sin cupos de HU-14, sin sesiones ni certificado.
 - Los DNI de ambas cuentas son ficticios y se asignan solo si no tienen uno.

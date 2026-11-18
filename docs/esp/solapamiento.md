@@ -20,7 +20,7 @@ instructor, para no asignarlo a dos clases simultáneas.
 - **Concurrencia.** Crear o editar bloquea la fila del instructor durante la
   transacción: dos solicitudes simultáneas que se cruzan no pueden aceptarse ambas.
 - **Seed.** Se añade una segunda instructora, Lucía Paredes Quispe
-  (`lucia.paredes@organizacion.pe` / `demo123`, la misma que en el modo demo), para
+  (`lucia.paredes@cpppregion-cusco.com` / `demo123`, la misma que en el modo demo), para
   probar el caso de instructor diferente.
 
 ## Criterios de aceptación

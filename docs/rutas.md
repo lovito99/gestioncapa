@@ -18,10 +18,10 @@ antes de ejecutar el modo demo. También puedes elegir otro puerto con
 
 | Rol | Correo demo | Contraseña | Inicio |
 |---|---|---|---|
-| Coordinador | ana.torres@organizacion.pe | demo123 | `/coordinador/clases` |
-| Instructor | carlos.mendoza@organizacion.pe | demo123 | `/instructor/clases` |
-| Agremiado | maria.quispe@demo.pe | demo123 | `/participante/clases` |
-| Agremiado | luz.apaza@demo.pe | demo123 | `/participante/clases` |
+| Coordinador | ana.torres@cpppregion-cusco.com | demo123 | `/coordinador/clases` |
+| Instructor | carlos.mendoza@cpppregion-cusco.com | demo123 | `/instructor/clases` |
+| Agremiado | maria.quispe@demo.cpppregion-cusco.com | demo123 | `/participante/clases` |
+| Agremiado | luz.apaza@demo.cpppregion-cusco.com | demo123 | `/participante/clases` |
 | Administrador | admin@gestioncapa.local | demo123 | `/admin` |
 
 Agremiado es el nombre visible del rol técnico `PARTICIPANTE`. Coordinador se

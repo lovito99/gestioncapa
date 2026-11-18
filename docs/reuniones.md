@@ -233,7 +233,7 @@ Fuera de producción, el seed carga estas reuniones en estado `programada`:
 | --- | --- | --- |
 | Demo · Reunión de atención al cliente | Lucía Paredes | María y Luz |
 | Demo · Reunión de primeros auxilios | Carlos Mendoza | María y Luz |
-| Demo · Reunión de manejo de extintores | Carlos Mendoza | María y Luz |
+| Demo · Reunión de evaluación docente | Carlos Mendoza | María y Luz |
 
 Las fechas y horas se toman de las clases demo, con zona `America/Lima`.
 Cada reunión incluye tres participantes autorizados y tres invitaciones en la
@@ -243,11 +243,11 @@ a programar reuniones vencidas ni reabre las canceladas. En producción no carga
 clases, usuarios ni reuniones demo: solo asegura el administrador.
 
 1. Abre `http://localhost:5173/reuniones` con
-   `ana.torres@organizacion.pe` / `demo123` para ver las tres reuniones.
+   `ana.torres@cpppregion-cusco.com` / `demo123` para ver las tres reuniones.
 2. Pulsa **Iniciar** en una reunión programada, aunque su horario previsto ya haya pasado.
    También puedes iniciarla con su instructor asignado:
-   `carlos.mendoza@organizacion.pe` o `lucia.paredes@organizacion.pe`, clave `demo123`.
-3. En otra ventana de incógnito entra con `maria.quispe@demo.pe` / `demo123`,
+   `carlos.mendoza@cpppregion-cusco.com` o `lucia.paredes@cpppregion-cusco.com`, clave `demo123`.
+3. En otra ventana de incógnito entra con `maria.quispe@demo.cpppregion-cusco.com` / `demo123`,
    abre **Reuniones virtuales** y pulsa **Entrar a la sala**.
 4. Con Jitsi local activo en `http://localhost:8000`, permite cámara y micrófono.
    Salir libera los dispositivos. **Cerrar acceso a reunión** bloquea nuevas
