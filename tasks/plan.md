@@ -474,38 +474,3 @@ propone `v3.1.0.0.0`. Si se publica después de otra entrega funcional,
 se recalcula desde la etiqueta efectiva. La rama parte de HU-36 y se debe
 delimitar el alcance antes de versionar. No hay commits ni etiquetas de HU-40
 creados en esta fase.
-
-# HU-43 · Plan de implementación
-
-**SCRUM-154 · Continuar tras guardar el plan**
-
-La validación del padrón determina qué tarifa debe congelarse en el intento.
-Se conserva la modalidad de cobro y la transacción de inscripción de HU-53.
-
-1. **T43-01 · Guardar y presentar las dos tarifas.** Migración compatible,
-   creación, PATCH y lectura pública. Pruebas de importes, versión y cursos previos.
-2. **T43-02 · Aplicar tarifa según padrón.** Lectura de la proyección vigente
-   con política desactivada por defecto, precio visible al titular y errores
-   recuperables. Depende de T43-01.
-3. **T43-03 · Confirmar el precio en el intento y el pago.** Revalidar la tarifa
-   en la transacción y conservar el importe para cobro previo y constancia.
-   Depende de T43-02. Verificar concurrencia, vigencia y cambios tras cotizar.
-4. **T43-04 · Completar el flujo de interfaz.** Enviar ambas tarifas en el
-   formulario, mostrar el precio confirmado o el impedimento, y transmitir
-   el tipo visto. Alinear la demo con el contrato. Depende de T43-01 a T43-03.
-
-| Riesgo | Control |
-| --- | --- |
-| Calificar por un DNI ajeno declarado al registrarse | Exigir vínculo verificado entre afiliado habilitado y cuenta. |
-| Tratar un padrón vencido como una ausencia del DNI | Comprobar la vigencia y que exista una proyección cargada antes de decidir. |
-| Cobrar un importe diferente del aceptado | Bloquear el curso y revalidar la versión y el tipo de tarifa. Reutilizar los céntimos del intento. |
-| Romper precios históricos | Migración aditiva, compatibilidad con omisión y sin recalcular obligaciones. |
-
-Comprobar rojo y verde por tarea. Revisar calidad, seguridad, Definition of
-Done y Security Checklist al concluir. Para publicar se requiere el build
-manual, confirmación del CPPP, aprobación operativa del padrón y revisión humana.
-La marcha atrás consiste en desactivar la política para nuevas inscripciones,
-conservar cobros ya emitidos y revertir el código de forma compatible con el
-esquema aditivo. Base local `v3.1.0.0.0`. Si HU-43 sale sobre esa base, se propone
-`v3.2.0.0.0` por el nuevo caso de uso. Git y publicación son manuales según
-`AGENTS.md`.

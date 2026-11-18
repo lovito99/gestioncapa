@@ -9,10 +9,9 @@ import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { esApiError, mensajeDeError } from '@/lib/api'
 import { accesoConCurso } from '@/lib/retornoCurso'
-import { fechaPublicaCurso } from '@/lib/enlaceCurso'
 import { cursos, type CursoPublicoDetalle } from '@/servicios/cursos'
 import { BotonCompartir } from './CompartirCurso'
-import { cuposCurso } from './formatoCurso'
+import { cuposCurso, fechasCurso } from './formatoCurso'
 import { EtiquetaCategoria, EtiquetaCobro, EtiquetaModalidad, FilaDato, PortadaCurso } from './piezasCurso'
 import { modalidadCobroDe, soles, textoPlazo } from './reglasCurso'
 import { SesionesDetalle } from './SesionesDetalle'
@@ -29,7 +28,7 @@ export function PaginaPublicaCursoPagina() {
   if (consulta.isError) {
     return <Contenedor>
       {esApiError(consulta.error, 'CURSO_NO_EXISTE')
-        ? <Aviso tipo="advertencia" titulo="Curso no disponible">El curso no está disponible para consulta pública.</Aviso>
+        ? <Aviso tipo="advertencia" titulo="Este curso ya no está disponible">Puede que haya terminado o que el enlace esté incompleto. Revisa los cursos vigentes del CPPP.</Aviso>
         : <ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar el curso.')} onReintentar={consulta.refetch} />}
     </Contenedor>
   }
@@ -52,16 +51,14 @@ export function PaginaPublicaCursoPagina() {
           {curso.descripcion && <p className="text-base leading-6 whitespace-pre-wrap text-muted">{curso.descripcion}</p>}
           <dl className="flex flex-col gap-2.5 rounded-xl border border-line bg-white p-5">
             <FilaDato icono={UserRound} etiqueta="Instructor">{curso.instructorNombre}</FilaDato>
-            <FilaDato icono={Calendar} etiqueta="Fechas">{fechaPublicaCurso(curso)}</FilaDato>
+            <FilaDato icono={Calendar} etiqueta="Fechas">{fechasCurso(curso)}</FilaDato>
             <FilaDato icono={Clock} etiqueta="Horas">{curso.horasLectivas} horas lectivas</FilaDato>
             <FilaDato icono={Users} etiqueta="Cupos" alerta={curso.cuposDisponibles === 0}>{cuposCurso(curso)}</FilaDato>
-            {curso.tipoCertificado && <FilaDato icono={Award} etiqueta="Certificado">
-              {curso.tipoCertificado === 'APROBACION' ? 'Certificado de aprobación' : 'Constancia de participación'}
-              {curso.tipoCertificado === 'APROBACION' && curso.notaMinima != null && ` · nota mínima ${curso.notaMinima}`}
-              {curso.requisitoAsistencia != null && ` · asistencia mínima ${curso.requisitoAsistencia} %`}
-            </FilaDato>}
+            <FilaDato icono={Award} etiqueta="Certificado">
+              {curso.tipoCertificado === 'APROBACION' ? `Certificado de aprobación · nota mínima ${curso.notaMinima}` : 'Constancia de participación'} · asistencia mínima {curso.requisitoAsistencia} %
+            </FilaDato>
           </dl>
-          {curso.sesiones && <SesionesDetalle sesiones={curso.sesiones} />}
+          <SesionesDetalle sesiones={curso.sesiones} />
         </div>
         <aside className="lg:sticky lg:top-8">
           <TarjetaPrecio curso={curso} />
@@ -92,10 +89,8 @@ function TarjetaPrecio({ curso }: { curso: CursoPublicoDetalle }) {
       {cobro === 'PREVIO' && <Aviso tipo="advertencia" titulo="Pago antes de llevar el curso">Al inscribirte tendrás {plazo} para pagar. Mientras tanto no podrás ver el contenido ni registrar asistencia.</Aviso>}
       {cobro === 'CERTIFICADO' && <Aviso titulo="Pagas solo el certificado">Llevas el curso gratis. Pagas la constancia al terminar, si cumples los requisitos.</Aviso>}
       {cobro === 'GRATUITO' && <Aviso tipo="exito" titulo="Curso gratuito">Ni la inscripción ni la constancia requieren pago.</Aviso>}
-      {curso.vigente === false
-        ? <Aviso titulo="Curso finalizado">La fecha de fin ya pasó.</Aviso>
-        : (!usuario || usuario.rol === 'AGREMIADO') && <Boton onClick={inscribirme} disabled={sinCupos} className="h-12 w-full text-base sm:h-10 sm:text-sm">{sinCupos ? 'Sin cupos' : 'Inscribirme'}</Boton>}
-      {!usuario && curso.vigente !== false && !sinCupos && <p className="text-center text-xs leading-4 text-muted">Te pediremos iniciar sesión o crear tu cuenta y volverás a este curso.</p>}
+      <Boton onClick={inscribirme} disabled={sinCupos} className="h-12 w-full text-base sm:h-10 sm:text-sm">{sinCupos ? 'Sin cupos' : 'Inscribirme'}</Boton>
+      {!usuario && <p className="text-center text-xs leading-4 text-muted">Te pediremos iniciar sesión o crear tu cuenta y volverás a este curso.</p>}
       {cobro !== 'GRATUITO' && <p className="text-xs leading-4 text-muted">Formas de pago: tarjeta o Yape (en línea), transferencia BCP o efectivo en la sede.</p>}
     </section>
   )

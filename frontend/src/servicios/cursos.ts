@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
-import { esIdCursoPublico } from '@/lib/enlaceCurso'
 import type { EstadoCertificado } from './certificados'
 import type { ModalidadCurso, ModalidadSesion } from './modalidadCurso'
 
@@ -75,14 +74,13 @@ export type MaterialEntrada = { titulo: string } & ({ tipo: 'PDF'; contenidoBase
 export type FiltrosCatalogo = { buscar?: string; modalidad?: string; categoria?: string; cobro?: string; pagina?: number; tamanoPagina?: number }
 /** Portada que se sube con el curso: JPG, PNG o WebP de hasta 1 MB (SCRUM-182). */
 export type PortadaEntrada = { nombre: string; tipo: 'image/jpeg' | 'image/png' | 'image/webp'; contenidoBase64: string }
-export type CursoPublico = Pick<Curso, 'id' | 'titulo' | 'descripcion' | 'instructorNombre' | 'horasLectivas' | 'modalidad' | 'costo' | 'cupos' | 'cuposDisponibles' | 'categoria' | 'fechaInicio' | 'fechaFin' | 'modalidadCobro' | 'plazoPagoMinutos' | 'versionCobro' | 'precioGeneral' | 'portadaUrl' | 'admiteExternos'>
+export type CursoPublico = Pick<Curso, 'id' | 'titulo' | 'descripcion' | 'instructorNombre' | 'horasLectivas' | 'modalidad' | 'costo' | 'cupos' | 'cuposDisponibles' | 'categoria' | 'fechaInicio' | 'fechaFin' | 'modalidadCobro' | 'plazoPagoMinutos' | 'versionCobro' | 'precioGeneral' | 'portadaUrl'>
 /**
  * SCRUM-187 · Detalle público del curso (sin sesión). Las sesiones no traen la sala virtual,
  * el encargado ni datos de inscritos.
  */
-export type CursoPublicoDetalle = CursoPublico & Partial<Pick<Curso, 'tipoCertificado' | 'notaMinima' | 'requisitoAsistencia'>> & {
-  vigente: boolean
-  sesiones?: Pick<SesionCurso, 'id' | 'nombre' | 'fecha' | 'horaInicio' | 'horaFin' | 'lugar' | 'modalidad'>[] }
+export type CursoPublicoDetalle = CursoPublico & Pick<Curso, 'tipoCertificado' | 'notaMinima'> & { requisitoAsistencia: number
+  sesiones: Pick<SesionCurso, 'id' | 'nombre' | 'fecha' | 'horaInicio' | 'horaFin' | 'lugar' | 'modalidad'>[] }
 export type PaginaCatalogo<T = Curso> = { items: T[]; total: number; pagina: number; tamanoPagina: number; totalPaginas: number; categorias: string[] }
 /** Porcentaje de asistencia que pide el Figma cuando el curso no indica otro */
 export const REQUISITO_ASISTENCIA_POR_DEFECTO = 80
@@ -102,15 +100,14 @@ function conValoresNuevos<T extends Curso>(curso: T): T & { sesiones: SesionCurs
  * desde el catálogo público con valores por defecto y sin sesiones. Si tampoco está ahí, propaga el 404.
  */
 async function publicoDetalle(id: string): Promise<CursoPublicoDetalle> {
-  if (!esIdCursoPublico(id)) throw new ApiError(404, { code: 'CURSO_NO_EXISTE', message: 'El curso no existe.' })
   try {
     return (await api.get<CursoPublicoDetalle>(`/publico/cursos/${id}`)).data
   } catch (error) {
-    if (!(error instanceof ApiError) || error.code !== 'RUTA_NO_EXISTE') throw error
+    if (!(error instanceof ApiError) || error.status !== 404) throw error
     for (let pagina = 1; pagina <= 10; pagina++) {
       const lista = (await api.get<PaginaCatalogo<CursoPublico>>('/publico/cursos', { params: { pagina, tamanoPagina: 50 } })).data
       const curso = lista.items.find(item => String(item.id) === id)
-      if (curso) return { ...curso, vigente: true }
+      if (curso) return { tipoCertificado: 'PARTICIPACION', notaMinima: 0, requisitoAsistencia: REQUISITO_ASISTENCIA_POR_DEFECTO, sesiones: [], ...curso }
       if (pagina >= lista.totalPaginas) break
     }
     throw error
@@ -123,6 +120,7 @@ export const cursos = {
   subirPortada: async (id: string, entrada: PortadaEntrada) => (await api.put<{ portadaUrl: string }>(`/cursos/${id}/portada`, entrada)).data,
   quitarPortada: async (id: string) => { await api.delete(`/cursos/${id}/portada`) },
   publicoDetalle: (id: string) => publicoDetalle(id),
+  enlaceCompartir: async (id: string) => (await api.get<EnlaceCompartir>(`/publico/cursos/${id}/compartir`)).data,
   publico: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo<CursoPublico>>('/publico/cursos', { params: filtros })).data,
   catalogo: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo>('/catalogo/cursos/pagina', { params: filtros })).data,
   inscribirme: async (id: string, versionCobro?: number, tipoPrecio?: MiPrecio['tipo']) =>

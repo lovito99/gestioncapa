@@ -30,7 +30,6 @@ function TarjetaCurso({ curso, editable = false }: { curso: Curso; editable?: bo
     <p className={`text-sm font-semibold ${curso.cuposDisponibles === 0 ? 'text-danger' : 'text-ink'}`}>{curso.cuposDisponibles === 0 ? 'Sin cupos' : `${curso.cuposDisponibles} cupos disponibles`}</p>
     {curso.inscrito && <p className="text-sm font-semibold text-success">Ya estás inscrito(a)</p>}
     <p className="text-sm text-muted">{curso.estado === 'BORRADOR' ? 'Borrador' : 'Publicado'}</p>
-    {curso.estado === 'PUBLICADO' && <BotonCompartir curso={curso} conTexto />}
     {editable && <Link className="inline-block text-sm font-semibold text-brand hover:underline" aria-label={`Editar ${curso.titulo}`} to={`/admin/cursos/${curso.id}/editar`}>Editar curso</Link>}
   </li>
 }

@@ -168,7 +168,7 @@ test('HU-40: detalle público de un curso publicado por ID, con campos públicos
   assert.equal(respuesta.statusCode, 200, respuesta.body);
   assert.equal(respuesta.headers['cache-control'], 'no-store');
   assert.deepEqual(Object.keys(respuesta.json()).sort(), [
-    'id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'precioGeneral', 'cupos',
+    'id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'cupos',
     'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin', 'modalidadCobro', 'plazoPagoMinutos', 'versionCobro', 'vigente',
   ].sort());
   assert.equal(respuesta.json().titulo, curso.titulo);

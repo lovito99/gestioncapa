@@ -2,20 +2,13 @@ import express from 'express'
 import { request as solicitarHttp } from 'node:http'
 import { request as solicitarHttps } from 'node:https'
 import path from 'node:path'
-import { normalizarOrigenCurso } from './src/lib/enlaceCurso.ts'
-import { servirVistaCurso } from './vistaCurso.js'
 
-export function crearServidorFrontend({ carpetaDist, backendUrl, origenPublico }) {
+export function crearServidorFrontend({ carpetaDist, backendUrl }) {
   const app = express()
   const destino = new URL(backendUrl)
   if (!['http:', 'https:'].includes(destino.protocol)) {
     throw new Error('La URL del backend debe comenzar con http:// o https://.')
   }
-  const origen = origenPublico ? normalizarOrigenCurso(origenPublico) : null
-  if (origenPublico && !origen) {
-    throw new Error('VITE_ORIGEN_PUBLICO debe contener un origen HTTPS válido o una URL local de loopback.')
-  }
-  const indice = path.join(carpetaDist, 'index.html')
 
   // Conserva /api, el cuerpo y las cabeceras antes de servir las páginas de React.
   app.use('/api', (request, response) => {
@@ -51,10 +44,9 @@ export function crearServidorFrontend({ carpetaDist, backendUrl, origenPublico }
     request.pipe(solicitud)
   })
 
-  app.get(/^\/c\/[^/]+\/?$/i, servirVistaCurso(indice, destino, origen))
   app.use(express.static(carpetaDist))
   app.get(/.*/, (request, response) => {
-    response.sendFile(indice)
+    response.sendFile(path.join(carpetaDist, 'index.html'))
   })
 
   return app
