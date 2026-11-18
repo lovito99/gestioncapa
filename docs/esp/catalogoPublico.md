@@ -58,34 +58,6 @@ Se reutiliza `matchRoutes` del router instalado para reconocer rutas en lugar de
 mantener un segundo intérprete por expresiones regulares:
 [documentación oficial de React Router 7](https://reactrouter.com/7.18.5/api/utils/matchRoutes).
 
-## Compartir un curso (HU-40)
-
-Las tarjetas de catálogo, las tarjetas de gestión y los detalles de cursos
-publicados ofrecen «Compartir». «Compartir por WhatsApp» abre el selector de
-destinatario con el título y el enlace `/c/:id`. «Copiar enlace» copia esa misma
-dirección y deja un campo de texto seleccionable.
-
-La ficha pública abre sin sesión y muestra fecha, costo y datos de catálogo.
-Para un curso vigente con cupos, «Inscribirme» conserva la selección al entrar
-o crear cuenta. Un publicado sin cupos muestra «Sin cupos». Un publicado
-vencido muestra «Curso finalizado». Los borradores y cerrados dejan de estar
-disponibles en el enlace.
-
-Configurar `VITE_ORIGEN_PUBLICO` con el origen HTTPS de la aplicación tanto al
-compilar manualmente el frontend como al iniciar su servidor Express. El proxy
-público debe enviar `/c/:id` a Express y permitir acceso anónimo a
-`/vista-curso.png`. Express consulta la ficha y devuelve una página con título,
-fecha, costo e imagen institucional en el HTML inicial. La demo con Vite permite
-probar la ficha y la acción. Las etiquetas sociales se verifican con Express.
-Con el frontend compilado sin ese origen, «Compartir» permanece oculto. Si
-Express inicia sin el origen, la URL corta devuelve `503` y el resto de las
-rutas de la aplicación sigue disponible.
-
-Antes de publicar, comprobar el GET y la imagen desde el dominio público,
-pegar el enlace en WhatsApp y Facebook y comprobar el acceso anónimo y la
-inscripción. Las plataformas pueden conservar vistas previas en caché.
-[Probar vista previa en Facebook](https://developers.facebook.com/tools/debug/)
-
 ## Verificación local y límites
 
 Los casos cubren acceso/alta, errores, recarga, 401 en detalle y formularios,

@@ -34,16 +34,6 @@ const columnas = `c.id::text, c.instructor_id::text as "instructorId",
   c.categoria,to_char(c.fecha_inicio,'YYYY-MM-DD') as "fechaInicio",to_char(c.fecha_fin,'YYYY-MM-DD') as "fechaFin",
   greatest(c.cupos-(select count(*) from inscripciones_curso ins left join "intentosInscripcion" t on t.id=ins."intentoId"
     where ins.curso_id=c.id and ins.estado<>'CANCELADA' and (ins.estado<>'PENDIENTE_PAGO' or ins."intentoId" is null or t."venceEn">clock_timestamp())),0)::int as "cuposDisponibles"`;
-const cursoVigente = "(c.fecha_fin is null or c.fecha_fin >= (now() at time zone 'America/Lima')::date)";
-
-export async function obtenerCursoPublicado(id: string) {
-  const { rows } = await pool.query<Curso & { vigente: boolean }>(`
-    select ${columnas}, ${cursoVigente} as vigente
-    from cursos c join users u on u.id=c.instructor_id
-    where c.id=$1 and c.estado='PUBLICADO'`, [id]);
-  return rows[0] ?? null;
-}
-
 export async function listarCursos(instructorId?: number, catalogo = false) {
   return (await pool.query<Curso>(`select ${columnas} from cursos c join users u on u.id=c.instructor_id
     where ($1::bigint is null or c.instructor_id=$1)
@@ -118,7 +108,7 @@ export async function paginaCatalogo(usuarioId: number, consulta: ConsultaCatalo
         where ins.curso_id=c.id and ins.usuario_id=$6 and ins.estado<>'CANCELADA'
         and (ins.estado<>'PENDIENTE_PAGO' or intento."venceEn" is null or intento."venceEn">clock_timestamp())) as inscrito
       from cursos c join users u on u.id=c.instructor_id where c.estado='PUBLICADO'
-      and (not $7::boolean or ${cursoVigente})
+      and (not $7::boolean or c.fecha_fin is null or c.fecha_fin >= (now() at time zone 'America/Lima')::date)
     ), filtrados as (
       select * from publicados where
       strpos(translate(lower(titulo),'áéíóúüñ','aeiouun'),translate(lower($1),'áéíóúüñ','aeiouun')) > 0

@@ -133,15 +133,6 @@ modalidad, costo, cupos, cupos disponibles, categoría y fechas. Solo publica
 cursos publicados del CPPP con fecha final vigente o por confirmar.
 No incluye módulos, materiales, inscritos ni identificadores internos de personas.
 
-`GET /api/publico/cursos/:id` devuelve la ficha de un curso publicado sin requerir
-sesión. El identificador es decimal positivo, de 1 a 15 dígitos y sin cero inicial.
-El `200` contiene la misma lista de campos públicos del catálogo, incluidas las
-condiciones de cobro, más `vigente`. El valor es verdadero cuando la fecha de fin
-es nula o coincide con el día actual en Lima o uno posterior. Un curso publicado
-vencido conserva la ficha. Un identificador inválido o inexistente, un borrador
-y un curso cerrado devuelven `404 CURSO_NO_EXISTE`. La respuesta usa
-`Cache-Control: no-store`. El detalle de `GET /api/cursos/:id` exige sesión.
-
 `POST /api/auth/logout` invalida el token utilizado hasta su expiración. Los
 siguientes accesos protegidos con ese token devuelven 401. Otros tokens del mismo
 usuario continúan válidos. Cinco fallos de login en 15 minutos bloquean otros

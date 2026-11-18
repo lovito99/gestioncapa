@@ -1,8 +1,7 @@
 import { matchRoutes } from 'react-router-dom'
-import { esIdCursoPublico } from './enlaceCurso'
 
-const idValido = (valor: string | null): valor is string => valor !== null && esIdCursoPublico(valor)
-const rutasRetorno=[{path:'/login'},{path:'/registro'},{path:'/cursos/:id'},{path:'/capacitaciones/:id'},{path:'/c/:id'}]
+const idValido = (valor: string | null): valor is string => valor !== null && /^[1-9]\d{0,14}$/.test(valor)
+const rutasRetorno=[{path:'/login'},{path:'/registro'},{path:'/cursos/:id'},{path:'/capacitaciones/:id'}]
 
 /** La URL transporta una selección, nunca una dirección de redirección. */
 export function cursoDeBusqueda(busqueda: string) {
@@ -30,6 +29,6 @@ export function loginDelCursoActual(ruta: string,busqueda='') {
   try {decodeURIComponent(ruta)} catch {return '/login'}
   const coincidencia=matchRoutes(rutasRetorno,{pathname:ruta})?.[0]
   if(!coincidencia) return '/login'
-  const curso=coincidencia.params.id!==undefined?coincidencia.params.id??null:cursoDeBusqueda(busqueda)
+  const curso=coincidencia.route.path==='/cursos/:id'||coincidencia.route.path==='/capacitaciones/:id'?coincidencia.params.id??null:cursoDeBusqueda(busqueda)
   return accesoConCurso('/login', curso)
 }
