@@ -195,7 +195,7 @@ es una operación nueva por petición: no se debe reintentar sin consultar su re
 npm run typecheck
 npm run build
 npm test
-npm run test:integracion # PostgreSQL y Redis locales disponibles
+NODE_ENV=test npm run test:integracion # PostgreSQL y Redis de pruebas
 ```
 
 Las pruebas verifican firma y alcance del JWT, horarios, autorización y el flujo
