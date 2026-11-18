@@ -1181,3 +1181,60 @@ previstos que se confirman durante cada incremento.
 
 Versión propuesta `v3.2.0.0.0` si la próxima entrega incluye HU-29 sobre
 `v3.1.0.0.0`. Los commits y la etiqueta quedan para ejecución manual.
+
+# T-24 · Seguimiento
+
+- [x] Revisar el código actual y registrar la especificación y el plan.
+- [x] **T24-01 · Contrastar las referencias.** Reunir evidencia de ambos
+  orígenes para los cinco patrones e identificar el alcance de lo observado.
+  Verificar guías, ficha de curso y su distinción frente al código del CPPP.
+- [x] **T24-02 · Registrar patrones para Figma.** Documentar cada decisión y su
+  historia con enlaces locales. Verificar cinco patrones y cuatro historias.
+  Registrar las pautas del CPPP o su disponibilidad. Depende de T24-01.
+- [x] **T24-03 · Revisar la entrega.** Enlazar el resumen desde las pantallas
+  de Figma, comprobar anclas y diff y documentar los pendientes. Depende de
+  T24-02. Preparar el commit manual.
+
+### Verificación y pendientes de diseño
+
+- Se comprobaron los cinco patrones y sus cinco anotaciones, la trazabilidad
+  a cuatro historias y los enlaces locales. `git diff --check` pasó. El
+  alcance es documental y el build no aplica.
+- La revisión se cotejó con Definition of Done y Security Checklist para
+  confirmar citas, alcance y estados de acceso. El informe conserva
+  autenticación y autorización en el prototipo. La evidencia usa guías y
+  fichas públicas sin capturas ni datos personales copiados al repositorio.
+- [x] Verificar el nodo `4:52` del sistema de diseño y registrar las cinco
+  anotaciones como texto editable en [T‑24 · Referencias de cursos grabados](https://www.figma.com/design/ORSusbg35vcu0nUEz4o08q/GestionCapa?node-id=262-2950),
+  en la página «Escritorio». El marco enlaza las pantallas correspondientes.
+  Figma restringe las anotaciones nativas para la cuenta conectada.
+- [ ] Contrastar las asociaciones propuestas de HU-17, HU-38 y HU-44 con Jira
+  y añadir los enlaces oficiales a las cuatro historias. El sitio Jira
+  autorizado devuelve 404 para `SCRUM-160` y no muestra el proyecto `SCRUM`.
+- [ ] Incorporar las pautas del CPPP si las entrega. El encargo disponible
+  identifica NR-21.
+
+**Summary** · `docs: registrar referencias de diseño para cursos grabados`
+
+**Description** · Compara SIFODS y PerúEduca y documenta cinco patrones para
+Figma con trazabilidad a HU-17, HU-37, HU-38 y HU-44. Cobertura y enlaces locales
+verificados. Las cinco anotaciones se registraron en Figma. Pendientes la
+confirmación de Jira y las pautas del CPPP si las entrega.
+
+Versión propuesta `v3.1.0.0.1` si T-24 se entrega por separado sobre
+`v3.1.0.0.0`. El commit y cualquier etiqueta corresponden al usuario.
+
+### Prototipo aprobado en GestionCapa
+
+- [x] T24-P01 · Curso gratuito de ejemplo, acceso desde catálogo y «Mis cursos», sesión e inscripción confirmada. La ruta está disponible en modo demo.
+- [x] T24-P02 · Dos videos reproducibles, avance por cuenta tras recarga, bloqueo por orden, evaluación con reintento y navegación con teclado.
+- [x] T24-P03 · PDF de demostración después de completar las actividades. Recorrido verificado en escritorio y móvil.
+- [x] Revisión de la definición de terminado y la lista de seguridad para el prototipo. Se probaron rol, inscripción, orden, aislamiento por cuenta y descarga.
+- [x] Verificación de cierre. Pasaron 522 pruebas de `npm test` y 26 de Playwright en
+  escritorio y móvil. Pasaron `typecheck`, `e2e:tipos` y `git diff --check`. El lint
+  terminó con dos advertencias preexistentes. Se revisaron cinco anotaciones, cuatro
+  historias y 14 enlaces locales.
+- [ ] Ejecutar `npm run build` y realizar la revisión humana antes de publicar. El commit y la etiqueta se preparan para ejecución manual.
+
+Versión propuesta para la entrega con prototipo `v3.2.0.0.0`, nivel Función
+sobre la etiqueta base local `v3.1.0.0.0`.

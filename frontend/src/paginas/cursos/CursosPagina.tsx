@@ -8,6 +8,7 @@ import { Campo } from '@/components/ui/Campo'
 import { Entrada, Selector } from '@/components/ui/Entrada'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { mensajeDeError } from '@/lib/api'
+import { cursoTieneAulaDemo } from '@/lib/aulaGrabadaDemo'
 import { cursos, type Curso, type CursoPublico } from '@/servicios/cursos'
 import { condicionesCobro, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
 import { BotonCompartir } from './CompartirCurso'
@@ -30,7 +31,7 @@ function TarjetaCurso({ curso, editable = false }: { curso: Curso; editable?: bo
     <p className={`text-sm font-semibold ${curso.cuposDisponibles === 0 ? 'text-danger' : 'text-ink'}`}>{curso.cuposDisponibles === 0 ? 'Sin cupos' : `${curso.cuposDisponibles} cupos disponibles`}</p>
     {curso.inscrito && <p className="text-sm font-semibold text-success">Ya estás inscrito(a)</p>}
     <p className="text-sm text-muted">{curso.estado === 'BORRADOR' ? 'Borrador' : 'Publicado'}</p>
-    {editable && <Link className="inline-block text-sm font-semibold text-brand hover:underline" aria-label={`Editar ${curso.titulo}`} to={`/admin/cursos/${curso.id}/editar`}>Editar curso</Link>}
+    {editable && !cursoTieneAulaDemo(curso.id) && <Link className="inline-block text-sm font-semibold text-brand hover:underline" aria-label={`Editar ${curso.titulo}`} to={`/admin/cursos/${curso.id}/editar`}>Editar curso</Link>}
   </li>
 }
 export function CursosPagina({ catalogo = false }: { catalogo?: boolean }) {

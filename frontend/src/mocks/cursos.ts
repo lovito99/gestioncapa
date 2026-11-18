@@ -8,6 +8,9 @@ import { crearPago, pagoDeInscripcion, sembrarPagosDemo } from './pagos'
 import type { DetalleCurso, MaterialCurso, SesionCurso, FilaCierre, MiPrecio, ModalidadCobro } from '@/servicios/cursos'
 import { z } from 'zod'
 import { modalidadDerivada, modalidadesCurso, modalidadesSesion } from '@/servicios/modalidadCurso'
+import { idCursoAulaDemo } from '@/lib/aulaGrabadaDemo'
+import { actividadesAulaDemo, avanceAulaDemo, completadasAulaDemo, guardarAvanceAulaDemo, modulosAulaDemo, respuestasAulaDemo, tituloAulaDemo } from './aulaGrabada'
+import { pdfTextoDemo } from './pdfTexto'
 
 const API = import.meta.env.VITE_API_URL ?? '/api'
 const demo = crearCursosDemo()
@@ -97,12 +100,38 @@ for (const extra of [
     modulos: [{ id: nuevoId(), titulo: 'Módulo 1', orden: 1, materiales: [] }] })
   inscripcionesCursosDemo.set(cursosSimulados.at(-1)!.id, new Set())
 }
+cursosSimulados.push({
+  id: idCursoAulaDemo, titulo: tituloAulaDemo,
+  descripcion: 'Aprende a recoger evidencias y a dar retroalimentación concreta. Recorre dos módulos breves a tu ritmo y descarga una constancia de demostración.',
+  instructorId: 'i-1', instructorNombre: 'Carlos Mendoza Ríos', horasLectivas: 1, modalidad: 'GRABADO',
+  costo: 0, precioGeneral: 0, modalidadCobro: 'GRATUITO', plazoPagoMinutos: null, versionCobro: 1,
+  cupos: 100, cuposDisponibles: 100, categoria: 'Educación', fechaInicio: null, fechaFin: null, portadaUrl: null,
+  tipoCertificado: 'PARTICIPACION', notaMinima: 14, estado: 'PUBLICADO', requisitoAsistencia: 0, sesiones: [],
+  modulos: modulosAulaDemo.map(({ id, titulo }, indice) => ({ id, titulo, orden: indice + 1, materiales: [] })),
+})
+inscripcionesCursosDemo.set(idCursoAulaDemo, new Set(usuarios.filter(usuario => avanceAulaDemo(usuario.id) !== undefined).map(usuario => usuario.id)))
+
 const error = (status: number, message: string, code?: string) => HttpResponse.json({ code: code ?? (status === 422 ? 'VALIDACION' : status === 401 ? 'NO_AUTENTICADO' : status === 403 ? 'SIN_PERMISO' : 'CURSO_NO_EXISTE'), message }, { status })
+const errorCursoAulaFijo = () => error(409, 'El programa y la gratuidad son fijos en este curso de demostración.', 'CURSO_AULA_DEMO_FIJO')
 function acceso(request: Request, roles?: string[]) {
   const usuario = usuarios.find(u => u.activo !== false && request.headers.get('Authorization') === `Bearer demo-${u.id}`)
   if (!usuario) return { fallo: error(401, 'Tu sesión expiró. Vuelve a iniciar sesión.') }
   if (roles && !roles.includes(usuario.rol)) return { fallo: error(403, 'No tienes permiso para realizar esta acción.') }
   return { usuario }
+}
+type AccesoAula = { fallo: ReturnType<typeof error> } | { curso: DetalleCurso; usuarioId: string; avance: number }
+
+function accesoAula(request: Request, id: unknown): AccesoAula {
+  const auth = acceso(request, ['AGREMIADO'])
+  if (auth.fallo) return auth
+  const curso = cursosSimulados.find(c => c.id === id && c.id === idCursoAulaDemo && c.modalidad === 'GRABADO' && c.estado === 'PUBLICADO')
+  if (!curso) return { fallo: error(404, 'El aula no está disponible.') }
+  const usuarioId = auth.usuario!.id
+  const disponible = disponibilidad(curso, usuarioId)
+  if (!disponible.inscrito || disponible.accesoContenido === false) {
+    return { fallo: error(403, 'Confirma tu inscripción para entrar al aula.', 'AULA_REQUIERE_INSCRIPCION') }
+  }
+  return { usuarioId, curso, avance: avanceAulaDemo(usuarioId) ?? 0 }
 }
 function detalle(request: Request, id: string) {
   const auth = acceso(request)
@@ -178,6 +207,40 @@ export const estadosInscripcionDemo = new Map<string, 'EN_CURSO' | 'PENDIENTE_PA
 }
 
 export const handlersCursos = [
+  http.get(`${API}/cursos/:id/aula`, ({ request, params }) => {
+    const acceso = accesoAula(request, params.id)
+    if ('fallo' in acceso) return acceso.fallo
+    return HttpResponse.json({ titulo: acceso.curso.titulo, modulos: modulosAulaDemo, completadas: completadasAulaDemo(acceso.avance) })
+  }),
+  http.post(`${API}/cursos/:id/aula/actividades/:actividadId`, async ({ request, params }) => {
+    const entrada = z.object({ opcion: z.number().int().min(0).optional() }).strict().safeParse(await request.json().catch(() => null))
+    const acceso = accesoAula(request, params.id)
+    if ('fallo' in acceso) return acceso.fallo
+    const indice = actividadesAulaDemo.findIndex(actividad => actividad.id === params.actividadId)
+    const actividad = actividadesAulaDemo[indice]
+    if (!actividad) return error(404, 'La actividad no está disponible.', 'ACTIVIDAD_NO_EXISTE')
+    const opcion = entrada.data?.opcion
+    if (!entrada.success || (actividad.tipo === 'LECCION' ? opcion !== undefined : opcion === undefined || opcion >= actividad.opciones.length)) {
+      return error(422, 'Revisa los datos de la actividad.')
+    }
+    if (indice > acceso.avance) return error(409, 'Completa la actividad anterior para continuar.', 'ACTIVIDAD_BLOQUEADA')
+    if (indice < acceso.avance) return HttpResponse.json({ correcta: true, completadas: completadasAulaDemo(acceso.avance) })
+    const correcta = actividad.tipo === 'LECCION' || opcion === respuestasAulaDemo.get(actividad.id)
+    const avance = acceso.avance + Number(correcta)
+    if (correcta) guardarAvanceAulaDemo(acceso.usuarioId, avance)
+    return HttpResponse.json({ correcta, completadas: completadasAulaDemo(avance) })
+  }),
+  http.get(`${API}/cursos/:id/aula/constancia`, ({ request, params }) => {
+    const acceso = accesoAula(request, params.id)
+    if ('fallo' in acceso) return acceso.fallo
+    if (acceso.avance < actividadesAulaDemo.length) return error(409, 'Completa los módulos para descargar la constancia.', 'AULA_INCOMPLETA')
+    const archivo = pdfTextoDemo('Constancia de demostración', [
+      acceso.curso.titulo,
+      ...modulosAulaDemo.map(modulo => `Módulo completado: ${modulo.titulo}`),
+      'Documento de demostración. Sin validez oficial.',
+    ])
+    return new HttpResponse(archivo, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': 'attachment; filename="constancia-aula-demo.pdf"' } })
+  }),
   // ---------- SCRUM-182: portada del curso ----------
   http.put(`${API}/cursos/:id/portada`, async ({ request, params }) => {
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
@@ -218,6 +281,7 @@ export const handlersCursos = [
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
     const curso = cursosSimulados.find(c => c.id === params.id)
     if (!curso) return error(404, 'El curso no existe.')
+    if (curso.id === idCursoAulaDemo) return errorCursoAulaFijo()
     const entrada = z.object({ modalidadCobro: z.enum(['PREVIO', 'CERTIFICADO', 'GRATUITO']), costo: z.number().min(0).max(9999999999.99).multipleOf(0.01),
       precioGeneral: z.number().min(0).max(9999999999.99).multipleOf(0.01).optional(),
       plazoPagoMinutos: z.number().int().min(1).max(525600).nullable(), versionCobro: z.number().int().positive() }).strict().safeParse(await request.json())
@@ -268,6 +332,7 @@ export const handlersCursos = [
     }
     if (!yaInscrito && inscritos.size >= curso.cupos) return error(409, 'El curso está sin cupos. Elige otra capacitación.', 'SIN_CUPOS')
     inscritos.add(auth.usuario!.id); inscripcionesCursosDemo.set(curso.id, inscritos)
+    if (curso.id === idCursoAulaDemo && avanceAulaDemo(auth.usuario!.id) === undefined) guardarAvanceAulaDemo(auth.usuario!.id, 0)
     if (!yaInscrito) {
       const pagoPrevio = modalidadCobroDe(curso) === 'PREVIO'
       estadosInscripcionDemo.set(`${curso.id}:${auth.usuario!.id}`, pagoPrevio ? 'PENDIENTE_PAGO' : 'EN_CURSO')
@@ -290,11 +355,12 @@ export const handlersCursos = [
   http.put(`${API}/cursos/:id`, async ({ request, params }) => {
     const rol = acceso(request, ['ADMIN']); if (rol.fallo) return rol.fallo
     const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
+    const curso = auth.curso!
+    if (curso.id === idCursoAulaDemo) return errorCursoAulaFijo()
     const datos = esquemaEdicion.safeParse(await request.json())
     if (!datos.success) return error(422, 'Completa los campos obligatorios: horas mayores que cero, certificado y al menos un módulo.')
     const instructor = usuarios.find(u => u.id === datos.data.instructorId && u.rol === 'INSTRUCTOR')
     if (!instructor) return error(422, 'Selecciona un instructor válido.')
-    const curso = auth.curso!
     const inscritos = inscripcionesCursosDemo.get(curso.id)?.size ?? 0
     if (datos.data.cupos < inscritos) return error(422, `Ya hay ${inscritos} inscritos; los cupos no pueden ser menos.`)
     // HU-36: con sesiones programadas la modalidad se calcula; sin ellas se guarda la elegida.

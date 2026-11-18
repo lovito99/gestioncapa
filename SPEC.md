@@ -1375,3 +1375,58 @@ se verifican con un servidor SMTP de prueba. [RFC 5321, sección 6.1](https://ww
 - Guardar las credenciales en la configuración del entorno. La compilación y
   las operaciones Git son manuales según `AGENTS.md`. La implementación
   espera aprobación humana. La publicación queda fuera de esta tarea.
+
+# T-24 · Referencias de diseño para cursos grabados
+
+## Objetivo
+
+Traducir el encargo NR-21 del CPPP en una referencia que el equipo pueda
+incorporar al Figma institucional. La entrega documenta cinco patrones de
+SIFODS y PerúEduca y los vincula con HU-17, HU-37, HU-38 y HU-44.
+
+## Punto de partida
+
+| Hallazgo | Consecuencia para el diseño |
+| --- | --- |
+| HU-36 permite publicar un curso `GRABADO` con módulos y materiales. El backend excluye sesiones con fecha y todavía bloquea su emisión de constancias. | Diseñar un aula de lecciones y estados de aprendizaje. El recorrido grabado necesita sus propias reglas de elegibilidad. [HU-36](#hu-36-modalidad-por-sesión-y-cursos-híbridos) |
+| La ficha del curso ya presenta módulos y el servidor controla el acceso al contenido. «Mis cursos» y «Historial» ya son recorridos del agremiado. | Usarlos como puntos de entrada y salida del aula. Mostrar avance de aprendizaje por separado de asistencia, nota y pago. [Pantallas de Figma](docs/esp/pantallas-figma.md#7-historial-41--51--scrum-142-scrum-176) |
+| Las referencias muestran tanto cuestionarios por módulo como evaluaciones de salida. Las reglas dependen de cada oferta formativa. | Diseñar el componente de evaluación dentro del módulo. Dejar nota mínima, intentos, desbloqueo y condiciones de constancia a las historias y al CPPP. |
+| El nodo institucional de Figma `4:52` contiene el sistema de diseño. El archivo tiene fichas del curso e historial en escritorio y celular. Las fichas oficiales de Jira y las pautas del CPPP siguen sin fuente disponible. | Registrar las cinco anotaciones en un marco editable de «Escritorio» y enlazar las pantallas existentes. Conservar la trazabilidad local mientras falten las fichas de Jira. [Marco T‑24 en Figma](https://www.figma.com/design/ORSusbg35vcu0nUEz4o08q/GestionCapa?node-id=262-2950) |
+
+## Criterios de aceptación
+
+| ID | Resultado verificable |
+| --- | --- |
+| T24-01 | El resumen cubre ingreso, estructura en módulos, barra de avance, evaluación por módulo y constancia descargable. Cada patrón identifica la evidencia oficial y distingue el caso observado de la decisión de diseño. |
+| T24-02 | Los cinco patrones incluyen una anotación para Figma, estados principales y un enlace a su historia de referencia. Las cuatro historias pedidas aparecen en la trazabilidad. Cada asignación sin ficha oficial se identifica como propuesta. |
+| T24-03 | El documento registra las pautas entregadas por el CPPP con su fuente. Si el colegio aún no las ha entregado, queda indicado qué decisiones podrían cambiar. |
+| T24-04 | La referencia es localizable desde la documentación del Figma y deja constancia del acceso disponible. El recorrido conserva identidad institucional y permisos de contenido y descarga. |
+
+## Entregable y verificación
+
+- El informe vive en [Referencia de cursos grabados](docs/esp/referenciaCursosGrabados.md).
+  El [plan](tasks/plan.md#t-24--plan-del-referente-de-diseño) y el
+  [seguimiento](tasks/todo.md#t-24--seguimiento) conservan las tareas y resultados.
+- Consultar fuentes públicas del Minedu y el código en modo de lectura.
+  Parafrasear las observaciones, citar guías y cursos concretos y usar historias
+  y patrones con anclas comprobables. Verificar el diff con `git diff --check`
+  y comprobar cobertura y enlaces relativos. El entregable es documental.
+- Aplicar la identidad existente del CPPP y describir estados con texto. Las
+  credenciales, capturas con datos personales, umbrales académicos externos,
+  integración con las plataformas y cambios de aplicación quedan fuera de T-24.
+
+## Ampliación aprobada · Prototipo en GestionCapa
+
+El prototipo traslada los cinco patrones al modo demo existente, con un curso
+grabado, gratuito y de programa fijo, con el ingreso e inscripción de la aplicación. La
+experiencia requiere una sesión y una inscripción confirmada. El servidor
+simulado mantiene el avance del agremiado en el navegador para retomar el curso
+tras recargar. Cada módulo contiene una lección y una evaluación corta. Una
+respuesta incorrecta admite otro intento y conserva el avance anterior. Cada
+actividad completada habilita la siguiente. Al completar los módulos se puede
+descargar un PDF de demostración sin validez oficial.
+
+Se verifica el recorrido con un curso de prueba, progreso por cuenta y estados
+bloqueado, en progreso y completado. El prototipo se habilita con `npm run dev:demo`.
+Las reglas académicas definitivas, el almacenamiento real y la emisión
+institucional corresponden a las historias de implementación.

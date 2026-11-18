@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { setupServer } from 'msw/node'
+import { idCursoAulaDemo } from '@/lib/aulaGrabadaDemo'
 import { handlersCursos } from './cursos'
 
 const servidor = setupServer(...handlersCursos)
@@ -10,12 +11,12 @@ async function consultar(ruta: string, usuario = 'p-1') {
 }
 
 describe('Cursos de demostración', () => {
-  // Tres cursos de crearCursosDemo y dos del Figma S3 (precios de colegiado y general)
-  it('el colegiado ve cinco cursos publicados y no el borrador', async () => {
+  it('el colegiado ve los seis cursos publicados, incluido el aula grabada, y no el borrador', async () => {
     const respuesta = await consultar('/catalogo/cursos')
     const catalogo = await respuesta.json()
     expect(respuesta.status).toBe(200)
-    expect(catalogo).toHaveLength(5)
+    expect(catalogo).toHaveLength(6)
+    expect(catalogo).toContainEqual(expect.objectContaining({ id: idCursoAulaDemo, modalidad: 'GRABADO', costo: 0 }))
     expect(catalogo.every((c: { estado: string }) => c.estado === 'PUBLICADO')).toBe(true)
     expect(catalogo.some((c: { costo: number }) => c.costo === 0)).toBe(true)
     const borrador = (await (await consultar('/cursos', 'u-admin-1')).json()).find((c: { estado: string }) => c.estado === 'BORRADOR')
@@ -24,7 +25,8 @@ describe('Cursos de demostración', () => {
   it('cada instructor ve sus cursos con módulos y materiales', async () => {
     const carlos = await (await consultar('/cursos', 'i-1')).json()
     const lucia = await (await consultar('/cursos', 'i-2')).json()
-    expect(carlos).toHaveLength(4); expect(lucia).toHaveLength(2)
+    expect(carlos).toHaveLength(5); expect(lucia).toHaveLength(2)
+    expect(carlos).toContainEqual(expect.objectContaining({ id: idCursoAulaDemo }))
     const curso = await (await consultar(`/cursos/${carlos[0].id}`, 'i-1')).json()
     expect(curso.modulos.map((m: { orden: number }) => m.orden)).toEqual([1, 2])
     expect(curso.modulos.flatMap((m: { materiales: { tipo: string }[] }) => m.materiales.map(a => a.tipo))).toEqual(['PDF', 'ENLACE', 'VIDEO'])

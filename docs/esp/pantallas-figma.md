@@ -4,6 +4,9 @@ T-23 referencia el [diseño institucional](https://www.figma.com/design/ORSusbg3
 La correspondencia entre ese original y la copia local sigue pendiente de validar.
 Consultar [el alcance y las evidencias de T-23](reestructuracionCppp.md).
 
+Para el aula de cursos grabados, consultar las decisiones de diseño y su
+trazabilidad en [T-24 · Referencias para cursos grabados](referenciaCursosGrabados.md).
+
 El frontend implementa estas pantallas usando la copia `Mz9MQ1XmFWJjqGVF4V2BQL` y las
 prueba con datos simulados (MSW, `VITE_USE_MOCKS=true`). Este documento es el **contrato** que
 falta implementar en el backend. Sigue las reglas generales de [API.md](../API.md): rutas bajo

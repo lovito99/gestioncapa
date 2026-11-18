@@ -8,6 +8,7 @@ import { Boton } from '@/components/ui/Boton'
 import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { esApiError, mensajeDeError } from '@/lib/api'
+import { cursoTieneAulaDemo } from '@/lib/aulaGrabadaDemo'
 import { accesoConCurso } from '@/lib/retornoCurso'
 import { cursos, type CursoPublicoDetalle } from '@/servicios/cursos'
 import { BotonCompartir } from './CompartirCurso'
@@ -33,6 +34,7 @@ export function PaginaPublicaCursoPagina() {
     </Contenedor>
   }
   const curso = consulta.data
+  const aulaDemo = cursoTieneAulaDemo(id) && curso.modalidad === 'GRABADO'
   return (
     <Contenedor>
       <div className="flex flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_23.5rem] lg:items-start lg:gap-8">
@@ -55,10 +57,12 @@ export function PaginaPublicaCursoPagina() {
             <FilaDato icono={Clock} etiqueta="Horas">{curso.horasLectivas} horas lectivas</FilaDato>
             <FilaDato icono={Users} etiqueta="Cupos" alerta={curso.cuposDisponibles === 0}>{cuposCurso(curso)}</FilaDato>
             <FilaDato icono={Award} etiqueta="Certificado">
-              {curso.tipoCertificado === 'APROBACION' ? `Certificado de aprobación · nota mínima ${curso.notaMinima}` : 'Constancia de participación'} · asistencia mínima {curso.requisitoAsistencia} %
+              {aulaDemo ? 'Constancia de demostración al completar los módulos' : <>
+                {curso.tipoCertificado === 'APROBACION' ? `Certificado de aprobación · nota mínima ${curso.notaMinima}` : 'Constancia de participación'} · asistencia mínima {curso.requisitoAsistencia} %
+              </>}
             </FilaDato>
           </dl>
-          <SesionesDetalle sesiones={curso.sesiones} />
+          {!aulaDemo && <SesionesDetalle sesiones={curso.sesiones} />}
         </div>
         <aside className="lg:sticky lg:top-8">
           <TarjetaPrecio curso={curso} />

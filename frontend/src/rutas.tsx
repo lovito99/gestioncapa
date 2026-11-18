@@ -16,6 +16,7 @@ import { DetalleCursoPagina } from '@/paginas/cursos/DetalleCursoPagina'
 import { ReunionesPagina, SalaReunionPagina } from "@/paginas/reuniones/ReunionesPagina"
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RutaProtegida } from '@/auth/RutaProtegida'
+import { idCursoAulaDemo, modoDemoActivo } from '@/lib/aulaGrabadaDemo'
 import { PaginaConEncabezado, PaginaPublica } from '@/components/layout/Pagina'
 import { AdminPagina } from '@/paginas/admin/AdminPagina'
 import { AsistenciaPagina } from '@/paginas/coordinador/AsistenciaPagina'
@@ -71,6 +72,10 @@ export const router = createBrowserRouter([
           { path: '/participante/clases', element: <MisClasesParticipantePagina /> },
           { path: '/participante/clases/:id', element: <DetalleClaseParticipantePagina /> },
           { path: '/participante/cursos', element: <MisCursosPagina /> },
+          ...(modoDemoActivo ? [{
+            path: `/cursos/${idCursoAulaDemo}/aula`,
+            lazy: async () => ({ Component: (await import('@/paginas/cursos/AulaGrabadaPagina')).AulaGrabadaPagina }),
+          }] : []),
           // HU-39: QR personal que el encargado escanea en la puerta
           { path: '/participante/mi-qr', element: <MiQrPagina /> },
           // S3 7.x: pago del agremiado (en línea, transferencia BCP o efectivo)

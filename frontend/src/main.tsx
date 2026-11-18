@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/auth/AuthContext'
+import { modoDemoActivo } from '@/lib/aulaGrabadaDemo'
 import { router } from '@/rutas'
 import './index.css'
 
@@ -15,7 +16,7 @@ const queryClient = new QueryClient({
 
 /** Mientras el backend no esté listo, las llamadas a la API las responde MSW. */
 async function iniciarMocks() {
-  if (!import.meta.env.DEV || import.meta.env.VITE_USE_MOCKS !== 'true') return
+  if (!modoDemoActivo) return
   const { worker } = await import('./mocks/browser')
   await worker.start({ onUnhandledFrame: 'bypass' })
 }

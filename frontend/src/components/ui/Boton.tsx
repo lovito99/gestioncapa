@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react'
+import type { ComponentPropsWithRef } from 'react'
 import { cn } from '@/lib/cn'
 
 type Variante = 'primario' | 'secundario' | 'peligro' | 'icono'
@@ -13,7 +13,7 @@ const estilos: Record<Variante, string> = {
   icono: 'size-8 rounded-sm p-0 text-muted-2 hover:bg-surface-3',
 }
 
-interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface Props extends ComponentPropsWithRef<'button'> {
   variante?: Variante
   cargando?: boolean
 }
