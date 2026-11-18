@@ -1,6 +1,7 @@
 import { matchRoutes } from 'react-router-dom'
+import { esIdCursoPublico } from './enlaceCurso'
 
-const idValido = (valor: string | null): valor is string => valor !== null && /^[1-9]\d{0,14}$/.test(valor)
+const idValido = (valor: string | null): valor is string => valor !== null && esIdCursoPublico(valor)
 const rutasRetorno=[{path:'/login'},{path:'/registro'},{path:'/cursos/:id'}]
 
 /** La URL transporta una selección, nunca una dirección de redirección. */

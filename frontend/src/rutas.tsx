@@ -8,6 +8,7 @@ import { CerrarCursoPagina } from '@/paginas/cursos/cierre/CerrarCursoPagina'
 import { CertificadosAdminPagina } from '@/paginas/cursos/cierre/CertificadosAdminPagina'
 import { CertificadosCursoPagina } from '@/paginas/cursos/cierre/CertificadosCursoPagina'
 import { DetalleCursoPagina } from '@/paginas/cursos/DetalleCursoPagina'
+import { CursoPublicoPagina } from '@/paginas/cursos/CursoPublicoPagina'
 import { ReunionesPagina, SalaReunionPagina } from "@/paginas/reuniones/ReunionesPagina"
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RutaProtegida } from '@/auth/RutaProtegida'
@@ -34,6 +35,7 @@ import { SinPermisoPagina } from '@/paginas/SinPermisoPagina'
 export const router = createBrowserRouter([
   { path: '/', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
   { path: '/capacitaciones', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
+  { path: '/c/:id', element: <CursoPublicoPagina /> },
   { path: '/login', element: <LoginPagina /> },
   { path: '/registro', element: <RegistroPagina /> },
   { path: '/recuperar', element: <RecuperarPagina /> },

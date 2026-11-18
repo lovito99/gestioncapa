@@ -2,6 +2,7 @@ import { SesionesCurso } from './SesionesCurso'
 import { FechasCurso } from './CursosPagina'
 import { condicionesCobro, ETIQUETA_MODALIDAD } from './formatoCurso'
 import { PagoCurso } from './PagoCurso'
+import { CompartirCurso } from './CompartirCurso'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
@@ -56,6 +57,7 @@ export function DetalleCursoPagina() {
         {inscripcion.isError && <Alerta tipo="error">{mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.')}</Alerta>}
       </div>}
       {publicar.isError && <p role="alert" className="text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
+      {curso.estado === 'PUBLICADO' && <CompartirCurso curso={curso} />}
     </header>
     {curso.miInscripcion && usuario?.rol==='AGREMIADO' && <section className="space-y-2 rounded-xl border border-line bg-white p-4" aria-label="Condiciones de mi inscripción">
       <h2 className="font-semibold">Condiciones de tu inscripción</h2>

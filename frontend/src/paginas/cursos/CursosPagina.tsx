@@ -12,6 +12,7 @@ import { accesoConCurso } from '@/lib/retornoCurso'
 import { cursos, type Curso, type CursoPublico } from '@/servicios/cursos'
 import { condicionesCobro, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
 import { DatoCurso, EtiquetasCurso } from './presentacion'
+import { CompartirCurso } from './CompartirCurso'
 
 export function FechasCurso({ curso }: { curso: Pick<Curso, 'fechaInicio' | 'fechaFin'> }) {
   const fecha = (valor: string) => valor.split('-').reverse().join('/')
@@ -30,6 +31,7 @@ function TarjetaCurso({ curso, editable = false }: { curso: Curso; editable?: bo
     {curso.inscrito && <p className="text-sm font-semibold text-success">Ya estás inscrito(a)</p>}
     <p className="text-sm text-muted">{curso.estado === 'BORRADOR' ? 'Borrador' : 'Publicado'}</p>
     {editable && <Link className="inline-block text-sm font-semibold text-brand hover:underline" aria-label={`Editar ${curso.titulo}`} to={`/admin/cursos/${curso.id}/editar`}>Editar curso</Link>}
+    {curso.estado === 'PUBLICADO' && <CompartirCurso curso={curso} />}
   </li>
 }
 export function CursosPagina({ catalogo = false }: { catalogo?: boolean }) {
@@ -135,11 +137,11 @@ function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?
       </dl>
     </div>
   </>
-  if(!publico) return <Link to={destino} aria-labelledby={idTitulo} className={estilo}>{contenido}</Link>
   return <article className={estilo}>
     <Link to={destino} aria-labelledby={idTitulo} className="flex flex-1 flex-col gap-2.5 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">{contenido}</Link>
-    {curso.cuposDisponibles>0
+    {publico && (curso.cuposDisponibles>0
       ? <Link to={destino} aria-label={`Inscribirme en ${curso.titulo}`} className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">Inscribirme</Link>
-      : <p className="rounded-lg bg-surface-2 px-4 py-2 text-center text-sm font-semibold text-muted">Sin cupos</p>}
+      : <p className="rounded-lg bg-surface-2 px-4 py-2 text-center text-sm font-semibold text-muted">Sin cupos</p>)}
+    <CompartirCurso curso={curso} />
   </article>
 }

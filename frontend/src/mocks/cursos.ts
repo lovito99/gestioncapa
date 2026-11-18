@@ -6,6 +6,7 @@ import { emitirCertificado, certificadoDe } from './certificados'
 import type { DetalleCurso, MaterialCurso, SesionCurso, FilaCierre } from '@/servicios/cursos'
 import { z } from 'zod'
 import { modalidadDerivada, modalidadesCurso, modalidadesSesion } from '@/servicios/modalidadCurso'
+import { esIdCursoPublico } from '@/lib/enlaceCurso'
 
 const API = import.meta.env.VITE_API_URL ?? '/api'
 const demo = crearCursosDemo()
@@ -103,13 +104,16 @@ function resumenPublico(curso: DetalleCurso) {
     cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro: curso.modalidadCobro ?? (costo === 0 ? 'GRATUITO' : null),
     plazoPagoMinutos: curso.plazoPagoMinutos ?? null, versionCobro: curso.versionCobro ?? 1 }
 }
+function cursoVigente(curso: DetalleCurso) {
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+  return !curso.fechaFin || curso.fechaFin >= hoy
+}
 function catalogoPaginado(request: Request, publico = false, usuarioId = '') {
   const consulta = z.object({ buscar: z.string().trim().max(160).default(''), categoria: z.string().min(1).max(80).optional(), modalidad: z.enum(modalidadesCurso).optional(), pagina: z.coerce.number().int().min(1).max(100000).default(1), tamanoPagina: z.coerce.number().int().min(1).max(50).default(6) }).strict().safeParse(Object.fromEntries(new URL(request.url).searchParams))
   if (!consulta.success) return error(422, 'Revisa los filtros y la página solicitada.')
   const { buscar, categoria, modalidad, pagina, tamanoPagina } = consulta.data
   const normalizar = (texto: string) => texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
-  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
-  const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO' && (!publico || !c.fechaFin || c.fechaFin >= hoy))
+  const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO' && (!publico || cursoVigente(c)))
   const filtrados = publicados.filter(c => normalizar(c.titulo).includes(normalizar(buscar)) && (!categoria || c.categoria === categoria) && (!modalidad || disponibilidad(c).modalidad === modalidad)).sort((a,b) => Number(b.id)-Number(a.id))
   return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => publico ? resumenPublico(disponibilidad(c, '')) : disponibilidad(c, usuarioId)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...categoriasCatalogo] })
 }
@@ -149,6 +153,13 @@ export const handlersCursos = [
     return HttpResponse.json(cursosSimulados.filter(c => c.estado === 'PUBLICADO').map(c => disponibilidad(c, auth.usuario!.id)))
   }),
   http.get(`${API}/publico/cursos`, ({ request }) => catalogoPaginado(request, true)),
+  http.get(`${API}/publico/cursos/:id`, ({ params }) => {
+    const id = String(params.id)
+    const curso = esIdCursoPublico(id) && cursosSimulados.find(c => c.id === id && c.estado === 'PUBLICADO')
+    const headers = { 'Cache-Control': 'no-store' }
+    if (!curso) return HttpResponse.json({ code: 'CURSO_NO_EXISTE', message: 'El curso no existe.' }, { status: 404, headers })
+    return HttpResponse.json({ ...resumenPublico(disponibilidad(curso)), vigente: cursoVigente(curso) }, { headers })
+  }),
   http.get(`${API}/catalogo/cursos/pagina`, ({ request }) => {
     const auth = acceso(request); if (auth.fallo) return auth.fallo
     return catalogoPaginado(request, false, auth.usuario!.id)
