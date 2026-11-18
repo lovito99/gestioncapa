@@ -1038,3 +1038,47 @@ Estado: **implementado en local (16/11/2026); pendiente de revisión humana y bu
 Versión de entrega propuesta `v3.1.0.0.0` si la base efectiva al publicarla
 sigue siendo `v3.0.0.0.0`. Los commits, la etiqueta y la publicación se realizan
 manualmente según `AGENTS.md`.
+
+# HU-43 · Seguimiento
+
+- [x] Revisar los contratos de Sprint 3, HU-50 y HU-53 y documentar el plan.
+- [x] **T43-01** — Persistir y leer tarifas en creación y PATCH. Integración de catálogo y migración.
+- [x] **T43-02** — Cotizar según padrón vigente y vínculo verificado. Integración de casos positivo y negativo.
+- [x] **T43-03** — Congelar la tarifa transaccional y conservar la separación entre curso y constancia. Integración de cambio e idempotencia.
+- [x] **T43-04** — Verificar envío de precios y confirmación en React y la demo. Pruebas focalizadas y Playwright.
+- [x] Revisar calidad y seguridad con Definition of Done y Security Checklist, documentar el contrato y registrar resultados.
+- [ ] Ejecutar el build manual y ensayar las migraciones con una copia de la base de entrega.
+- [ ] Obtener la decisión del CPPP, sus tarifas y su autorización para cargar y mantener el padrón y verificar los vínculos.
+- [ ] Validar la operación con el CPPP antes de habilitar `inscripcionExternaHabilitada`.
+
+### Resultados de verificación
+
+| Verificación | Resultado |
+| --- | --- |
+| T43-01 | La prueba de contrato falló primero por el campo de tarifa desconocido. Creación, edición y lectura verificadas en PostgreSQL. |
+| T43-02 | La prueba falló primero por ausencia del bloqueo y la cotización del padrón. Se verificó la clasificación y el cierre ante datos ausentes, caducados o sin vínculo verificado. |
+| T43-03 | La confirmación rechazaba el campo de tipo desconocido antes del cambio. Se comprobaron tarifa manipulada, versión desactualizada, concurrencia e importes históricos. |
+| T43-04 | Las pruebas de React fallaron primero por omitir el importe general y aceptar un tipo distinto en la confirmación. Se verificó el recorrido del externo a 360 px en Playwright. |
+| `npm test` | 518 aprobadas. 347 de backend, 164 de frontend y 7 de Express. |
+| Integración focalizada | 46 casos aprobados entre catálogo, precio general, cobro, migración y registro. Un caso preexistente requirió repetir con la resolución de `tsx` desde la raíz corregida temporalmente. |
+| Playwright focalizado | 18 casos demo y 5 con backend real aprobados entre la ejecución inicial y las repeticiones de los casos con espera agotada. |
+| Chromium con Fastify y PostgreSQL aislados | El padrón sintético seleccionó S/ 69.29 para el externo y S/ 42.35 para el colegiado verificado. La pantalla de pago y la deuda persistida coincidieron. |
+| Tipos, lint y espacios | `npm run typecheck`, `npm run e2e:tipos`, `npm run lint -w frontend` y `git diff --check` aprobados. Lint conserva dos avisos preexistentes. |
+
+### Revisión y entrega
+
+- El servidor decide la tarifa usando el vínculo verificado, con consultas parametrizadas. La corrección de concurrencia guarda una sola deuda y conserva el monto acordado. La cotización privada muestra solo los últimos cuatro dígitos del DNI al titular y el catálogo usa una selección de campos públicos.
+- Se cotejaron los controles aplicables de Definition of Done y Security Checklist. La auditoría de producción tuvo cero alertas y la instalación completa reportó seis alertas altas en dependencias de desarrollo. HU-43 conserva las dependencias declaradas.
+- La política nueva está desactivada por defecto. La carga del padrón, los controles previos, la verificación operativa y la reversión constan en [Inscripción a cursos](../docs/esp/inscripcionCurso.md).
+
+### Commits propuestos para ejecución manual
+
+| Tarea | Summary | Description |
+| --- | --- | --- |
+| Planificación | `docs: especificar y planificar HU-43` | Documenta alcance, criterios de aceptación y cuatro incrementos verificables. |
+| T43-01 | `feat: guardar los precios colegiado y general` | Añade la segunda tarifa, valida ambos importes y expone la oferta pública. Pruebas focalizadas de catálogo y persistencia aprobadas. Build manual pendiente. |
+| T43-02 | `feat: cotizar la inscripción según el padrón CPPP` | Incorpora cotización privada y validación de vigencia y vínculo. Integración con padrón sintético aprobada. Build y padrón oficial pendientes. |
+| T43-03 | `feat: conservar la tarifa confirmada en la inscripción` | Registra el cargo calculado por el servidor y verifica versión, tarifa e idempotencia. Integración transaccional aprobada. Build manual pendiente. |
+| T43-04 | `feat: mostrar la tarifa de inscripción antes del pago` | Integra las tarifas en el formulario de cursos y la confirmación. Pruebas unitarias y de navegador aprobadas. Build manual y validación del CPPP pendientes. |
+
+Versión propuesta de entrega `v3.2.0.0.0` sobre la etiqueta local `v3.1.0.0.0`. Los commits y la etiqueta quedan para ejecución manual según `AGENTS.md`.

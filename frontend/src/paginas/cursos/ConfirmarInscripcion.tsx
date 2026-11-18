@@ -29,6 +29,8 @@ export function ConfirmarInscripcion({
   const cobro = modalidadCobroDe(curso)
   const precio = precioPara(curso)
   const colegiado = precio.tipo === 'COLEGIADO'
+  const externo = precio.tipo === 'GENERAL'
+  const impedimento = curso.impedimentoInscripcion?.mensaje
   const plazo = curso.plazoPagoMinutos ? textoPlazo(curso.plazoPagoMinutos) : null
 
   const pasos =
@@ -54,7 +56,7 @@ export function ConfirmarInscripcion({
         <div className="min-w-0 flex-1">
           <p className="text-sm leading-5 font-semibold wrap-anywhere text-ink">{usuario?.nombre}</p>
           <p className="text-xs leading-4 text-muted">
-            {[precio.dniParcial ? `DNI ${precio.dniParcial}` : null, colegiado ? 'Colegiado(a) habilitado(a)' : 'Docente externo'].filter(Boolean).join(' · ')}
+            {[precio.dniParcial ? `DNI ${precio.dniParcial}` : null, colegiado ? 'Colegiado(a) habilitado(a)' : externo ? 'Docente externo' : null].filter(Boolean).join(' · ')}
           </p>
         </div>
       </div>
@@ -62,7 +64,7 @@ export function ConfirmarInscripcion({
       {cobro !== 'GRATUITO' && (
         <div className="flex flex-col gap-1 rounded-lg border-2 border-brand bg-brand-soft p-4">
           <p className="text-xs leading-4 font-semibold text-brand">
-            {cobro === 'CERTIFICADO' ? 'La constancia te costará' : colegiado ? 'Pagarás el precio de colegiado' : 'Pagarás el precio general'}
+            {cobro === 'CERTIFICADO' ? 'La constancia te costará' : colegiado ? 'Pagarás el precio de colegiado' : externo ? 'Pagarás el precio general' : 'Precio del curso'}
           </p>
           <p className="flex flex-wrap items-end gap-x-2">
             <span className="font-serif text-[28px] leading-9 font-bold text-brand-ink">{soles(precio.importe)}</span>
@@ -73,7 +75,7 @@ export function ConfirmarInscripcion({
         </div>
       )}
 
-      {!precio.enPadron && (
+      {externo && (
         <Aviso titulo="Tu DNI no figura en el padrón de colegiados">
           Por eso se aplica el precio general. Si eres colegiado del CPPP, actualiza tus datos en coordinación antes de pagar.
         </Aviso>
@@ -96,10 +98,10 @@ export function ConfirmarInscripcion({
         Acepto las condiciones del curso y la política de privacidad (Ley 29733).
       </label>
 
-      {error && <Aviso tipo="error" titulo="No pudimos inscribirte">{error}</Aviso>}
+      {(impedimento || error) && <Aviso tipo="error" titulo="No pudimos inscribirte">{impedimento || error}</Aviso>}
 
       <div className="flex flex-col gap-3">
-        <Boton onClick={onConfirmar} disabled={!acepta} cargando={confirmando} className="h-12 w-full text-base">
+        <Boton onClick={onConfirmar} disabled={!acepta || Boolean(impedimento)} cargando={confirmando} className="h-12 w-full text-base">
           {cobro === 'PREVIO' ? 'Confirmar e ir a pagar' : 'Confirmar inscripción'}
         </Boton>
         <Boton variante="secundario" onClick={onCerrar} className="h-12 w-full bg-transparent text-base text-brand ring-0 hover:bg-brand-soft">

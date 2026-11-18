@@ -490,14 +490,24 @@ Campos nuevos del curso (en `GET /api/cursos/:id`, el catálogo y el catálogo p
 `portadaUrl` (`null` → portada por categoría), `precioGeneral` (precio para no colegiados;
 si falta se usa `costo`), `modalidadCobro`, `plazoPagoMinutos`, `versionCobro` y `categoria`.
 
-- `POST /api/cursos` y `PUT /api/cursos/:id` aceptan `precioGeneral` y `modalidadCobro`.
-  El formulario solo envía `precioGeneral` si es distinto de `costo` (SCRUM-191 pendiente).
+- El backend real guarda `precioGeneral` en `POST /api/cursos` y
+  `PATCH /api/cursos/:id/cobro`. El formulario de creación envía ambos importes,
+  incluso cuando coinciden. `PUT /api/cursos/:id` sigue siendo parte de la simulación.
+  En el catálogo real, `null` indica que la tarifa general está por configurar.
 - `GET /api/cursos/:id` añade `miPrecio` para el agremiado:
   `{ tipo: "COLEGIADO"|"GENERAL", importe, dniParcial: "•••• 5678"|null, enPadron }`.
-  `enPadron` indica si su DNI está habilitado en el padrón del CPPP; quien no está paga `precioGeneral`.
-- `POST /api/cursos/:id/inscribirme` recibe `{ versionCobro }`; si cambió desde que el agremiado
-  vio el precio → `409` y la pantalla vuelve a cargar el curso. Con cobro `PREVIO` responde
+  Se cotiza al titular cuando se habilita HU-43. Una afiliación habilitada y
+  vinculada a su cuenta usa `costo`. Un DNI ausente del padrón vigente usa
+  `precioGeneral`. Si falta un requisito, el detalle informa `impedimentoInscripcion`.
+  El catálogo público informa `admiteExternos: true` si la opción está activa
+  y la oferta la permite.
+- `POST /api/cursos/:id/inscribirme` recibe `{ versionCobro, tipoPrecio? }`.
+  Con HU-43 activa, ambos campos se requieren para un alta nueva. Si cambia la
+  versión o el tipo cotizado, devuelve `409 COBRO_MODIFICADO` y se vuelve a
+  cargar el curso. Con cobro `PREVIO` responde
   `estado: "PENDIENTE_PAGO"` y el frontend pasa a `/cursos/:id/pagar`.
+  Los impedimentos de identidad o afiliación devuelven `403`, el padrón
+  no disponible devuelve `503` y la tarifa general sin configurar devuelve `409`.
 
 ## Sprint 3 — Pagos del agremiado y bandeja del administrador (SCRUM-196/198, 199/201, HU-32, HU-54)
 

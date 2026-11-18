@@ -1,6 +1,6 @@
 import { modalidadesCurso } from './modalidadCurso.js';
 import { z } from 'zod';
-import { camposCobro, validarCoherenciaCobro } from './cursos.cobro.js';
+import { camposCobro, validarCoherenciaCobro, validarPrecioGeneral } from './cursos.cobro.js';
 
 const titulo = z.string({ error: 'Ingresa un título.' }).trim().min(1, 'Ingresa un título.').max(160, 'Usa como máximo 160 caracteres.');
 export const idCurso = z.string({ error: 'Selecciona un identificador válido.' }).regex(/^[1-9]\d{0,14}$/, 'Identificador no válido.');
@@ -10,6 +10,7 @@ const fechaCurso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa una fecha válid
 }, 'Usa una fecha válida.').nullable().default(null);
 export const esquemaCurso = z.object({
   modalidadCobro: camposCobro.modalidadCobro.nullable().default(null),
+  precioGeneral: camposCobro.precioGeneral,
   plazoPagoMinutos: camposCobro.plazoPagoMinutos,
   titulo,
   descripcion: z.string({ error: 'Ingresa una descripción válida.' }).trim().max(5000, 'Usa como máximo 5000 caracteres.').default(''),
@@ -26,7 +27,10 @@ export const esquemaCurso = z.object({
   modulos: z.array(z.object({ titulo }).strict()).min(1, 'Agrega al menos un módulo.').max(100, 'El máximo es 100 módulos.'),
 }).strict().superRefine((datos, contexto) => {
   if (datos.modalidadCobro !== null) validarCoherenciaCobro({ ...datos, modalidadCobro: datos.modalidadCobro }, contexto);
-  else if (datos.plazoPagoMinutos !== null) contexto.addIssue({ code: 'custom', path: ['modalidadCobro'], message: 'Selecciona la modalidad de cobro.' });
+  else {
+    validarPrecioGeneral(datos, contexto);
+    if (datos.plazoPagoMinutos !== null) contexto.addIssue({ code: 'custom', path: ['modalidadCobro'], message: 'Selecciona la modalidad de cobro.' });
+  }
 }).refine(datos => (datos.fechaInicio === null && datos.fechaFin === null) ||
   (!!datos.fechaInicio && !!datos.fechaFin && datos.fechaFin >= datos.fechaInicio),
   { path: ['fechaFin'], message: 'Indica ambas fechas; la final no puede ser anterior al inicio.' });

@@ -6,7 +6,7 @@ import { Selector } from '@/components/ui/Entrada'
 import { mensajeDeError } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { cursos, type DetalleCurso, type ModalidadCobro, type PoliticaCobro } from '@/servicios/cursos'
-import { precioGeneralDe, precioGeneralParaEnviar, textoPlazo, validarCobro, type ErroresCobro } from './reglasCurso'
+import { precioGeneralParaEnviar, textoPlazo, validarCobro, type ErroresCobro } from './reglasCurso'
 
 const OPCIONES: { valor: ModalidadCobro; titulo: string; descripcion: string }[] = [
   { valor: 'PREVIO', titulo: 'Pago antes de llevar el curso', descripcion: 'La inscripción queda pendiente hasta que pague. Si vence el plazo, se libera el cupo.' },
@@ -165,15 +165,12 @@ export function EditarCobroCurso({ curso }: { curso: DetalleCurso }) {
   const [valor, cambiar] = useState<PoliticaCobro>({
     modalidadCobro: curso.modalidadCobro ?? '',
     costo: curso.costo,
-    precioGeneral: precioGeneralDe(curso),
+    precioGeneral: curso.precioGeneral ?? Number.NaN,
     plazoPagoMinutos: curso.plazoPagoMinutos ?? null,
   })
   const [errores, cambiarErrores] = useState<ErroresCobro>({})
   const guardar = useMutation({
-    mutationFn: () => {
-      const { precioGeneral: _general, ...resto } = valor
-      return cursos.actualizarCobro(curso.id, { ...resto, ...precioGeneralParaEnviar(valor), versionCobro: curso.versionCobro! })
-    },
+    mutationFn: () => cursos.actualizarCobro(curso.id, { ...valor, ...precioGeneralParaEnviar(valor), versionCobro: curso.versionCobro! }),
     onSuccess: async (actualizado) => {
       cache.setQueryData(['curso', curso.id], actualizado)
       await cache.invalidateQueries({ queryKey: ['cursos'] })

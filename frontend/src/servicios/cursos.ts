@@ -15,9 +15,11 @@ export type Curso = {
   modalidadCobro?: ModalidadCobro | null; plazoPagoMinutos?: number | null; versionCobro?: number;
   /** Precio para docentes externos; ausente en cursos anteriores a SCRUM-190 (se usa `costo`). */
   precioGeneral?: number | null;
+  admiteExternos?: boolean;
   /** URL de la portada 16:9; `null` usa la imagen por defecto de la categoría (SCRUM-182). */
   portadaUrl?: string | null;
   miPrecio?: MiPrecio | null;
+  impedimentoInscripcion?: { codigo: string; mensaje: string };
   id: string; titulo: string; descripcion: string; instructorId: string; instructorNombre: string;
   horasLectivas: number; modalidad: ModalidadCurso; costo: number; cupos: number;
   categoria: string; fechaInicio: string | null; fechaFin: string | null; cuposDisponibles: number; inscrito?: boolean;
@@ -73,7 +75,7 @@ export type MaterialEntrada = { titulo: string } & ({ tipo: 'PDF'; contenidoBase
 export type FiltrosCatalogo = { buscar?: string; modalidad?: string; categoria?: string; cobro?: string; pagina?: number; tamanoPagina?: number }
 /** Portada que se sube con el curso: JPG, PNG o WebP de hasta 1 MB (SCRUM-182). */
 export type PortadaEntrada = { nombre: string; tipo: 'image/jpeg' | 'image/png' | 'image/webp'; contenidoBase64: string }
-export type CursoPublico = Pick<Curso, 'id' | 'titulo' | 'descripcion' | 'instructorNombre' | 'horasLectivas' | 'modalidad' | 'costo' | 'cupos' | 'cuposDisponibles' | 'categoria' | 'fechaInicio' | 'fechaFin' | 'modalidadCobro' | 'plazoPagoMinutos' | 'versionCobro' | 'precioGeneral' | 'portadaUrl'>
+export type CursoPublico = Pick<Curso, 'id' | 'titulo' | 'descripcion' | 'instructorNombre' | 'horasLectivas' | 'modalidad' | 'costo' | 'cupos' | 'cuposDisponibles' | 'categoria' | 'fechaInicio' | 'fechaFin' | 'modalidadCobro' | 'plazoPagoMinutos' | 'versionCobro' | 'precioGeneral' | 'portadaUrl' | 'admiteExternos'>
 /**
  * SCRUM-187 · Detalle público del curso (sin sesión). Las sesiones no traen la sala virtual,
  * el encargado ni datos de inscritos.
@@ -123,7 +125,9 @@ export const cursos = {
   publicoDetalle: (id: string) => publicoDetalle(id),
   publico: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo<CursoPublico>>('/publico/cursos', { params: filtros })).data,
   catalogo: async (filtros: FiltrosCatalogo) => (await api.get<PaginaCatalogo>('/catalogo/cursos/pagina', { params: filtros })).data,
-  inscribirme: async (id: string,versionCobro?:number) => (await api.post<{ cursoId: string; estado: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO'; yaInscrito: boolean }>(`/cursos/${id}/inscribirme`,{versionCobro})).data,
+  inscribirme: async (id: string, versionCobro?: number, tipoPrecio?: MiPrecio['tipo']) =>
+    (await api.post<{ cursoId: string; estado: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO'; yaInscrito: boolean }>(
+      `/cursos/${id}/inscribirme`, { versionCobro, tipoPrecio })).data,
   programarSesion: async (id: string, entrada: SesionEntrada) => (await api.post<SesionCurso>(`/cursos/${id}/sesiones`, entrada)).data,
   /** Editar una sesión: es una clase del curso, se guarda con `PUT /clases/:id`. */
   editarSesion: async (sesionId: string, entrada: SesionEntrada & { cursoId: string; instructorId: string }) => (await api.put<SesionCurso>(`/clases/${sesionId}`, entrada)).data,

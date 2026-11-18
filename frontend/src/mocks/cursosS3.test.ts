@@ -35,6 +35,16 @@ describe('precios de colegiado y general', () => {
     expect(cuerpo.miPrecio).toEqual({ tipo: 'COLEGIADO', importe: 60, dniParcial: '•••• 4567', enPadron: true })
   })
 
+  it('HU43-04: la demo rechaza confirmar una tarifa distinta de la cotizada', async () => {
+    const id = await evaluacion()
+    const detalle = (await llamar('GET', `/cursos/${id}`, 'p-1')).cuerpo
+    const respuesta = await llamar('POST', `/cursos/${id}/inscribirme`, 'p-1', {
+      versionCobro: detalle.versionCobro, tipoPrecio: 'GENERAL',
+    })
+    expect(respuesta.status).toBe(409)
+    expect(respuesta.cuerpo.code).toBe('COBRO_MODIFICADO')
+  })
+
   it('el administrador guarda el precio general al cambiar el cobro', async () => {
     const id = await evaluacion()
     const actual = (await llamar('GET', `/cursos/${id}`, 'u-admin-1')).cuerpo

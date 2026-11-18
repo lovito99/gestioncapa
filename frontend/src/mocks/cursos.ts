@@ -146,7 +146,7 @@ function resumenPublico(curso: DetalleCurso) {
     cuposDisponibles, categoria, fechaInicio, fechaFin } = curso
   return { id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, cupos,
     cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro: curso.modalidadCobro ?? (costo === 0 ? 'GRATUITO' : null),
-    precioGeneral: curso.precioGeneral ?? costo, portadaUrl: curso.portadaUrl ?? null,
+    precioGeneral: curso.precioGeneral ?? costo, portadaUrl: curso.portadaUrl ?? null, admiteExternos: true,
     plazoPagoMinutos: curso.plazoPagoMinutos ?? null, versionCobro: curso.versionCobro ?? 1 }
 }
 const hoyEnLima = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
@@ -250,19 +250,33 @@ export const handlersCursos = [
     const auth = acceso(request); if (auth.fallo) return auth.fallo
     return catalogoPaginado(request, false, auth.usuario!.id)
   }),
-  http.post(`${API}/cursos/:id/inscribirme`, ({ request, params }) => {
+  http.post(`${API}/cursos/:id/inscribirme`, async ({ request, params }) => {
     const auth = acceso(request, ['AGREMIADO']); if (auth.fallo) return auth.fallo
     const curso = cursosSimulados.find(c => c.id === params.id)
     if (!curso) return error(404, 'El curso no existe.')
     if (curso.estado !== 'PUBLICADO') return error(409, 'El curso no está publicado.', 'CURSO_NO_PUBLICADO')
     const inscritos = inscripcionesCursosDemo.get(curso.id) ?? new Set<string>()
     const yaInscrito = inscritos.has(auth.usuario!.id)
+    const cuerpo = await request.text()
+    let confirmacion: unknown = {}
+    if (cuerpo) {
+      try { confirmacion = JSON.parse(cuerpo) }
+      catch { return error(422, 'Revisa la confirmación de la inscripción.') }
+    }
+    const datos = z.object({ versionCobro: z.number().int().positive().optional(), tipoPrecio: z.enum(['COLEGIADO', 'GENERAL']).optional() })
+      .strict().safeParse(confirmacion)
+    if (!datos.success) return error(422, 'Revisa la confirmación de la inscripción.')
+    const precio = miPrecio(curso, auth.usuario!.id)
+    if (!yaInscrito && ((datos.data.versionCobro !== undefined && datos.data.versionCobro !== (curso.versionCobro ?? 1))
+      || (datos.data.tipoPrecio && datos.data.tipoPrecio !== precio?.tipo))) {
+      return error(409, 'Las condiciones cambiaron. Recarga el curso y confírmalas antes de inscribirte.', 'COBRO_MODIFICADO')
+    }
     if (!yaInscrito && inscritos.size >= curso.cupos) return error(409, 'El curso está sin cupos. Elige otra capacitación.', 'SIN_CUPOS')
     inscritos.add(auth.usuario!.id); inscripcionesCursosDemo.set(curso.id, inscritos)
     if (!yaInscrito) {
       const pagoPrevio = modalidadCobroDe(curso) === 'PREVIO'
       estadosInscripcionDemo.set(`${curso.id}:${auth.usuario!.id}`, pagoPrevio ? 'PENDIENTE_PAGO' : 'EN_CURSO')
-      if (pagoPrevio) crearPago({ cursoId: curso.id, cursoTitulo: curso.titulo, usuarioId: auth.usuario!.id, importeCentimos: Math.round((miPrecio(curso, auth.usuario!.id)?.importe ?? curso.costo) * 100), plazoMinutos: curso.plazoPagoMinutos ?? 4320 })
+      if (pagoPrevio) crearPago({ cursoId: curso.id, cursoTitulo: curso.titulo, usuarioId: auth.usuario!.id, importeCentimos: Math.round((precio?.importe ?? curso.costo) * 100), plazoMinutos: curso.plazoPagoMinutos ?? 4320 })
     }
     const estado = yaInscrito && auth.usuario!.id === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : estadosInscripcionDemo.get(`${curso.id}:${auth.usuario!.id}`) ?? 'EN_CURSO'
     return HttpResponse.json({ cursoId: curso.id, estado, yaInscrito }, { status: yaInscrito ? 200 : 201 })

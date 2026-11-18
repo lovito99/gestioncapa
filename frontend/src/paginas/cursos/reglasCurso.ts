@@ -20,21 +20,19 @@ export function textoPlazo(minutos: number) {
   return `${minutos} minutos`
 }
 
-/** Precio que le toca a quien consulta: el del padrón si el backend lo envía, si no el de colegiado. */
+/** La afiliación solo se muestra cuando el servidor la ha cotizado. */
 export function precioPara(curso: DetalleCurso) {
-  const general = precioGeneralDe(curso)
   const mio = curso.miPrecio
-  if (mio) return { ...mio, otro: mio.tipo === 'COLEGIADO' ? general : curso.costo }
-  return { tipo: 'COLEGIADO' as const, importe: curso.costo, dniParcial: null, enPadron: true, otro: general }
+  if (mio) {
+    const otro = mio.tipo === 'COLEGIADO' ? precioGeneralDe(curso) : curso.costo
+    return { ...mio, otro: curso.inscrito ? mio.importe : otro }
+  }
+  const importe = curso.inscrito && curso.miInscripcion ? curso.miInscripcion.importeCentimos / 100 : curso.costo
+  return { tipo: null, importe, dniParcial: null, enPadron: null, otro: importe }
 }
 
-/**
- * `precioGeneral` solo viaja si difiere del de colegiado: el backend actual valida en modo estricto
- * y lo rechazaría hasta implementar SCRUM-191. Con precios iguales, el cuerpo es el de siempre.
- */
-export function precioGeneralParaEnviar(cobro: Pick<PoliticaCobro, 'modalidadCobro' | 'costo' | 'precioGeneral'>) {
-  if (cobro.modalidadCobro === 'GRATUITO' || cobro.precioGeneral === cobro.costo) return {}
-  return { precioGeneral: cobro.precioGeneral }
+export function precioGeneralParaEnviar(cobro: Pick<PoliticaCobro, 'modalidadCobro' | 'precioGeneral'>) {
+  return { precioGeneral: cobro.modalidadCobro === 'GRATUITO' ? 0 : cobro.precioGeneral }
 }
 
 export type ErroresCobro = Partial<Record<keyof PoliticaCobro, string>>
@@ -44,7 +42,7 @@ export function validarCobro(valor: PoliticaCobro): ErroresCobro {
   const errores: ErroresCobro = {}
   if (!valor.modalidadCobro) errores.modalidadCobro = 'Elige cuándo paga el participante.'
   if (valor.modalidadCobro && valor.modalidadCobro !== 'GRATUITO') {
-    const valido = (n: number) => Number.isFinite(n) && n > 0 && Math.round(n * 100) === n * 100
+    const valido = (n: number) => n > 0 && n <= 9999999999.99 && n === Number(n.toFixed(2))
     if (!valido(valor.costo)) errores.costo = 'Ingresa el precio para colegiados, mayor que cero y con hasta dos decimales.'
     if (!valido(valor.precioGeneral)) errores.precioGeneral = 'Ingresa el precio general. Si es igual al de colegiados, repite el monto.'
   }

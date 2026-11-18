@@ -142,14 +142,14 @@ export function EtiquetaCategoria({ categoria }: { categoria: string }) {
 // ---------- Precios (SCRUM-190) ----------
 
 /** «S/ 60.00 colegiados · S/ 90.00 general» o «Gratuito», como el pie de las tarjetas. */
-export function PreciosCurso({ curso }: { curso: Pick<Curso, 'costo' | 'precioGeneral' | 'modalidadCobro'> }) {
+export function PreciosCurso({ curso, mostrarGeneral = true }: { curso: Pick<Curso, 'costo' | 'precioGeneral' | 'modalidadCobro'>; mostrarGeneral?: boolean }) {
   if (modalidadCobroDe(curso) === 'GRATUITO') return <p className="text-sm leading-5 font-semibold text-success">Gratuito</p>
   const general = precioGeneralDe(curso)
   return (
     <p className="flex flex-wrap items-center gap-1.5 whitespace-nowrap">
       <span className="text-sm leading-5 font-semibold text-ink">{soles(curso.costo)}</span>
-      <span className="text-xs leading-4 text-muted">colegiados</span>
-      {general !== curso.costo && (
+      <span className="text-xs leading-4 text-muted">{mostrarGeneral ? 'colegiados' : 'precio'}</span>
+      {mostrarGeneral && general !== curso.costo && (
         <>
           <span className="text-xs leading-4 text-muted" aria-hidden>·</span>
           <span className="text-sm leading-5 font-semibold text-ink">{soles(general)}</span>

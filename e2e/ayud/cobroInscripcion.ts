@@ -4,8 +4,7 @@ import { expect, type Page } from '@playwright/test'
 const TITULOS = { PREVIO: 'Pago antes de llevar el curso', CERTIFICADO: 'Pago solo por el certificado', GRATUITO: 'Gratuito' } as const
 
 /**
- * Elige el cobro en «Nuevo curso». Pone el mismo precio para colegiados y general: así el cuerpo
- * no lleva `precioGeneral` y sirve igual contra la demo y contra el backend actual.
+ * Elige el cobro en «Nuevo curso» y completa ambos precios.
  */
 export async function elegirCobro(page: Page, modalidad: keyof typeof TITULOS, precio = 0, plazoDias = 1) {
   // El radio está oculto a la vista: se elige tocando su tarjeta, como lo hace una persona

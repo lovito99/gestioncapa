@@ -196,7 +196,7 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
         modalidad: curso?.modalidad ?? 'PRESENCIAL',
         modalidadCobro: condiciones.modalidadCobro || undefined,
         costo: condiciones.modalidadCobro === 'GRATUITO' ? 0 : condiciones.costo,
-        ...precioGeneralParaEnviar(condiciones),
+        ...(curso && curso.precioGeneral == null ? {} : precioGeneralParaEnviar(condiciones)),
         plazoPagoMinutos: condiciones.plazoPagoMinutos,
         modulos: modulos.map(({ id, titulo: nombre }) => ({ id, titulo: nombre.trim() })),
       }
