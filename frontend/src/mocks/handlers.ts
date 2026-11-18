@@ -2,6 +2,8 @@ import { handlersUsuarios } from './usuarios'
 import { esquemaRegistro } from '@/lib/registro'
 import { handlersHistorial } from './historial'
 import { handlersCertificados } from './certificados'
+import { dniPorUsuario, handlersAsistenciaPuerta, metodoDeMarca } from './asistenciaPuerta'
+import { handlersPagos } from './pagos'
 import { cursosSimulados, handlersCursos } from './cursos'
 import { delay, http, HttpResponse } from 'msw'
 import { fechaLarga, horaRegistro } from '@/lib/formato'
@@ -164,6 +166,8 @@ export const handlers = [
   ...handlersCursos,
   ...handlersHistorial,
   ...handlersCertificados,
+  ...handlersAsistenciaPuerta,
+  ...handlersPagos,
   // ---------- Salud ----------
   http.get(`${API}/health`, () =>
     HttpResponse.json<EstadoSalud>({ ok: true, api: 'v1', database: 'ready', redis: 'ready' }),
@@ -213,6 +217,7 @@ export const handlers = [
     }
     usuarios.push(nuevo)
     dnisRegistrados.add(entrada.dni)
+    dniPorUsuario[nuevo.id] = entrada.dni
     const { password: _omitida, ...publico } = nuevo
     return HttpResponse.json({ token: `demo-${nuevo.id}`, usuario: publico }, { status: 201 })
   }),
@@ -336,6 +341,7 @@ export const handlers = [
         participante: p,
         estado: marcas[p.id] ? ('PRESENTE' as const) : ('AUSENTE' as const),
         horaRegistro: marcas[p.id] ?? null,
+        metodo: marcas[p.id] ? metodoDeMarca(id, p.id) : null,
       }))
     const presentes = registros.filter((r) => r.estado === 'PRESENTE').length
     const cuerpo: Asistencia = {

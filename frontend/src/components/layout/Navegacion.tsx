@@ -28,6 +28,7 @@ const OPCIONES: Record<Rol, Opcion[]> = {
     { to: '/catalogo', texto: 'Catálogo', end: true },
     { to: '/participante/cursos', texto: 'Mis cursos' },
     { to: '/historial', texto: 'Historial', end: true },
+    { to: '/participante/mi-qr', texto: 'Mi QR' },
     { to: '/participante/escanear', texto: 'Registrar asistencia' },
   ],
 }

@@ -355,3 +355,175 @@ del certificado; una asistencia QR previa se conserva. Detalle y evidencia:
 Las respuestas de clases añaden `modalidad`. El backend no tiene edición general del curso
 (`PUT /api/cursos/:id` sigue pendiente): la modalidad planificada se fija al crear; la demo
 rechaza con 422 `MODALIDAD_CALCULADA` cambiarla a mano cuando hay sesiones programadas.
+
+## HU-39 — QR personal y asistencia en la puerta
+
+Contrato que usa el frontend (SCRUM-207, diseño Figma «S3 · SCRUM-205»). Hoy lo responde
+la simulación (`frontend/src/mocks/asistenciaPuerta.ts`); sus pruebas en
+`asistenciaPuerta.test.ts` son la especificación ejecutable para el backend (SCRUM-206).
+
+**Quién toma la asistencia:** mientras el CPPP no confirme el rol de encargado,
+pueden hacerlo el administrador y el instructor asignado a la sesión. El agremiado
+y el instructor ajeno reciben `403 SIN_PERMISO`.
+
+| Método y ruta | Rol | Respuesta |
+|---|---|---|
+| `GET /api/participante/mi-qr` | Agremiado | `200 { token, nombre, dniParcial, habilitado, proximaSesion }` |
+| `GET /api/participante/mi-qr/pdf` | Agremiado | `200 application/pdf` con el QR, nombre y DNI parcial |
+| `GET /api/clases/:id/asistencia/puerta?dni=` | Admin, instructor asignado | `200 { resultados: [{ participante, horaRegistro }] }` |
+| `POST /api/clases/:id/asistencia/puerta` | Admin, instructor asignado | `201 { participante, horaRegistro, metodo }` |
+| `DELETE /api/clases/:id/asistencia/puerta/:participanteId` | Admin, instructor asignado | `204` («Deshacer este registro») |
+
+- `token` es el contenido del QR: firmado (HMAC) y **permanente**, sin DNI ni otros
+  datos personales. El mismo agremiado recibe siempre el mismo token.
+- `participante` es `{ id, nombre, dniParcial }`. `dniParcial` muestra solo los
+  **4 últimos dígitos** con el formato `•••• 5678`; el DNI completo nunca sale en estas respuestas.
+- `habilitado` indica si el colegiado está habilitado en el CPPP (etiqueta verde de «Mi QR»).
+- `proximaSesion` es `{ id, titulo, fecha, horaInicio, horaFin, lugar }` de la próxima
+  sesión presencial programada en la que está inscrito, o `null`. `titulo` es el del curso.
+- La búsqueda recibe de **4 a 8 dígitos** y devuelve los **inscritos de la sesión** cuyo DNI
+  **empieza** con ellos (`horaRegistro` es `null` si aún no tienen asistencia). No registra nada.
+  Quien no está inscrito no aparece: la pantalla muestra «No encontramos ese DNI entre los inscritos».
+- El cuerpo del `POST` lleva **uno** de dos campos: `{ token }` (escaneo, `metodo: "QR"`)
+  o `{ participanteId }` (elegido en la búsqueda, `metodo: "DNI"`).
+- `GET /clases/:id/asistencia` añade `metodo: "QR" | "DNI" | null` en cada registro, para el
+  panel «Últimos registros» (el QR rotatorio del instructor cuenta como `QR`).
+
+Errores (formato común `{ code, message, details? }`):
+
+| Código | HTTP | Cuándo |
+|---|---|---|
+| `QR_PERSONAL_INVALIDO` | 422 | Firma incorrecta, token alterado o QR de otro sistema |
+| `VALIDACION` | 422 | DNI con menos de 4 o más de 8 dígitos, o cuerpo sin `token` ni `participanteId` |
+| `PARTICIPANTE_NO_EXISTE` | 404 | `participanteId` desconocido |
+| `NO_INSCRITO` | 409 | No está inscrito en el curso de la sesión. `details.participante` |
+| `ASISTENCIA_YA_REGISTRADA` | 409 | Ya tenía asistencia; no se duplica. `details.participante`, `details.horaRegistro` |
+| `ASISTENCIA_NO_REGISTRADA` | 404 | `DELETE` sobre alguien sin asistencia en la sesión |
+| `SESION_VIRTUAL` | 409 | La sesión es solo virtual |
+| `CLASE_CANCELADA` | 409 | La sesión está cancelada |
+
+El registro debe ser idempotente ante dos lecturas simultáneas del mismo QR
+(restricción única por sesión y agremiado). Conviene auditar quién deshace un registro.
+La lista `GET /clases/:id/asistencia` refleja estas marcas como `PRESENTE`, igual que las del QR rotatorio.
+
+## SCRUM-202 — «Programar sesión» con modalidad, lugar y sala (HU-36, Figma S3 6.1–6.4)
+
+Pantallas: `/admin/cursos/:id/sesiones` (lista con «Editar») y
+`/admin/cursos/:id/sesiones/nueva` o `/:sesionId/editar` (formulario). La simulación está en
+`frontend/src/mocks/cursos.ts` y su prueba en `mocks/sesionesCurso.test.ts`.
+
+**Hoy ya funciona con el backend actual:** el frontend sigue enviando `nombre` («Sesión N»),
+`fecha`, `horaInicio`, `horaFin`, `modalidad` y `lugar` (`"<aula>, <sede>"`, vacío si es virtual).
+Los campos nuevos son **opcionales**; el backend actual los ignora porque su esquema no es estricto.
+
+| Método y ruta | Cambio pedido |
+|---|---|
+| `POST /api/cursos/:id/sesiones` | Aceptar y guardar los campos nuevos de la tabla de abajo |
+| `PUT /api/clases/:id` | Igual. El frontend edita la sesión de un curso con esta ruta, enviando además `cursoId` e `instructorId` (el del curso) |
+| `GET /api/cursos/:id` | Cada elemento de `sesiones` devuelve los campos nuevos que tenga guardados |
+
+| Campo | Tipo | Cuándo se envía | Regla |
+|---|---|---|---|
+| `sede` | texto ≤ 120 | `PRESENCIAL` y `AMBAS` | Una de las sedes del CPPP (hoy la lista está fija en `paginas/cursos/sesiones/reglasSesion.ts`) |
+| `aula` | texto ≤ 100 | `PRESENCIAL` y `AMBAS` | Aula o referencia, obligatoria si hay sede |
+| `encargadoId` | id de usuario | `PRESENCIAL` y `AMBAS` | Quien registra la asistencia en la puerta (HU-39). Por defecto, el instructor del curso. La lista sale de `GET /api/cursos/instructores` |
+| `qrRotatorio` | booleano | `PRESENCIAL` y `AMBAS` | `true`: también vale el QR rotatorio que proyecta el instructor |
+| `sala` | objeto | `VIRTUAL` y `AMBAS` | `{ grabacionPrevista, pantallaPermitida, microfonoPermitido, manoPermitida, porcentajeMinimo: 1..100 }`, con las mismas claves de `PATCH /api/reuniones/:id/politicas`. Al crear la sala de la sesión se usan estos valores |
+
+- Una sesión `VIRTUAL` no guarda `sede`, `aula`, `encargadoId` ni `qrRotatorio`; una `PRESENCIAL` no guarda `sala`.
+- Valores por defecto de `sala` (HU-26): sin grabación, sin compartir pantalla, sin micrófono, mano levantada permitida, 70 %.
+- Datos inválidos → `422 VALIDACION` con `fields` por campo, como hoy.
+
+**Pendiente de definir con el equipo:** si el encargado puede ser un usuario que no es instructor
+(hoy solo se ofrecen instructores), y si las sedes deben venir de una tabla (`GET /api/sedes`).
+
+## SCRUM-187 — Página pública del curso (HU-22, Figma S3 5.0–5.2)
+
+Pantallas: `/` y `/capacitaciones` (cursos vigentes, sin sesión) y `/capacitaciones/:id`
+(página pública del curso). Es la URL que entrega «Compartir» (`GET /api/publico/cursos/:id/compartir`).
+Simulación en `frontend/src/mocks/cursos.ts`; prueba en `mocks/cursosS3.test.ts`.
+
+| Método y ruta | Sesión | Respuesta |
+|---|---|---|
+| `GET /api/publico/cursos/:id` | No requiere | `200` con los campos de `GET /api/publico/cursos` (cada `item`) más `tipoCertificado`, `notaMinima`, `requisitoAsistencia` y `sesiones` |
+| | | `404 CURSO_NO_EXISTE` si no existe o no está `PUBLICADO` |
+
+- `sesiones`: solo las `PROGRAMADA`, ordenadas por fecha y hora, cada una con
+  `{ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }`. **Sin** `reunion`,
+  `encargadoId`, `sala`, inscritos ni datos personales.
+- No incluye `modulos`, material, `miInscripcion` ni `estado`.
+- «Inscribirme» sin sesión lleva a `/login?curso=:id`; al entrar se vuelve a `/cursos/:id`
+  (mismo flujo de HU-22). El botón «Iniciar sesión» del encabezado también conserva el curso.
+
+## SCRUM-208 — Sala de espera y controles del anfitrión (HU-26, Figma S3 9.1–9.4)
+
+La sala (`/reuniones/:identificador`) usa las rutas de HU-26 ya existentes. Cambios pedidos:
+
+| Método y ruta | Cambio |
+|---|---|
+| `POST /api/reuniones/:id/participantes/:usuario/retirar` | Cuerpo opcional `{ motivo?: string ≤ 300 }`. Guardarlo en la auditoría junto a `retiradoEn` (hoy el backend lo ignora sin fallar) |
+| `POST /api/reuniones/:id/credencial` | Para quien no está inscrito o no tiene acceso, responder `403` (o `404` si la reunión no existe): el frontend muestra «No puedes entrar a esta sala» |
+| `PATCH /api/reuniones/:id/politicas` | El interruptor «Levantar la mano» del panel de permisos lo usa en plena sesión con `manoPermitida`; debe aceptarse con la reunión `iniciada` |
+
+Lo resuelve el frontend con Jitsi, sin backend: admitir y rechazar desde la sala de espera,
+«Admitir a todos» (solo inscritos vigentes), silenciar a una persona o a todos, «Dar la palabra»
+(moderación de audio), y los permisos de pantalla, micrófono y cámara en la llamada.
+Al ser retirado (`KICKED`) o no admitido, el colegiado ve su pantalla final.
+
+**Pendiente de definir:** el interruptor «Usar el chat» del Figma y el contador «REC 00:42:10»
+necesitan soporte del servidor (permiso de chat y estado real de la grabación); por ahora la
+sala muestra «REC» cuando la grabación está anunciada y no ofrece apagar el chat.
+
+## Sprint 3 — Cursos: portada, precios, cobro y compartir (SCRUM-181/182, 184/185, 190/191, 193)
+
+Simulación: `frontend/src/mocks/cursos.ts`; especificación ejecutable: `mocks/cursosS3.test.ts`.
+
+| Método y ruta | Actor | Cuerpo y respuesta |
+|---|---|---|
+| `PUT /api/cursos/:id/portada` | ADMIN | `{ nombre, tipo: "image/jpeg"\|"image/png"\|"image/webp", contenidoBase64 }` estricto. `200 { portadaUrl }`. Más de 1 MB → `422 PORTADA_MUY_PESADA`; otro tipo → `422 VALIDACION` con `fields.portada` |
+| `DELETE /api/cursos/:id/portada` | ADMIN | `204`. El curso vuelve a la portada por defecto de su categoría |
+| `PATCH /api/cursos/:id/cobro` | ADMIN | `{ modalidadCobro: "PREVIO"\|"CERTIFICADO"\|"GRATUITO", costo, precioGeneral?, plazoPagoMinutos\|null, versionCobro }` estricto. `200` con el curso y `versionCobro + 1`. `GRATUITO` ⇔ `costo = 0`; `PREVIO` ⇔ hay plazo. Curso cerrado o `versionCobro` desactualizada → `409` |
+| `GET /api/publico/cursos/:id/compartir` | Sin sesión | `200 { url, enlaceCorto }` para cursos `PUBLICADO`; si no, `404`. `url` apunta a `/capacitaciones/:id` (SCRUM-187); el backend puede acortarlo |
+| `GET /api/publico/cursos?cobro=` | Sin sesión | Filtro nuevo `cobro`: `PREVIO`, `CERTIFICADO` o `GRATUITO` (otro valor → `422`) |
+
+Campos nuevos del curso (en `GET /api/cursos/:id`, el catálogo y el catálogo público):
+`portadaUrl` (`null` → portada por categoría), `precioGeneral` (precio para no colegiados;
+si falta se usa `costo`), `modalidadCobro`, `plazoPagoMinutos`, `versionCobro` y `categoria`.
+
+- `POST /api/cursos` y `PUT /api/cursos/:id` aceptan `precioGeneral` y `modalidadCobro`.
+  El formulario solo envía `precioGeneral` si es distinto de `costo` (SCRUM-191 pendiente).
+- `GET /api/cursos/:id` añade `miPrecio` para el agremiado:
+  `{ tipo: "COLEGIADO"|"GENERAL", importe, dniParcial: "•••• 5678"|null, enPadron }`.
+  `enPadron` indica si su DNI está habilitado en el padrón del CPPP; quien no está paga `precioGeneral`.
+- `POST /api/cursos/:id/inscribirme` recibe `{ versionCobro }`; si cambió desde que el agremiado
+  vio el precio → `409` y la pantalla vuelve a cargar el curso. Con cobro `PREVIO` responde
+  `estado: "PENDIENTE_PAGO"` y el frontend pasa a `/cursos/:id/pagar`.
+
+## Sprint 3 — Pagos del agremiado y bandeja del administrador (SCRUM-196/198, 199/201, HU-32, HU-54)
+
+Simulación: `frontend/src/mocks/pagos.ts`. Se suma a T-25 y HU-32 (arriba).
+
+| Método y ruta | Actor | Respuesta |
+|---|---|---|
+| `GET /api/pagos/bandeja?estado=&buscar=` | ADMIN | `200 { resumen: { enRevision, confirmadosMes, rechazadosMes }, items }`. `estado`: `EN_REVISION`, `CONFIRMADO` o `RECHAZADO`. `buscar` compara nombre, código de orden, número de operación y DNI. Primero los `EN_REVISION`, luego por fecha descendente |
+| `GET /api/pagos/pendientes?dni=` | ADMIN | Para «Registrar pago en efectivo». `200 { agremiado: { nombre, dniParcial }, pagos: [{ pagoId, codigoOrden, cursoTitulo, concepto, importeCentimos }] }`. DNI sin 8 dígitos → `422`; desconocido → `404 DNI_NO_ENCONTRADO` |
+| `GET /api/pagos/:id/comprobante` | Propietario o ADMIN | `200 application/pdf`. Si el pago no está `PAGADO` → `409 PAGO_PENDIENTE` |
+| `POST /api/pagos/:id/intentos` | Propietario | **Pedido:** aceptar `instrumento: "TARJETA"\|"YAPE"`. Hoy el esquema es estricto y lo rechaza con 422, así que el frontend aún no lo envía |
+
+Cada `item` de la bandeja: `{ pagoId, operacionId, codigoOrden, agremiado: { nombre, dniParcial },
+cursoTitulo, concepto, importeCentimos, medio: "TRANSFERENCIA"|"IZIPAY"|"EFECTIVO", detalleMedio,
+referencia, fecha, estado }`.
+
+Campos nuevos de `GET /api/pagos/:id`:
+- `codigoOrden` («ORD-2026-00482»): el agremiado lo escribe en el concepto de la transferencia.
+  Si falta, el frontend lo arma con el id.
+- `comisionEnLinea: { porcentaje: 3.5, importeCentimos }`: comisión de la pasarela, que se suma solo al pago en línea.
+- `venceEn`: fin del plazo para pagar (cuenta regresiva de la pantalla).
+- `POST /api/pagos/:id/efectivo` con un importe distinto del pago → `422 IMPORTE_NO_COINCIDE` con `fields.importe`.
+- El rechazo de un voucher envía uno de los motivos de `MOTIVOS_RECHAZO` (`servicios/pagos.ts`) o un texto libre.
+
+## SCRUM-211 — Plantillas de correo con la identidad del CPPP (HU-29)
+
+Las cinco plantillas del Figma S3 10.1–10.5 están en [docs/correos](correos/README.md):
+inscripción confirmada, pago aprobado, pago rechazado, cambio de sesión y constancia emitida,
+con la lista de campos que el backend debe reemplazar en cada una.

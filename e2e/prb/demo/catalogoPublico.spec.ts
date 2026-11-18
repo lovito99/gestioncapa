@@ -6,7 +6,7 @@ import { flujoConstanciasPublicas } from '../../ayud/catalogoConstancias'
 
 test('HU40-03: el enlace corto muestra el curso anónimo y conserva la selección al inscribirse', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Catálogo de cursos' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Cursos vigentes del CPPP' })).toBeVisible()
   const { disponible, lleno } = await page.evaluate(async () => {
     const respuesta = await fetch('/api/publico/cursos')
     const { items } = await respuesta.json() as { items: { id: string; titulo: string; cuposDisponibles: number }[] }
@@ -19,22 +19,22 @@ test('HU40-03: el enlace corto muestra el curso anónimo y conserva la selecció
 
   await page.goto(`/c/${lleno.id}`)
   await expect(page.getByRole('heading', { name: lleno.titulo })).toBeVisible()
-  await expect(page.getByText('Sin cupos', { exact: true })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Inscribirme', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Sin cupos', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Inscribirme', exact: true })).toHaveCount(0)
 
   await page.goto('/c/1')
   await expect(page.getByRole('heading', { name: /Seguridad y primeros auxilios/ })).toBeVisible()
   await expect(page.getByText('Curso finalizado', { exact: true })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Inscribirme', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Inscribirme', exact: true })).toHaveCount(0)
 
   await page.goto('/c/999999999999999')
-  await expect(page.getByRole('heading', { name: 'Curso no disponible' })).toBeVisible()
+  await expect(page.getByText('Curso no disponible', { exact: true })).toBeVisible()
 
   await page.goto(`/c/${disponible.id}`)
   await page.reload()
   await expect(page.getByRole('heading', { name: disponible.titulo })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.getByRole('link', { name: 'Inscribirme', exact: true }).click()
+  await page.getByRole('button', { name: 'Inscribirme', exact: true }).click()
   await expect(page).toHaveURL(`/login?curso=${disponible.id}`)
   await expect(page.getByRole('link', { name: 'Crear cuenta', exact: true }).first())
     .toHaveAttribute('href', `/registro?curso=${disponible.id}`)
@@ -51,25 +51,27 @@ test('HU40-04: compartir desde la tarjeta funciona con teclado y permite la copi
   await page.goto('/')
   const titulo = 'Demo · Didáctica y evaluación'
   const tarjeta = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: titulo, exact: true }) })
-  const inscripcion = tarjeta.getByRole('link', { name: `Inscribirme en ${titulo}` })
-  const id = new URL(hrefRequerido(await inscripcion.getAttribute('href')), page.url()).searchParams.get('curso')
+  const enlaceFicha = tarjeta.getByRole('link', { name: titulo, exact: true })
+  const ficha = new URL(hrefRequerido(await enlaceFicha.getAttribute('href')), page.url())
+  const id = ficha.pathname.split('/').at(-1)
   const enlace = new URL(`/c/${id}`, page.url()).href
-  const compartir = tarjeta.getByRole('button', { name: 'Compartir', exact: true })
+  const compartir = tarjeta.getByRole('button', { name: `Compartir ${titulo}`, exact: true })
   await compartir.press('Enter')
-  await expect(compartir).toHaveAttribute('aria-expanded', 'true')
-  const whatsapp = new URL(hrefRequerido(await tarjeta.getByRole('link', { name: 'Compartir por WhatsApp' }).getAttribute('href')))
+  const dialogo = page.getByRole('dialog', { name: 'Compartir curso' })
+  await expect(dialogo).toBeVisible()
+  const whatsapp = new URL(hrefRequerido(await dialogo.getByRole('link', { name: /^WhatsApp/ }).getAttribute('href')))
   expect(whatsapp.origin).toBe('https://wa.me')
   expect(whatsapp.searchParams.get('text')).toBe(`${titulo}\n${enlace}`)
-  await tarjeta.getByRole('button', { name: 'Copiar enlace' }).click()
-  const campo = tarjeta.getByRole('textbox', { name: 'Enlace del curso' })
+  await dialogo.getByRole('button', { name: 'Copiar', exact: true }).click()
+  const campo = dialogo.getByRole('textbox', { name: 'Enlace corto' })
   await expect(campo).toHaveValue(enlace)
   await expect(campo).toBeFocused()
-  await expect(tarjeta.getByRole('status')).toHaveText('Selecciona y copia el enlace.')
+  await expect(dialogo.getByRole('alert')).toHaveText('Selecciona y copia el enlace.')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await campo.press('Escape')
-  await expect(compartir).toHaveAttribute('aria-expanded', 'false')
+  await expect(dialogo).toHaveCount(0)
   await expect(compartir).toBeFocused()
-  await expect(inscripcion).toBeVisible()
+  await expect(enlaceFicha).toBeVisible()
 })
 
 test('HU40-04: un administrador puede compartir en catálogo y Mis cursos y el borrador queda excluido', async ({ page }) => {
@@ -83,17 +85,18 @@ test('HU40-04: un administrador puede compartir en catálogo y Mis cursos y el b
   const publicado = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: titulo, exact: true }) })
   const borrador = page.getByRole('listitem').filter({ has: page.getByRole('heading', { name: 'Demo · Herramientas digitales para docentes', exact: true }) })
   await page.goto('/catalogo')
-  await expect(publicado.getByRole('button', { name: 'Compartir', exact: true })).toBeVisible()
+  await expect(publicado.getByRole('button', { name: `Compartir ${titulo}`, exact: true })).toBeVisible()
   await page.goto('/cursos')
   await expect(borrador).toBeVisible()
-  await expect(borrador.getByRole('button', { name: 'Compartir', exact: true })).toHaveCount(0)
-  await publicado.getByRole('button', { name: 'Compartir', exact: true }).click()
+  await expect(borrador.getByRole('button', { name: /^Compartir/ })).toHaveCount(0)
+  await publicado.getByRole('button', { name: `Compartir ${titulo}`, exact: true }).click()
   const destino = await publicado.getByRole('link', { name: titulo, exact: true }).getAttribute('href')
   const detalle = new URL(hrefRequerido(destino), page.url())
   const enlace = new URL(`/c/${detalle.pathname.split('/').at(-1)}`, page.url()).href
-  await publicado.getByRole('button', { name: 'Copiar enlace' }).click()
+  const dialogo = page.getByRole('dialog', { name: 'Compartir curso' })
+  await dialogo.getByRole('button', { name: 'Copiar', exact: true }).click()
   await expect(page.locator('body')).toHaveAttribute('data-enlace-copiado', enlace)
-  await expect(publicado.getByRole('status')).toHaveText('Enlace copiado.')
+  await expect(dialogo.getByRole('status')).toContainText('Enlace copiado.')
 })
 
 function hrefRequerido(href: string | null) {
@@ -112,7 +115,7 @@ test('HU22-P3: visitante elige e inicia inscripción gratuita o reserva con cost
 
 test('HU22-P1: login conserva selección tras error y recarga sin inscribir automáticamente',async({page})=>{
   await page.goto('/')
-  await expect(page.getByRole('heading',{name:'Catálogo de cursos',exact:true})).toBeVisible()
+  await expect(page.getByRole('heading',{name:'Cursos vigentes del CPPP',exact:true})).toBeVisible()
   const curso=await page.evaluate(async()=>{
     const pagina=await(await fetch('/api/publico/cursos')).json()
     return pagina.items.find((item:{cuposDisponibles:number})=>item.cuposDisponibles>0) as {id:string;titulo:string}
@@ -129,7 +132,8 @@ test('HU22-P1: login conserva selección tras error y recarga sin inscribir auto
   expect(inscripciones).toEqual([])
   await page.goto('/')
   const tarjeta=page.getByRole('listitem').filter({has:page.getByRole('heading',{name:curso.titulo,exact:true})})
-  const accion=tarjeta.getByRole('link',{name:`Inscribirme en ${curso.titulo}`,exact:true})
+  // Con sesión, la tarjeta del catálogo público lleva directo al curso
+  const accion=tarjeta.getByRole('link',{name:curso.titulo,exact:true})
   await expect(accion).toHaveAttribute('href',`/cursos/${curso.id}`)
   await accion.click()
   await expect(page).toHaveURL(`/cursos/${curso.id}`)
@@ -154,7 +158,7 @@ test('HU22-P5: conserva QR y maneja curso inexistente sin bucles ni redirección
 test('RF-07: explorar cursos sin sesión desde 360 px', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Catálogo de cursos' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Cursos vigentes del CPPP' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Iniciar sesión', exact: true })).toBeVisible()
   await expect(page.getByRole('status')).toContainText(/Mostrando|No hay cursos/)
   await page.getByRole('searchbox').fill('curso-inexistente-publico')

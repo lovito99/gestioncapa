@@ -35,13 +35,16 @@ describe('HU26-03/09 sala de espera del instructor', () => {
       { identificador: 'a', nombre: 'Nombre elegido', usuarioIdentificador: '45' },
       { identificador: 'b', nombre: 'Reintento', usuarioIdentificador: '46' },
       { identificador: 'c', nombre: 'Desconocido' },
+      { identificador: 'd', nombre: 'Ajeno', usuarioIdentificador: '99' },
     ]} />)
-    expect(html).toContain('Sala de espera (3)')
-    expect(html).toContain('Ana · inscrito')
+    expect(html).toContain('Sala de espera (4)')
+    expect(html).toContain('Ana')
+    expect(html).toContain('Inscrito')
     expect(html).toContain('Expulsado de esta sesión')
     expect(html).toContain('Identidad no verificada')
     expect(html.match(/>Admitir</g)).toHaveLength(1)
-    expect(html).toContain('Admitir inscritos (1)')
+    expect(html).toContain('Admitir a todos')
+    expect(html).toContain('No inscrito: no puede entrar')
   })
 })
 

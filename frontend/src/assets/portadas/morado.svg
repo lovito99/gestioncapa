@@ -1,0 +1,22 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="384" height="216" viewBox="0 0 384 216" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Portada 16:9 &#226;&#128;&#147; Tutor&#195;&#173;a y convivencia escolar" clip-path="url(#clip0_0_4)">
+<rect width="384" height="216" fill="url(#paint0_linear_0_4)"/>
+<circle id="Ellipse" cx="326.4" cy="32.4" r="86.4" fill="white" fill-opacity="0.1"/>
+<circle id="Ellipse_2" cx="38.4" cy="205.2" r="67.2" fill="white" fill-opacity="0.08"/>
+<circle id="Ellipse_3" cx="249.6" cy="183.6" r="34.56" fill="white" fill-opacity="0.12"/>
+<g id="&#195;&#141;cono users">
+<path id="Vector" d="M204.167 135.375V129.292C204.167 126.065 202.885 122.97 200.603 120.689C198.321 118.407 195.227 117.125 192 117.125H173.75C170.523 117.125 167.429 118.407 165.147 120.689C162.865 122.97 161.583 126.065 161.583 129.292V135.375" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke="#EFD58F"/>
+<path id="Vector_2" d="M195.042 92.7917C195.042 99.5111 189.594 104.958 182.875 104.958C176.156 104.958 170.708 99.5111 170.708 92.7917C170.708 86.0722 176.156 80.625 182.875 80.625C189.594 80.625 195.042 86.0722 195.042 92.7917Z" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke="#EFD58F"/>
+<path id="Vector_3" d="M222.417 135.375V129.292C222.415 126.596 221.517 123.977 219.866 121.847C218.214 119.716 215.902 118.194 213.292 117.52M204.167 81.0204C206.784 81.6905 209.103 83.2125 210.76 85.3466C212.416 87.4807 213.316 90.1054 213.316 92.8069C213.316 95.5084 212.416 98.1331 210.76 100.267C209.103 102.401 206.784 103.923 204.167 104.593" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" stroke="#EFD58F"/>
+</g>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_4" x1="0" y1="0" x2="131.852" y2="234.404" gradientUnits="userSpaceOnUse">
+<stop stop-color="#6B3FA0"/>
+<stop offset="1" stop-color="#3A1F5C"/>
+</linearGradient>
+<clipPath id="clip0_0_4">
+<rect width="384" height="216" fill="white"/>
+</clipPath>
+</defs>
+</svg>

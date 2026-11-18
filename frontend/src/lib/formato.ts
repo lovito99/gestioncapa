@@ -62,3 +62,18 @@ export function horaRegistro(fechaHoraIso: string) {
     timeZone: 'America/Lima',
   }).format(new Date(fechaHoraIso))
 }
+
+/** `2026-11-16` → `Lun. 16 nov. 2026`, como las fechas del Sprint 3 en el Figma */
+export function fechaConAnio(fechaIso: string) {
+  const fecha = parseISO(fechaIso)
+  const dia = format(fecha, 'EEE', { locale: es }).replace(/\./g, '')
+  const mes = format(fecha, 'MMM', { locale: es }).replace(/\./g, '')
+  return `${capitalizar(dia)}. ${format(fecha, 'd')} ${mes}. ${format(fecha, 'yyyy')}`
+}
+
+/** `09:00` → `9:00 a. m.`; `14:30` → `2:30 p. m.`; `12:00` → `12:00 m.` (mediodía, como en el Figma S3 6.3) */
+export function hora12(horaMinutos: string) {
+  const [h = 0, m = 0] = horaMinutos.split(':').map(Number)
+  if (h === 12 && m === 0) return '12:00 m.'
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'a. m.' : 'p. m.'}`
+}

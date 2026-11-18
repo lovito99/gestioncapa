@@ -3,14 +3,20 @@ import { crearCursosDemo } from './cursosDemo'
 import { http, HttpResponse } from 'msw'
 import { usuarios, clases, asistencias, participantes, inscripciones } from './datos'
 import { emitirCertificado, certificadoDe } from './certificados'
-import type { DetalleCurso, MaterialCurso, SesionCurso, FilaCierre } from '@/servicios/cursos'
+import { dniPorUsuario, enmascararDni } from './asistenciaPuerta'
+import { crearPago, pagoDeInscripcion, sembrarPagosDemo } from './pagos'
+import type { DetalleCurso, MaterialCurso, SesionCurso, FilaCierre, MiPrecio, ModalidadCobro } from '@/servicios/cursos'
 import { z } from 'zod'
+import { esIdCursoPublico, rutaCortaCurso } from '@/lib/enlaceCurso'
 import { modalidadDerivada, modalidadesCurso, modalidadesSesion } from '@/servicios/modalidadCurso'
-import { esIdCursoPublico } from '@/lib/enlaceCurso'
 
 const API = import.meta.env.VITE_API_URL ?? '/api'
 const demo = crearCursosDemo()
-export const cursosSimulados: DetalleCurso[] = demo.cursos.map(c => ({ ...c, requisitoAsistencia: 80, sesiones: [] }))
+// SCRUM-190: los cursos con costo tienen un precio general mayor que el de colegiado
+export const cursosSimulados: DetalleCurso[] = demo.cursos.map(c => ({ ...c, requisitoAsistencia: 80, sesiones: [], precioGeneral: c.costo > 0 ? c.costo + 50 : 0, portadaUrl: null }))
+/** DNI del padrón de colegiados (SCRUM-191): quien se registra en la demo es docente externo. */
+const padronColegiados = new Set(Object.values(dniPorUsuario))
+const modalidadCobroDe = (c: Pick<DetalleCurso, 'modalidadCobro' | 'costo'>): ModalidadCobro => c.modalidadCobro ?? (c.costo === 0 ? 'GRATUITO' : 'PREVIO')
 // «Didáctica y evaluación» reproduce el ejemplo del Figma (2.4): 6 inscritos y 4 sesiones ya dictadas
 export const inscripcionesCursosDemo = new Map<string, Set<string>>(cursosSimulados.map(c => [c.id, new Set(c.titulo.includes('Seguridad y primeros') ? ['p-1','p-7'] : c.titulo.includes('Didáctica') ? ['p-1','p-2','p-3','p-4','p-5','p-6'] : c.titulo.includes('cupos agotados') ? ['p-7'] : [])]))
 
@@ -32,7 +38,9 @@ function sesionesDe(cursoId: string): SesionCurso[] {
     .map(c => {
       const modalidad = c.modalidad ?? 'PRESENCIAL'
       // La demo no simula salas: las sesiones con sala aparecen como «se habilita al iniciar».
+      const extra = c as Partial<Pick<SesionCurso, 'sede' | 'aula' | 'encargadoId' | 'qrRotatorio' | 'sala'>>
       return { id: c.id, nombre: c.nombre, fecha: c.fecha, horaInicio: c.horaInicio, horaFin: c.horaFin, lugar: c.lugar, estado: c.estado, modalidad,
+        sede: extra.sede, aula: extra.aula, encargadoId: extra.encargadoId, qrRotatorio: extra.qrRotatorio, sala: extra.sala,
         reunion: modalidad === 'PRESENCIAL' ? null : { identificador: `demo-${c.id}`, estado: 'programada' } }
     })
   return [...(sesionesDemo.get(cursoId) ?? []).map(s => s.sesion), ...vinculadas]
@@ -53,18 +61,43 @@ function filaCierre(curso: DetalleCurso, agremiadoId: string): FilaCierre {
 function disponibilidad(curso: DetalleCurso, usuarioId?: string): DetalleCurso {
   const inscritos = inscripcionesCursosDemo.get(curso.id) ?? new Set<string>()
   const inscrito = !!usuarioId && inscritos.has(usuarioId)
+  const pago = inscrito ? pagoDeInscripcion(curso.id, usuarioId!) : undefined
+  const guardado = inscrito ? estadosInscripcionDemo.get(`${curso.id}:${usuarioId}`) : undefined
+  // Al confirmarse el pago previo, la inscripción pasa a «en curso»
   const estadoInscripcion = inscrito
-    ? estadosInscripcionDemo.get(`${curso.id}:${usuarioId}`) ?? (usuarioId === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : 'EN_CURSO')
+    ? (guardado === 'PENDIENTE_PAGO' && pago?.estado === 'PAGADO' ? 'EN_CURSO' : guardado) ?? (usuarioId === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : 'EN_CURSO')
     : null
   const sesiones = sesionesDe(curso.id)
   // HU-36: `curso.modalidad` guarda la planificada; la respuesta la clasifica por sesiones.
   const modalidad = modalidadDerivada(sesiones.filter(s => s.estado === 'PROGRAMADA').map(s => s.modalidad), curso.modalidad)
-  return { ...curso,modalidad,versionCobro:curso.versionCobro??1,estadoInscripcion, sesiones, cuposDisponibles: Math.max(0, curso.cupos - inscritos.size), inscrito }
+  return { ...curso,modalidad,versionCobro:curso.versionCobro??1,estadoInscripcion, sesiones, cuposDisponibles: Math.max(0, curso.cupos - inscritos.size), inscrito, miPrecio: miPrecio(curso, usuarioId),
+    miInscripcion: pago ? { intentoId: pago.id, modalidadCobro: modalidadCobroDe(curso), importeCentimos: pago.importeCentimos, moneda: 'PEN', plazoPagoMinutos: curso.plazoPagoMinutos ?? null,
+      inscritoEn: new Date().toISOString(), venceEn: pago.venceEn ?? null, pagoId: pago.id, estado: estadoInscripcion ?? 'EN_CURSO', estadoFinanciero: pago.estado === 'PAGADO' ? 'PAGADO' : 'PENDIENTE' } : null,
+    accesoContenido: estadoInscripcion === 'PENDIENTE_PAGO' ? false : curso.accesoContenido }
+}
+
+/** Precio según el padrón: colegiado con DNI en el padrón; si no, precio general. */
+function miPrecio(curso: DetalleCurso, usuarioId?: string): MiPrecio | null {
+  if (!usuarioId || usuarios.find(u => u.id === usuarioId)?.rol !== 'AGREMIADO') return null
+  const dni = dniPorUsuario[usuarioId]
+  const enPadron = !!dni && padronColegiados.has(dni)
+  return { tipo: enPadron ? 'COLEGIADO' : 'GENERAL', importe: enPadron ? curso.costo : curso.precioGeneral ?? curso.costo, dniParcial: enmascararDni(dni), enPadron }
 }
 
 const archivos = demo.archivos
 let secuencia = demo.siguienteId
 const nuevoId = () => String(secuencia++)
+for (const extra of [
+  { titulo: 'Evaluación formativa en el aula', categoria: 'Evaluación', descripcion: 'Estrategias para recoger evidencias de aprendizaje y dar retroalimentación oportuna a tus estudiantes. Incluye ejemplos para inicial, primaria y secundaria.', costo: 60, precioGeneral: 90, modalidadCobro: 'PREVIO' as const, plazoPagoMinutos: 4320, inicio: 7, fin: 28, horas: 24, cupos: 30, modalidad: 'HIBRIDA' as const },
+  { titulo: 'Comprensión lectora en primaria', categoria: 'Tecnología educativa', descripcion: 'Estrategias de lectura con recursos digitales para el aula de primaria.', costo: 30, precioGeneral: 50, modalidadCobro: 'CERTIFICADO' as const, plazoPagoMinutos: null, inicio: 19, fin: 33, horas: 16, cupos: 25, modalidad: 'PRESENCIAL' as const },
+]) {
+  cursosSimulados.push({ id: nuevoId(), titulo: extra.titulo, descripcion: extra.descripcion, instructorId: 'i-1', instructorNombre: 'Carlos Mendoza Ríos', horasLectivas: extra.horas,
+    modalidad: extra.modalidad, costo: extra.costo, precioGeneral: extra.precioGeneral, modalidadCobro: extra.modalidadCobro, plazoPagoMinutos: extra.plazoPagoMinutos, versionCobro: 1,
+    cupos: extra.cupos, cuposDisponibles: extra.cupos, categoria: extra.categoria, fechaInicio: diaRelativo(extra.inicio), fechaFin: diaRelativo(extra.fin), portadaUrl: null,
+    tipoCertificado: 'PARTICIPACION', notaMinima: 14, estado: 'PUBLICADO', requisitoAsistencia: 80, sesiones: [],
+    modulos: [{ id: nuevoId(), titulo: 'Módulo 1', orden: 1, materiales: [] }] })
+  inscripcionesCursosDemo.set(cursosSimulados.at(-1)!.id, new Set())
+}
 const error = (status: number, message: string, code?: string) => HttpResponse.json({ code: code ?? (status === 422 ? 'VALIDACION' : status === 401 ? 'NO_AUTENTICADO' : status === 403 ? 'SIN_PERMISO' : 'CURSO_NO_EXISTE'), message }, { status })
 function acceso(request: Request, roles?: string[]) {
   const usuario = usuarios.find(u => u.activo !== false && request.headers.get('Authorization') === `Bearer demo-${u.id}`)
@@ -83,6 +116,16 @@ function detalle(request: Request, id: string) {
 }
 export const sesionesDeCurso = sesionesDe
 const titulo = z.string().trim().min(1).max(160)
+const hora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+/** S3 6.1: campos nuevos opcionales (sede, aula, encargado, QR rotatorio y reglas de la sala). */
+const salaSesion = z.object({ grabacionPrevista: z.boolean(), pantallaPermitida: z.boolean(), microfonoPermitido: z.boolean(), manoPermitida: z.boolean(),
+  porcentajeMinimo: z.number().int().min(1).max(100) }).strict()
+const esquemaSesion = (fecha: z.ZodType<string>) => z.object({ nombre: titulo, fecha, horaInicio: hora, horaFin: hora, lugar: z.string().trim().max(160).default(''),
+  modalidad: z.enum(modalidadesSesion).default('PRESENCIAL'), sede: z.string().trim().max(120).optional(), aula: z.string().trim().max(100).optional(),
+  encargadoId: z.string().optional(), qrRotatorio: z.boolean().optional(), sala: salaSesion.optional() })
+  .refine(v => v.horaFin > v.horaInicio && (v.modalidad === 'VIRTUAL' || v.lugar.length > 0))
+  .transform(v => ({ ...v, lugar: v.lugar || 'Aula virtual', ...(v.modalidad === 'VIRTUAL' && { sede: undefined, aula: undefined, encargadoId: undefined, qrRotatorio: undefined }),
+    ...(v.modalidad === 'PRESENCIAL' && { sala: undefined }) }))
 const fechaOpcional = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(v => { const d = new Date(`${v}T00:00:00Z`); return v.slice(0,4) !== '0000' && Number.isFinite(d.getTime()) && d.toISOString().slice(0,10) === v }).nullable().default(null)
 const esquema = z.object({
   modalidadCobro: z.enum(['PREVIO', 'CERTIFICADO', 'GRATUITO']).optional(),
@@ -91,7 +134,8 @@ const esquema = z.object({
   fechaInicio: fechaOpcional, fechaFin: fechaOpcional,
   titulo, descripcion: z.string().trim().max(5000).default(''), instructorId: z.string(),
   horasLectivas: z.number().positive().max(10000), modalidad: z.enum(modalidadesCurso),
-  costo: z.number().min(0).max(9999999999.99).multipleOf(0.01), cupos: z.number().int().min(1).max(1000000),
+  costo: z.number().min(0).max(9999999999.99).multipleOf(0.01), precioGeneral: z.number().min(0).max(9999999999.99).multipleOf(0.01).optional(),
+  cupos: z.number().int().min(1).max(1000000),
   tipoCertificado: z.enum(['PARTICIPACION', 'APROBACION']), notaMinima: z.number().min(0).max(20).default(14),
   modulos: z.array(z.object({ titulo }).strict()).min(1).max(100),
 }).strict().refine(d => (!d.fechaInicio && !d.fechaFin) || (!!d.fechaInicio && !!d.fechaFin && d.fechaFin >= d.fechaInicio))
@@ -102,19 +146,20 @@ function resumenPublico(curso: DetalleCurso) {
     cuposDisponibles, categoria, fechaInicio, fechaFin } = curso
   return { id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, cupos,
     cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro: curso.modalidadCobro ?? (costo === 0 ? 'GRATUITO' : null),
+    precioGeneral: curso.precioGeneral ?? costo, portadaUrl: curso.portadaUrl ?? null,
     plazoPagoMinutos: curso.plazoPagoMinutos ?? null, versionCobro: curso.versionCobro ?? 1 }
 }
-function cursoVigente(curso: DetalleCurso) {
-  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
-  return !curso.fechaFin || curso.fechaFin >= hoy
-}
+const hoyEnLima = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+const cursoVigente = (curso: Pick<DetalleCurso, 'fechaFin'>, hoy: string) => !curso.fechaFin || curso.fechaFin >= hoy
+
 function catalogoPaginado(request: Request, publico = false, usuarioId = '') {
-  const consulta = z.object({ buscar: z.string().trim().max(160).default(''), categoria: z.string().min(1).max(80).optional(), modalidad: z.enum(modalidadesCurso).optional(), pagina: z.coerce.number().int().min(1).max(100000).default(1), tamanoPagina: z.coerce.number().int().min(1).max(50).default(6) }).strict().safeParse(Object.fromEntries(new URL(request.url).searchParams))
+  const consulta = z.object({ buscar: z.string().trim().max(160).default(''), categoria: z.string().min(1).max(80).optional(), modalidad: z.enum(modalidadesCurso).optional(), cobro: z.enum(['PREVIO', 'CERTIFICADO', 'GRATUITO']).optional(), pagina: z.coerce.number().int().min(1).max(100000).default(1), tamanoPagina: z.coerce.number().int().min(1).max(50).default(6) }).strict().safeParse(Object.fromEntries(new URL(request.url).searchParams))
   if (!consulta.success) return error(422, 'Revisa los filtros y la página solicitada.')
-  const { buscar, categoria, modalidad, pagina, tamanoPagina } = consulta.data
+  const { buscar, categoria, modalidad, cobro, pagina, tamanoPagina } = consulta.data
   const normalizar = (texto: string) => texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
-  const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO' && (!publico || cursoVigente(c)))
-  const filtrados = publicados.filter(c => normalizar(c.titulo).includes(normalizar(buscar)) && (!categoria || c.categoria === categoria) && (!modalidad || disponibilidad(c).modalidad === modalidad)).sort((a,b) => Number(b.id)-Number(a.id))
+  const hoy = hoyEnLima()
+  const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO' && (!publico || cursoVigente(c, hoy)))
+  const filtrados = publicados.filter(c => normalizar(c.titulo).includes(normalizar(buscar)) && (!categoria || c.categoria === categoria) && (!modalidad || disponibilidad(c).modalidad === modalidad) && (!cobro || modalidadCobroDe(c) === cobro)).sort((a,b) => Number(b.id)-Number(a.id))
   return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => publico ? resumenPublico(disponibilidad(c, '')) : disponibilidad(c, usuarioId)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...categoriasCatalogo] })
 }
 
@@ -125,13 +170,61 @@ function alcanceCertificacion(curso: DetalleCurso) {
 }
 
 export const estadosInscripcionDemo = new Map<string, 'EN_CURSO' | 'PENDIENTE_PAGO'>()
+{
+  // Pagos de ejemplo para la bandeja del administrador (Figma S3 8.1)
+  const porTitulo = (texto: string) => cursosSimulados.find(c => c.titulo.includes(texto))!
+  const semilla = ['Evaluación formativa', 'Comprensión lectora', 'Seguridad y primeros'].map(porTitulo)
+  sembrarPagosDemo(semilla.map(c => ({ id: c.id, titulo: c.titulo, importeCentimos: Math.round(c.costo * 100) })))
+  for (const [curso, usuarioId, estado] of [[semilla[0]!, 'p-2', 'PENDIENTE_PAGO'], [semilla[1]!, 'p-3', 'EN_CURSO'], [semilla[0]!, 'p-5', 'PENDIENTE_PAGO']] as const) {
+    inscripcionesCursosDemo.get(curso.id)?.add(usuarioId)
+    estadosInscripcionDemo.set(`${curso.id}:${usuarioId}`, estado)
+  }
+}
 
 export const handlersCursos = [
+  // ---------- SCRUM-182: portada del curso ----------
+  http.put(`${API}/cursos/:id/portada`, async ({ request, params }) => {
+    const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
+    const curso = cursosSimulados.find(c => c.id === params.id)
+    if (!curso) return error(404, 'El curso no existe.')
+    const entrada = z.object({ nombre: z.string().min(1).max(255), tipo: z.enum(['image/jpeg', 'image/png', 'image/webp']), contenidoBase64: z.string().min(1) }).strict().safeParse(await request.json())
+    if (!entrada.success) return HttpResponse.json({ code: 'VALIDACION', message: 'La portada debe ser JPG, PNG o WebP.', fields: { portada: 'La portada debe ser JPG, PNG o WebP.' } }, { status: 422 })
+    const bytes = Math.floor(entrada.data.contenidoBase64.length * 3 / 4)
+    if (bytes > 1024 * 1024) return HttpResponse.json({ code: 'PORTADA_MUY_PESADA', message: 'La imagen de portada supera 1 MB.', fields: { portada: 'La imagen de portada supera 1 MB.' } }, { status: 422 })
+    curso.portadaUrl = `data:${entrada.data.tipo};base64,${entrada.data.contenidoBase64}`
+    return HttpResponse.json({ portadaUrl: curso.portadaUrl })
+  }),
+  http.delete(`${API}/cursos/:id/portada`, ({ request, params }) => {
+    const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
+    const curso = cursosSimulados.find(c => c.id === params.id)
+    if (!curso) return error(404, 'El curso no existe.')
+    curso.portadaUrl = null
+    return new HttpResponse(null, { status: 204 })
+  }),
+  // ---------- SCRUM-187: página pública del curso (sin sesión) ----------
+  http.get(`${API}/publico/cursos/:id`, ({ params }) => {
+    const id = String(params.id)
+    const curso = esIdCursoPublico(id) && cursosSimulados.find(c => c.id === id && c.estado === 'PUBLICADO')
+    const headers = { 'Cache-Control': 'no-store' }
+    if (!curso) return HttpResponse.json({ code: 'CURSO_NO_EXISTE', message: 'El curso no existe.' }, { status: 404, headers })
+    const sesiones = sesionesDe(curso.id).filter(s => s.estado === 'PROGRAMADA')
+      .map(({ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }) => ({ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }))
+    return HttpResponse.json({ ...resumenPublico(disponibilidad(curso, '')), tipoCertificado: curso.tipoCertificado, notaMinima: curso.notaMinima,
+      requisitoAsistencia: curso.requisitoAsistencia, vigente: cursoVigente(curso, hoyEnLima()), sesiones }, { headers })
+  }),
+  // ---------- SCRUM-185: enlace para compartir (público) ----------
+  http.get(`${API}/publico/cursos/:id/compartir`, ({ request, params }) => {
+    const curso = cursosSimulados.find(c => c.id === params.id && c.estado === 'PUBLICADO')
+    if (!curso) return error(404, 'El curso no existe o aún no está publicado.')
+    const url = `${new URL(request.url).origin}${rutaCortaCurso(curso.id)}`
+    return HttpResponse.json({ url, enlaceCorto: url.replace(/^https?:\/\//, '') })
+  }),
   http.patch(`${API}/cursos/:id/cobro`, async ({ request, params }) => {
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
     const curso = cursosSimulados.find(c => c.id === params.id)
     if (!curso) return error(404, 'El curso no existe.')
     const entrada = z.object({ modalidadCobro: z.enum(['PREVIO', 'CERTIFICADO', 'GRATUITO']), costo: z.number().min(0).max(9999999999.99).multipleOf(0.01),
+      precioGeneral: z.number().min(0).max(9999999999.99).multipleOf(0.01).optional(),
       plazoPagoMinutos: z.number().int().min(1).max(525600).nullable(), versionCobro: z.number().int().positive() }).strict().safeParse(await request.json())
     if (!entrada.success) return error(422, 'Revisa las condiciones de cobro.')
     const datos = entrada.data
@@ -153,13 +246,6 @@ export const handlersCursos = [
     return HttpResponse.json(cursosSimulados.filter(c => c.estado === 'PUBLICADO').map(c => disponibilidad(c, auth.usuario!.id)))
   }),
   http.get(`${API}/publico/cursos`, ({ request }) => catalogoPaginado(request, true)),
-  http.get(`${API}/publico/cursos/:id`, ({ params }) => {
-    const id = String(params.id)
-    const curso = esIdCursoPublico(id) && cursosSimulados.find(c => c.id === id && c.estado === 'PUBLICADO')
-    const headers = { 'Cache-Control': 'no-store' }
-    if (!curso) return HttpResponse.json({ code: 'CURSO_NO_EXISTE', message: 'El curso no existe.' }, { status: 404, headers })
-    return HttpResponse.json({ ...resumenPublico(disponibilidad(curso)), vigente: cursoVigente(curso) }, { headers })
-  }),
   http.get(`${API}/catalogo/cursos/pagina`, ({ request }) => {
     const auth = acceso(request); if (auth.fallo) return auth.fallo
     return catalogoPaginado(request, false, auth.usuario!.id)
@@ -173,7 +259,11 @@ export const handlersCursos = [
     const yaInscrito = inscritos.has(auth.usuario!.id)
     if (!yaInscrito && inscritos.size >= curso.cupos) return error(409, 'El curso está sin cupos. Elige otra capacitación.', 'SIN_CUPOS')
     inscritos.add(auth.usuario!.id); inscripcionesCursosDemo.set(curso.id, inscritos)
-    if (!yaInscrito) estadosInscripcionDemo.set(`${curso.id}:${auth.usuario!.id}`, curso.modalidadCobro === 'CERTIFICADO' || curso.costo === 0 ? 'EN_CURSO' : 'PENDIENTE_PAGO')
+    if (!yaInscrito) {
+      const pagoPrevio = modalidadCobroDe(curso) === 'PREVIO'
+      estadosInscripcionDemo.set(`${curso.id}:${auth.usuario!.id}`, pagoPrevio ? 'PENDIENTE_PAGO' : 'EN_CURSO')
+      if (pagoPrevio) crearPago({ cursoId: curso.id, cursoTitulo: curso.titulo, usuarioId: auth.usuario!.id, importeCentimos: Math.round((miPrecio(curso, auth.usuario!.id)?.importe ?? curso.costo) * 100), plazoMinutos: curso.plazoPagoMinutos ?? 4320 })
+    }
     const estado = yaInscrito && auth.usuario!.id === 'p-1' && curso.titulo === 'Demo · Seguridad y primeros auxilios' ? 'TERMINADO' : estadosInscripcionDemo.get(`${curso.id}:${auth.usuario!.id}`) ?? 'EN_CURSO'
     return HttpResponse.json({ cursoId: curso.id, estado, yaInscrito }, { status: yaInscrito ? 200 : 201 })
   }),
@@ -292,6 +382,23 @@ export const handlersCursos = [
   http.get(`${API}/cursos/:id`, ({ request, params }) => {
     const auth = detalle(request, String(params.id)); return auth.fallo ?? HttpResponse.json(disponibilidad(auth.curso!, auth.usuario!.id))
   }),
+  // Editar una sesión del curso (S3 6.1): las clases sueltas siguen en handlers.ts (este devuelve undefined y pasa).
+  http.put(`${API}/clases/:id`, async ({ request, params }) => {
+    const cuerpo = await request.clone().json() as { cursoId?: string }
+    const demo = [...sesionesDemo.values()].flat().find(s => s.sesion.id === params.id)
+    const clase = clases.find(c => c.id === params.id && (c.curso?.id ?? c.cursoId) === cuerpo.cursoId)
+    if (!demo && !clase) return undefined
+    const rol = acceso(request, ['ADMIN']); if (rol.fallo) return rol.fallo
+    const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+    const datos = esquemaSesion(fecha).safeParse(cuerpo)
+    if (!datos.success) return error(422, 'Completa los datos de la sesión con una fecha y un horario válidos.')
+    if (demo) { Object.assign(demo.sesion, datos.data); return HttpResponse.json(demo.sesion) }
+    if (clases.some(c => c.id !== clase!.id && c.estado === 'PROGRAMADA' && c.instructor.id === clase!.instructor.id && c.fecha === datos.data.fecha && c.horaInicio < datos.data.horaFin && datos.data.horaInicio < c.horaFin)) {
+      return error(409, 'El instructor ya tiene una clase en ese horario. Elige otro horario.', 'CONFLICTO_HORARIO')
+    }
+    Object.assign(clase!, datos.data)
+    return HttpResponse.json(clase)
+  }),
   http.post(`${API}/cursos/:id/sesiones`, async ({ request, params }) => {
     const rol = acceso(request, ['ADMIN']); if (rol.fallo) return rol.fallo
     const auth = detalle(request, String(params.id)); if (auth.fallo) return auth.fallo
@@ -302,11 +409,7 @@ export const handlersCursos = [
       const d = new Date(`${v}T00:00:00Z`)
       return !v.startsWith('0000-') && Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === v
     })
-    const hora = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
-    const datos = z.object({ nombre: titulo, fecha, horaInicio: hora, horaFin: hora, lugar: z.string().trim().max(160).default(''),
-      modalidad: z.enum(modalidadesSesion).default('PRESENCIAL') })
-      .refine(v => v.horaFin > v.horaInicio && (v.modalidad === 'VIRTUAL' || v.lugar.length > 0))
-      .transform(v => ({ ...v, lugar: v.lugar || 'Aula virtual' })).safeParse(await request.json())
+    const datos = esquemaSesion(fecha).safeParse(await request.json())
     if (!datos.success) return error(422, 'Completa los datos de la sesión con una fecha y un horario válidos.')
     if (clases.some(c => c.estado === 'PROGRAMADA' && c.instructor.id === curso.instructorId && c.fecha === datos.data.fecha && c.horaInicio < datos.data.horaFin && datos.data.horaInicio < c.horaFin)) {
       return error(409, 'El instructor ya tiene una clase en ese horario. Elige otro horario.', 'CONFLICTO_HORARIO')

@@ -38,6 +38,6 @@ test('RUT-04: una ruta desconocida permite volver al catálogo público', async 
   await expect(page.getByRole('heading', { name: 'No encontramos esta página' })).toBeVisible()
   await page.getByRole('link', { name: 'Ir al inicio' }).click()
   await expect(page).toHaveURL(rutas.inicio)
-  await expect(page.getByRole('heading', { name: 'Catálogo de cursos', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Cursos vigentes del CPPP', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Iniciar sesión', exact: true })).toBeVisible()
 })

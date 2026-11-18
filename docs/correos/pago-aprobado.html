@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<title>Recibimos tu pago</title>
+</head>
+<!-- Plantilla de GestionCapa (SCRUM-211). Reemplaza los campos {{…}} antes de enviar; ver README.md. -->
+<body style="margin:0;padding:0;background:#efe9e1;">
+  <div style="display:none;max-height:0;overflow:hidden;">Recibimos tu pago</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#efe9e1;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="background:#64142b;padding:20px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+                <td style="padding-right:12px;"><img src="{{urlLogo}}" width="32" height="44" alt="Insignia del CPPP" style="display:block;border:0;"></td>
+                <td>
+                  <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:bold;color:#ffffff;">Colegio Profesional de Profesores del Perú</div>
+                  <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:bold;color:#efd58f;">REGIÓN CUSCO · CAPACITACIONES</div>
+                </td>
+              </tr></table>
+            </td>
+          </tr>
+          <tr><td style="background:#d1aa4b;height:4px;font-size:0;line-height:0;">&nbsp;</td></tr>
+          <tr>
+            <td style="padding:28px 32px;">
+              <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+                <td align="center" width="48" height="48" style="width:48px;height:48px;border-radius:24px;background:#eaf7ef;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:48px;color:#17643a;">&#10003;</td>
+              </tr></table>
+              <p style="margin:16px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#616873;">Hola, {{nombre}}:</p>
+              <h1 style="margin:16px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:30px;line-height:38px;font-weight:bold;color:#20232a;">Recibimos tu pago</h1>
+              <p style="margin:16px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;color:#20232a;">Este correo es tu comprobante. Tu inscripción quedó confirmada.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;background:#fbfaf7;border:1px solid #e6e2dc;border-radius:8px;">
+                <tr><td style="padding:11px 16px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:5px 12px 5px 0;width:40%;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#616873;vertical-align:top;">Monto pagado</td>
+                <td style="padding:5px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#20232a;font-weight:bold;vertical-align:top;">{{monto}}</td>
+              </tr>
+              <tr>
+                <td style="padding:5px 12px 5px 0;width:40%;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#616873;vertical-align:top;">Medio</td>
+                <td style="padding:5px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#20232a;font-weight:bold;vertical-align:top;">{{medio}}</td>
+              </tr>
+              <tr>
+                <td style="padding:5px 12px 5px 0;width:40%;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#616873;vertical-align:top;">Fecha</td>
+                <td style="padding:5px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#20232a;font-weight:bold;vertical-align:top;">{{fecha}}</td>
+              </tr>
+              <tr>
+                <td style="padding:5px 12px 5px 0;width:40%;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#616873;vertical-align:top;">Código de orden</td>
+                <td style="padding:5px 0;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;color:#20232a;font-weight:bold;vertical-align:top;">{{codigoOrden}}</td>
+              </tr>
+                  </table>
+                </td></tr>
+              </table>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr>
+                <td style="border-radius:8px;background:#64142b;">
+                  <a href="{{enlaceComprobante}}" style="display:inline-block;padding:12px 20px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:8px;">Descargar comprobante</a>
+                </td>
+              </tr></table>
+              <p style="margin:16px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;color:#616873;word-break:break-all;">Si el botón no funciona, copia este enlace seguro en tu navegador: {{enlaceComprobante}}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#310712;padding:20px 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;">
+              <p style="margin:0;color:#e9dfe2;">CPPP Región Cusco · Av. La Cultura 1112, Of. 704, Cusco</p>
+              <p style="margin:6px 0 0;color:#c8b8bd;">Este correo se envió a {{correoEnmascarado}} porque estás inscrito(a) en un curso. No respondas a este mensaje: escríbenos por WhatsApp al 984 663 946.</p>
+              <p style="margin:6px 0 0;"><a href="https://www.cpppregion-cusco.com/privacidad.html" style="color:#efd58f;text-decoration:underline;">Aviso de privacidad (Ley N.° 29733)</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

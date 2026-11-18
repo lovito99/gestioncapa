@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Calendar, ClipboardList, Clock, MapPin, Pencil, QrCode, User, type LucideIcon } from 'lucide-react'
+import { Calendar, ClipboardList, Clock, DoorOpen, MapPin, Pencil, QrCode, User, type LucideIcon } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useParams } from 'react-router-dom'
@@ -103,6 +103,13 @@ export function DetalleClasePagina() {
                 >
                   <QrCode className="size-4" aria-hidden />
                   Mostrar QR
+                </Link>
+              )}
+              {/* HU-39: el encargado escanea el QR personal o busca por DNI */}
+              {c.modalidad !== 'VIRTUAL' && (
+                <Link to={`${rutaClases}/${c.id}/puerta`} className={enlaceAccion}>
+                  <DoorOpen className="size-4" aria-hidden />
+                  Asistencia en puerta
                 </Link>
               )}
             </>
