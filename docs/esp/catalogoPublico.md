@@ -97,3 +97,21 @@ volver a una entrega compatible de frontend si falla la navegación; inscripcion
 ya registradas permanecen en el backend. No borrar cuentas o inscripciones para
 revertir la presentación. Acordar responsable y revisar errores401/403/404/409 en
 los logs existentes sin añadir datos personales de navegación o tokens a los logs.
+
+## HU-51 · Portada en el catálogo y vista previa de WhatsApp
+
+- La tarjeta muestra la portada 16:9 arriba y, debajo, título, modalidad, cobro,
+  fechas, horas, cupos y precios. Toda la tarjeta abre el detalle; se resalta con
+  el cursor, el foco y al tocarla. «Compartir» abre su propio diálogo.
+- Las portadas publicadas se sirven en variantes `miniatura`, `tarjeta` y `grande`
+  con `srcset`; a 360 px se descarga la de 352 px (DPR 1) o 704 px (DPR 2).
+  Sin portada, o si su descarga falla, se usa la ilustración de la categoría, con el
+  título como nombre accesible.
+- Express responde `/c/:id` y `/capacitaciones/:id` con el índice de React y los
+  metadatos Open Graph obtenidos de `GET /api/publico/cursos/:id/compartir`. Sin
+  portada, `og:image` apunta a `/portadas/<ilustración>.jpg` (generadas con
+  `node frontend/scripts/portadasSociales.mjs`). Curso no visible → `404`,
+  origen sin configurar → `503`, fallo del backend → `502`, siempre sin metadatos.
+- Configurar `catalogoOrigenPublico` en el backend con el origen HTTPS del catálogo
+  si difiere de `FRONTEND_URL`. La prueba en un cliente real de WhatsApp requiere
+  ese origen público con HTTPS y queda pendiente hasta contar con el entorno.

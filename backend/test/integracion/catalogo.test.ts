@@ -5,6 +5,7 @@ import { buildApp } from '../../src/app.js';
 import { pool } from '../../src/shared/database.js';
 import { redis } from '../../src/shared/redis.js';
 import { migrar } from '../../src/shared/migraciones.js';
+import { env } from '../../src/config/env.js';
 let app: FastifyInstance;
 const org = String(Date.now()); const otra = String(Number(org)+1);
 const personas = new Map<string, { id: string; token: string }>();
@@ -149,7 +150,7 @@ test('RF-07: catálogo público vigente, paginado y sin datos internos', async (
     assert.ok(!datos.items.some((curso: { id: string }) => [borrador, vencido.id].includes(curso.id)));
     for (const curso of datos.items) {
       assert.ok(curso.titulo);
-      assert.deepEqual(Object.keys(curso).sort(), ['id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'precioGeneral', 'cupos', 'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin','modalidadCobro','plazoPagoMinutos','versionCobro'].sort());
+      assert.deepEqual(Object.keys(curso).sort(), ['id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'precioGeneral', 'cupos', 'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin','modalidadCobro','plazoPagoMinutos','versionCobro','portadaUrl'].sort());
     }
     const filtro = await pedir(null, 'GET', '/api/publico/cursos?buscar=CAPACITACION&modalidad=VIRTUAL&tamanoPagina=2');
     assert.equal(filtro.json().total, 4); assert.equal(filtro.json().items.length, 2);
@@ -157,6 +158,57 @@ test('RF-07: catálogo público vigente, paginado y sin datos internos', async (
   }
 });
 
+
+test('HU-40/HU-51: ficha pública por ID con campos públicos, vigencia, sesiones y portada', async () => {
+  const curso = await crear({ titulo: 'HU-40 · Didáctica & evaluación', costo: 0 });
+  const vencido = await crear({ fechaInicio: '2020-01-01', fechaFin: '2020-01-02', costo: 0 });
+  await pool.query(`insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,curso_id)
+    values('Sesión pública',$1,'2030-01-05','08:00','10:00','Aula 1',$2)`, [personas.get('docente')!.id, curso.id]);
+  const ruta = `/api/publico/cursos/${curso.id}`;
+  const respuesta = await pedir(null, 'GET', ruta);
+  assert.equal(respuesta.statusCode, 200, respuesta.body);
+  assert.equal(respuesta.headers['cache-control'], 'no-store');
+  const ficha = respuesta.json();
+  assert.deepEqual(Object.keys(ficha).filter(clave => clave !== 'admiteExternos').sort(), [
+    'id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'precioGeneral', 'cupos',
+    'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin', 'modalidadCobro', 'plazoPagoMinutos', 'versionCobro',
+    'portadaUrl', 'tipoCertificado', 'notaMinima', 'requisitoAsistencia', 'sesiones', 'vigente',
+  ].sort());
+  assert.equal(ficha.titulo, curso.titulo);
+  assert.equal(ficha.vigente, true);
+  assert.equal(ficha.portadaUrl, null);
+  assert.deepEqual(ficha.sesiones.map((sesion: object) => Object.keys(sesion).sort()), [['fecha', 'horaFin', 'horaInicio', 'id', 'lugar', 'modalidad', 'nombre']]);
+  const caducado = await pedir(null, 'GET', `/api/publico/cursos/${vencido.id}`);
+  assert.equal(caducado.statusCode, 200);
+  assert.equal(caducado.json().vigente, false);
+});
+
+test('HU-40: enlace estable para compartir desde el origen configurado', async () => {
+  const curso = await crear({ titulo: 'HU-40 · Enlace <compartido>', costo: 0 });
+  const respuesta = await pedir(null, 'GET', `/api/publico/cursos/${curso.id}/compartir`);
+  assert.equal(respuesta.statusCode, 200, respuesta.body);
+  const origen = new URL(env.catalogoOrigenPublico ?? env.FRONTEND_URL);
+  const url = new URL(`/c/${curso.id}`, origen).href;
+  assert.deepEqual(respuesta.json(), {
+    url, enlaceCorto: `${origen.host}/c/${curso.id}`,
+    vistaPrevia: { titulo: curso.titulo, descripcion: 'Descripción del curso', categoria: 'Educación', imagen: null },
+  });
+  const hostil = await app.inject({ method: 'GET', url: `/api/publico/cursos/${curso.id}/compartir`, headers: { host: 'atacante.example', 'x-forwarded-host': 'atacante.example' } });
+  assert.equal(hostil.json().url, url);
+});
+
+test('HU-40: los ID inválidos, inexistentes, borradores y cerrados devuelven el mismo 404 en ficha y enlace', async () => {
+  const cerrado = await crear({ costo: 0 });
+  await pool.query("update cursos set estado='CERRADO' where id=$1", [cerrado.id]);
+  for (const id of ['01', '1000000000000000', 'texto', '999999999999999', borrador, cerrado.id]) {
+    for (const ruta of [`/api/publico/cursos/${id}`, `/api/publico/cursos/${id}/compartir`]) {
+      const respuesta = await pedir(null, 'GET', ruta);
+      assert.equal(respuesta.statusCode, 404, ruta);
+      assert.equal(respuesta.headers['cache-control'], 'no-store');
+      assert.deepEqual(respuesta.json(), { code: 'CURSO_NO_EXISTE', message: 'El curso no existe.' });
+    }
+  }
+});
 
 test('HU-16: curso con costo reserva vacante pendiente, sin confirmar ni duplicar', async () => {
   const curso = await crear({ titulo: 'HU16 · Reserva con costo', costo: 45, cupos: 1 });

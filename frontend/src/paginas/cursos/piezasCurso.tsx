@@ -1,5 +1,5 @@
 import { Award, CreditCard, Heart, Image as IconoImagen, LayoutGrid, MapPin, PlayCircle, Video, type LucideIcon } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import azulCirculo1 from '@/assets/portadas/azul-circulo-1.svg'
 import azulCirculo2 from '@/assets/portadas/azul-circulo-2.svg'
 import azulCirculo3 from '@/assets/portadas/azul-circulo-3.svg'
@@ -10,73 +10,96 @@ import rojo from '@/assets/portadas/rojo.svg'
 import verde from '@/assets/portadas/verde.svg'
 import vino from '@/assets/portadas/vino.svg'
 import { cn } from '@/lib/cn'
-import type { Curso, ModalidadCobro } from '@/servicios/cursos'
+import { fondoDeCategoria, type FondoPortada } from '@/lib/portadaCategoria'
+import { cursos, type Curso, type ModalidadCobro } from '@/servicios/cursos'
 import { modalidadCobroDe, precioGeneralDe, soles } from './reglasCurso'
 import type { ModalidadSesion } from '@/servicios/modalidadCurso'
 
 // ---------- Portada 16:9 (SCRUM-181) ----------
 
-type Fondo = 'vino' | 'verde' | 'dorado' | 'azul' | 'morado' | 'rojo'
-const FONDOS: Record<Exclude<Fondo, 'azul'>, string> = { vino, verde, dorado, morado, rojo }
-
-/**
- * Imagen por defecto de cada categoría, con las ilustraciones del Figma S3 3.1.
- * Pendiente de confirmar con Diseño la asignación de las categorías que el Figma no muestra.
- */
-const FONDO_POR_CATEGORIA: Record<string, Fondo> = {
-  Evaluación: 'vino',
-  Educación: 'verde',
-  'Educación inclusiva': 'verde',
-  Didáctica: 'dorado',
-  Planificación: 'dorado',
-  Tecnología: 'azul',
-  'Tecnología educativa': 'azul',
-  'Gestión escolar': 'morado',
-  Tutoría: 'morado',
-  'Seguridad y salud': 'rojo',
-  Comprensión: 'rojo',
-  General: 'vino',
-}
-const fondoDeCategoria = (categoria: string): Fondo => FONDO_POR_CATEGORIA[categoria] ?? 'vino'
+const FONDOS: Record<Exclude<FondoPortada, 'azul'>, string> = { vino, verde, dorado, morado, rojo }
 
 /** La de tecnología llega del Figma por capas (degradado, círculos e ícono); se arma igual que allí. */
 function FondoAzul() {
   return (
     <div className="absolute inset-0 bg-[linear-gradient(150.64deg,#1f4e79_0%,#0d2840_71.43%)]">
-      <img src={azulCirculo1} alt="" className="absolute top-[-25%] left-[62.5%] size-[45%] max-w-none" />
-      <img src={azulCirculo2} alt="" className="absolute top-[63.9%] left-[-7.5%] size-[35%] max-w-none" />
-      <img src={azulCirculo3} alt="" className="absolute top-[69%] left-[56%] size-[18%] max-w-none" />
+      <img src={azulCirculo1} alt="" className="absolute top-[-25%] left-[62.5%] aspect-square w-[45%] max-w-none" />
+      <img src={azulCirculo2} alt="" className="absolute top-[63.9%] left-[-7.5%] aspect-square w-[35%] max-w-none" />
+      <img src={azulCirculo3} alt="" className="absolute top-[69%] left-[56%] aspect-square w-[18%] max-w-none" />
       <img src={azulIcono} alt="" className="absolute top-1/2 left-1/2 h-[33.8%] w-auto max-w-none -translate-1/2" />
     </div>
   )
 }
 
+function useUrlPortada(url: string | null | undefined) {
+  const privada = url && /^\/api\/cursos\/[1-9]\d{0,14}\/portada\?v=[a-f0-9]{64}$/.test(url)
+  const [archivo, cambiarArchivo] = useState<{ origen: string; url: string }>()
+  useEffect(() => {
+    if (!privada || !url) return
+    const solicitud = new AbortController()
+    let temporal: string | undefined
+    void cursos.descargarPortada(url, solicitud.signal).then(blob => {
+      if (solicitud.signal.aborted) return
+      temporal = URL.createObjectURL(blob)
+      cambiarArchivo({ origen: url, url: temporal })
+    }).catch(() => { /* La ilustración de la categoría sigue visible. */ })
+    return () => {
+      solicitud.abort()
+      if (temporal) URL.revokeObjectURL(temporal)
+    }
+  }, [privada, url])
+  return privada ? (archivo?.origen === url ? archivo?.url : undefined) : url
+}
+
+/** Ancho que ocupa la portada en la rejilla del catálogo, para elegir la variante adecuada. */
+export const tamanosTarjeta = '(min-width: 1024px) 352px, (min-width: 640px) 50vw, calc(100vw - 32px)'
+
 /**
- * Portada del curso: la imagen subida o, si no hay, la de su categoría. Siempre 16:9.
+ * Portada del curso: la imagen subida o, si no hay o falla su descarga, la de su categoría.
+ * Siempre 16:9 y con el título como nombre accesible. `tamanos` activa las variantes responsivas.
  * `conAviso` muestra la etiqueta «Imagen por defecto · Categoría» del Figma.
  */
 export function PortadaCurso({
   curso,
   className,
   conAviso = false,
+  tamanos,
+  diferida = false,
   children,
 }: {
-  curso: Pick<Curso, 'titulo' | 'categoria' | 'portadaUrl'>
+  curso: Pick<Curso, 'titulo' | 'categoria' | 'portadaUrl' | 'portadaFuentes'>
   className?: string
   conAviso?: boolean
+  tamanos?: string
+  diferida?: boolean
   children?: ReactNode
 }) {
   const fondo = fondoDeCategoria(curso.categoria)
+  const descargada = useUrlPortada(curso.portadaUrl)
+  const [fallida, cambiarFallida] = useState<string>()
+  const url = descargada !== fallida ? descargada : undefined
+  const fuentes = tamanos && url === curso.portadaUrl && curso.portadaFuentes?.length ? curso.portadaFuentes : undefined
   return (
     <div className={cn('relative aspect-video w-full overflow-hidden bg-brand-night', className)}>
-      {curso.portadaUrl ? (
-        <img src={curso.portadaUrl} alt={curso.titulo} className="absolute inset-0 size-full object-cover" />
-      ) : fondo === 'azul' ? (
-        <FondoAzul />
+      {url ? (
+        <img
+          src={fuentes?.[0]?.url ?? url}
+          srcSet={fuentes && [...fuentes, { url, ancho: 1280 }].map(fuente => `${fuente.url} ${fuente.ancho}w`).join(', ')}
+          sizes={fuentes && tamanos}
+          width={1280}
+          height={720}
+          loading={diferida ? 'lazy' : undefined}
+          decoding="async"
+          alt={curso.titulo}
+          onError={() => cambiarFallida(url)}
+          className="absolute inset-0 size-full object-cover"
+        />
       ) : (
-        <img src={FONDOS[fondo]} alt="" className="absolute inset-0 size-full object-cover" />
+        <div role="img" aria-label={curso.titulo} className="absolute inset-0">
+          {fondo === 'azul' ? <FondoAzul /> : <img src={FONDOS[fondo]} alt="" className="absolute inset-0 size-full object-cover" />}
+        </div>
       )}
-      {!curso.portadaUrl && conAviso && (
+      {!url && conAviso && (
         <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-md bg-brand-night px-2 py-0.5 text-xs leading-4 font-medium text-white">
           <IconoImagen className="size-3" aria-hidden />
           Imagen por defecto · {curso.categoria}

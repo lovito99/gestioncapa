@@ -65,9 +65,28 @@ describe('filtro de cobro del catálogo', () => {
 })
 
 describe('portada del curso', () => {
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAACAAAAASCAIAAAC1qksFAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAKElEQVQ4jWMwXLSZpohh1IJFo0G0eTQVGY5mtM2jRYXhaGm6iLYVDgD7E22u3uTWxQAAAABJRU5ErkJggg=='
+  const portada = { nombre: 'portada.png', tipo: 'image/png', contenidoBase64: png }
+
+  it('crea el borrador con portada y rechaza contenido no válido', async () => {
+    const datos = { titulo: 'Curso con portada en demo', instructorId: 'i-1', horasLectivas: 2, modalidad: 'PRESENCIAL',
+      costo: 0, cupos: 30, tipoCertificado: 'PARTICIPACION', modulos: [{ titulo: 'Introducción' }] }
+    const invalida = await llamar('POST', '/cursos', 'u-admin-1', { ...datos, portada: { ...portada, contenidoBase64: 'AAAA' } })
+    expect(invalida.status).toBe(422)
+    expect(invalida.cuerpo.fields?.portada).toBeTruthy()
+    const cuadrada = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+    const proporcion = await llamar('POST', '/cursos', 'u-admin-1', { ...datos, portada: { ...portada, contenidoBase64: cuadrada } })
+    expect(proporcion.status).toBe(422)
+    expect(proporcion.cuerpo.fields?.portada).toContain('16:9')
+    expect((await llamar('POST', '/cursos', 'p-1', { ...datos, portada })).status).toBe(403)
+    const creada = await llamar('POST', '/cursos', 'u-admin-1', { ...datos, portada })
+    expect(creada.status).toBe(201)
+    expect(creada.cuerpo).toMatchObject({ estado: 'BORRADOR', portadaUrl: `data:image/png;base64,${png}` })
+    expect(creada.cuerpo).not.toHaveProperty('portada')
+  })
+
   it('el administrador sube y quita la portada', async () => {
     const id = await evaluacion()
-    const png = btoa('imagen-de-prueba')
     const subida = await llamar('PUT', `/cursos/${id}/portada`, 'u-admin-1', { nombre: 'portada.png', tipo: 'image/png', contenidoBase64: png })
     expect(subida.status).toBe(200)
     expect(subida.cuerpo.portadaUrl).toBe(`data:image/png;base64,${png}`)
@@ -78,6 +97,9 @@ describe('portada del curso', () => {
   it('rechaza formatos no permitidos e imágenes de más de 1 MB', async () => {
     const id = await evaluacion()
     expect((await llamar('PUT', `/cursos/${id}/portada`, 'u-admin-1', { nombre: 'a.gif', tipo: 'image/gif', contenidoBase64: 'AAAA' })).cuerpo.fields.portada).toBeTruthy()
+    const falsa = await llamar('PUT', `/cursos/${id}/portada`, 'u-admin-1', { nombre: 'c.jpg', tipo: 'image/jpeg', contenidoBase64: png })
+    expect(falsa.status).toBe(422)
+    expect(falsa.cuerpo.code).toBe('VALIDACION')
     const pesada = 'A'.repeat(1_500_000)
     expect((await llamar('PUT', `/cursos/${id}/portada`, 'u-admin-1', { nombre: 'b.png', tipo: 'image/png', contenidoBase64: pesada })).cuerpo.code).toBe('PORTADA_MUY_PESADA')
   })
@@ -92,8 +114,9 @@ describe('enlace para compartir', () => {
     const id = await evaluacion()
     const { status, cuerpo } = await llamar('GET', `/publico/cursos/${id}/compartir`)
     expect(status).toBe(200)
-    expect(cuerpo.url).toBe(`http://localhost/capacitaciones/${id}`)
-    expect(cuerpo.enlaceCorto).toBe(`localhost/capacitaciones/${id}`)
+    expect(cuerpo.url).toBe(`http://localhost/c/${id}`)
+    expect(cuerpo.enlaceCorto).toBe(`localhost/c/${id}`)
+    expect(cuerpo.vistaPrevia).toMatchObject({ titulo: expect.stringContaining('Evaluación formativa'), imagen: null })
   })
 
   it('no existe para cursos en borrador', async () => {
@@ -107,7 +130,7 @@ describe('SCRUM-187 · página pública del curso', () => {
     const id = await evaluacion()
     const { status, cuerpo } = await llamar('GET', `/publico/cursos/${id}`)
     expect(status).toBe(200)
-    expect(cuerpo).toMatchObject({ id, titulo: expect.stringContaining('Evaluación formativa'), requisitoAsistencia: expect.any(Number), tipoCertificado: expect.any(String) })
+    expect(cuerpo).toMatchObject({ id, titulo: expect.stringContaining('Evaluación formativa'), requisitoAsistencia: expect.any(Number), tipoCertificado: expect.any(String), vigente: true, portadaUrl: null })
     expect(Array.isArray(cuerpo.sesiones)).toBe(true)
     for (const sesion of cuerpo.sesiones) expect(Object.keys(sesion).sort()).toEqual(['fecha', 'horaFin', 'horaInicio', 'id', 'lugar', 'modalidad', 'nombre'])
     expect(cuerpo).not.toHaveProperty('modulos')

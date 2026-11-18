@@ -114,3 +114,12 @@ test('Jitsi admite HTTP local en desarrollo y exige HTTPS en producción', () =>
   assert.equal(parseEnv({ ...configuracion, NODE_ENV: 'production', jitsiDominio: 'meet.empresa.pe', jitsiDireccion: 'https://meet.empresa.pe' }).jitsiHabilitado, true);
   assert.match(errorDe({ ...configuracion, jitsiSecreto: entornoValido.JWT_SECRET }).message, /debe ser distinto/);
 });
+
+test('HU-51: el origen público del catálogo exige HTTPS sin ruta y admite loopback fuera de producción', () => {
+  for (const origen of ['http://catalogo.example.org', 'https://catalogo.example.org/ruta', 'https://usuario:clave@catalogo.example.org', 'texto']) {
+    assert.match(errorDe({ ...entornoValido, catalogoOrigenPublico: origen }).message, /catalogoOrigenPublico/, origen);
+  }
+  assert.equal(parseEnv({ ...entornoValido, catalogoOrigenPublico: 'https://catalogo.example.org' }).catalogoOrigenPublico, 'https://catalogo.example.org');
+  assert.ok(parseEnv({ ...entornoValido, catalogoOrigenPublico: 'http://127.0.0.1:4174' }));
+  assert.match(errorDe({ ...entornoValido, NODE_ENV: 'production', catalogoOrigenPublico: 'http://127.0.0.1:4174' }).message, /catalogoOrigenPublico/);
+});

@@ -1430,3 +1430,157 @@ Se verifica el recorrido con un curso de prueba, progreso por cuenta y estados
 bloqueado, en progreso y completado. El prototipo se habilita con `npm run dev:demo`.
 Las reglas académicas definitivas, el almacenamiento real y la emisión
 institucional corresponden a las historias de implementación.
+
+# HU-51 · Imagen de portada del curso en el catálogo
+
+**SCRUM-177 · Aprobada e implementada · 18/11/2026**
+
+## Objetivo y caso de uso
+
+El administrador selecciona una portada opcional al crear un curso y puede
+cambiarla o quitarla en la pantalla de edición. Cuando el curso se publica, el
+colegiado reconoce su tema en la tarjeta, abre el detalle al pulsarla y ve la
+misma portada en grande. Quien recibe el enlace por WhatsApp puede reconocer el
+curso desde la vista previa. Los cursos existentes sin imagen usan la
+ilustración de su categoría.
+
+El recorrido reutiliza la interfaz del Sprint 3, producto de la retrospectiva
+del Sprint 2 y de las referencias de PerúEduca y SIFODS. La cobertura alcanza
+el catálogo con sesión, el anónimo y sus detalles. Aplican las reglas vigentes
+de visibilidad, inscripción, cupos y precio del CPPP.
+
+## Código actual e inconsistencias
+
+| Evidencia en la rama | Consecuencia para HU-51 |
+| --- | --- |
+| `CampoPortada` y `reglasCurso.ts` ofrecen selector, arrastre y previsualización. Una imagen fuera de proporción recibe el mensaje «se recortará a 16:9», pero el formulario envía el original. MSW solo valida tipo declarado y una estimación de bytes. | Acordar la regla de proporción y verificar contenido, dimensiones y bytes en el backend real. |
+| `frontend/src/servicios/cursos.ts` y MSW exponen `portadaUrl`, carga y retiro. El backend y las migraciones carecen de almacenamiento, endpoints y proyección de portada. | Completar la persistencia, incorporar URLs al contrato y mantener el reemplazo por categoría para datos anteriores. |
+| `CursoFormPagina.tsx` guarda los datos antes de subir el archivo. Un fallo posterior a crear el borrador deja un curso guardado y puede producir otro al reintentar. La edición llama primero a `PUT /api/cursos/:id`, disponible en demo. | Integrar la portada en la creación transaccional y permitir guardar la portada de un curso existente desde el campo de edición con su endpoint propio. |
+| `TarjetaCatalogo` enlaza casi toda la superficie mediante un enlace expandido y preserva «Compartir». Tiene hover y foco, pero carece de estado de pulsación explícito. La modalidad se superpone a la imagen. | Conservar el enlace y el control independiente, añadir respuesta al toque y ubicar la modalidad en el cuerpo bajo la imagen. |
+| Los detalles público y autenticado ya usan `PortadaCurso`. La imagen subida tiene el título como texto alternativo. Las ilustraciones por categoría son decorativas en el marcado y la portada subida carece de tamaños responsivos. | Reutilizar el componente con nombre accesible, espacio reservado y fuentes adecuadas a tarjeta y detalle. |
+| La rama tiene ficha React en `/capacitaciones/:id` y una vista simulada en el modal. En el backend real faltan la ficha individual y la ruta de compartir. El revert `86082a5` retiró el HTML Open Graph de HU-40 y el Express actual sirve el mismo índice en todas las rutas React. | Recuperar la parte de HU-40 que necesita la portada. Mantener el enlace corto `/c/:id` y compatibilidad con la ruta pública que ya usa la interfaz. |
+
+## Decisiones propuestas
+
+- Se aceptan imágenes estáticas JPEG, PNG y WebP con hasta **1 048 576
+  bytes** de archivo decodificado, inclusive, y proporción exacta **16:9**
+  después de aplicar la orientación de la foto. El formulario explica cómo
+  preparar otra imagen si la proporción no coincide. Se propone un límite de
+  **16 megapíxeles** para acotar memoria al decodificar.
+- PostgreSQL conserva una portada vigente por curso, con los binarios
+  derivados y su versión. Se propone Sharp para validar y volver a codificar
+  la imagen, aplicar orientación y retirar metadatos. Las variantes propuestas
+  son WebP de hasta **352 × 198** y **704 × 396** para tarjetas, y JPEG de
+  **1280 × 720** para detalle y vista social. Se evita ampliar las variantes
+  de tarjeta y se usa su ancho real en el marcado. En JPEG, la transparencia
+  se compone sobre el fondo institucional.
+- Crear un curso con portada guarda ambos en una transacción. En edición, el
+  campo de portada permite guardar o quitar la imagen por separado. Un fallo
+  conserva la última portada confirmada. Repetir la misma carga o quitar de
+  nuevo la portada deja el mismo estado. La publicación usa el flujo existente.
+- Una portada publicada se sirve en una URL del mismo sitio con una versión
+  que cambia cuando cambia el contenido. El servidor comprueba el estado del
+  curso y la versión vigente en cada solicitud. Los borradores y cerrados
+  quedan fuera de la consulta pública. Para esos estados, la vista previa
+  interna usa el cliente autenticado de la aplicación, con los mismos permisos
+  del detalle y sin poner credenciales en la URL.
+- La ilustración de respaldo usa la asignación de categorías del Sprint 3,
+  incluida Tecnología/Tecnología educativa, y la variante General para
+  categorías históricas sin asignación. La web y Open Graph comparten esa
+  asignación. Para Open Graph se sirve una variante raster del mismo diseño
+  por una URL pública HTTPS.
+- Se mantiene el comportamiento de HU-40 para links de cursos publicados con
+  fecha pasada o sin cupos. Su ficha puede consultarse y sigue indicando su
+  estado. El catálogo público conserva su filtro de vigencia en Lima.
+
+## Contratos propuestos
+
+| Entrada | Comportamiento |
+| --- | --- |
+| `POST /api/cursos` | Acepta `portada` opcional con `{ nombre, tipo, contenidoBase64 }`. Un archivo inválido devuelve `422` con `fields.portada` y deja la base sin un borrador nuevo. La creación sin portada conserva su respuesta y comportamiento. |
+| `PUT` y `DELETE /api/cursos/:id/portada` | Solo ADMIN. `200 { portadaUrl }` al guardar y `204` al quitar. Formato, proporción o contenido inválidos devuelven `422 VALIDACION`. El archivo mayor al límite devuelve `422 PORTADA_MUY_PESADA`. Si la petición completa rebasa el límite de transporte, devuelve `413`. Se acota el JSON por ruta por encima del tamaño de 1 MiB en base64 más los demás campos permitidos. |
+| `GET /api/cursos/:id/portada` | Lectura autenticada con la autorización del curso para la vista interna. Si la portada está ausente, responde `404`. La respuesta interna usa `private, no-store`. |
+| `GET /api/publico/cursos/:id/portada/:version/:variante` | Imagen sin sesión solo para la versión vigente de un curso `PUBLICADO`. Variantes cerradas `miniatura`, `tarjeta` y `grande`; tipo real WebP o JPEG, `nosniff` y revalidación antes de reutilizar caché. Estados, versiones o variantes no visibles devuelven `404`. |
+| Consultas de catálogo y detalle | Añaden `portadaUrl` y, cuando corresponda, `portadaFuentes` con URL y ancho real para las tarjetas. `null` en la URL indica respaldo por categoría. Las respuestas JSON conservan sus campos y solo incluyen enlaces, sin binarios ni metadatos del original. |
+| `GET /api/publico/cursos/:id` y `GET /api/publico/cursos/:id/compartir` | Devuelven una ficha o enlace estable con datos públicos permitidos, incluso si el publicado quedó fuera del listado por fecha. La ficha conserva el retorno de HU-22 y las condiciones vigentes de inscripción. El recurso de compartir devuelve `url`, `enlaceCorto` y los datos de vista previa, a partir del origen público configurado. Un curso inexistente, borrador o cerrado devuelve `404`. |
+| `GET /c/:id` y `GET /capacitaciones/:id` en Express | Entregan la ficha React. El HTML inicial incluye `og:type`, `og:title`, `og:url`, `og:description`, `og:image` absoluta, tipo de imagen, dimensiones y `og:image:alt`. Los metadatos se obtienen del backend configurado, sin sesión y con tiempo de espera acotado. Un curso no visible devuelve `404`, una falla de backend `502` y una configuración pública incompleta `503`. Esas respuestas carecen de metadatos del curso. |
+
+La URL pública se construye desde el origen del catálogo configurado en el
+servidor. Se propone reutilizar `FRONTEND_URL` si corresponde al catálogo y
+configurar un origen público explícito si el subdominio difiere. Solo se admite
+HTTPS en producción. El host enviado por el visitante y el nombre del archivo
+quedan fuera de la construcción de URLs. Se registran el resultado y el ID del
+curso para cambios de portada, siguiendo el registro de operaciones del
+proyecto y sin guardar el archivo, su base64 ni credenciales en los logs.
+
+## Criterios de aceptación
+
+| ID | Criterio verificable |
+| --- | --- |
+| HU51-01 | Un administrador puede seleccionar y previsualizar JPG, PNG o WebP 16:9 válido de hasta 1 MiB al crear un borrador, y cambiarlo o quitarlo al editar un curso visible para administración. La selección se conserva al recargar tras guardar. El límite se verifica con archivos válidos de 1 048 576 y 1 048 577 bytes. El servidor rechaza discrepancias de formato, archivos corruptos y proporciones inválidas. |
+| HU51-02 | La tarjeta de un curso publicado muestra la portada arriba y el título, modalidad, fechas, horas, costo y cupos debajo. Mantiene el formato de gratuidad o de pago por constancia y el estado «Sin cupos» donde corresponde. Se prueba en ambos catálogos. |
+| HU51-03 | Pulsar la imagen, el título o el cuerpo abre el detalle del mismo curso. Hover, pulsación táctil y foco visible resaltan la tarjeta. Un enlace semántico permite abrirla con Enter; el botón «Compartir» abre su propio diálogo. |
+| HU51-04 | El detalle público y el autenticado muestran la portada en grande. Al cambiarla, el catálogo y el detalle muestran la nueva versión tras actualizar los datos. |
+| HU51-05 | Un curso antiguo, uno nuevo sin archivo o uno al que se le quitó la portada muestran la ilustración de su categoría. Dos categorías asignadas a diseños distintos se distinguen y una categoría desconocida usa General. Un fallo al cargar la imagen pasa al mismo respaldo. |
+| HU51-06 | La portada propia y la de respaldo tienen el título como nombre accesible. A 360 px, una tarjeta descarga una fuente de hasta 352 px con DPR 1 y de hasta 704 px con DPR 2, con un presupuesto propuesto de 90 KiB y 180 KiB por archivo, respectivamente. Se comprueban el recurso seleccionado, la ausencia de desbordamiento y el espacio reservado 16:9. Se difiere la carga de las tarjetas fuera del área visible. |
+| HU51-07 | El enlace de la acción WhatsApp abre la misma ficha y su HTML inicial presenta la imagen de la versión vigente como `og:image`. Una petición anónima obtiene la imagen por HTTPS, con el título como `og:image:alt`. Al quitar la portada, el HTML anuncia la imagen de categoría. Se verifica la vista previa en un cliente real de WhatsApp sobre un entorno público autorizado. |
+
+Se verifica además que usuarios sin sesión o de otros roles no puedan cambiar
+portadas. Un curso sin publicar no puede revelar la imagen, otros datos
+privados ni metadatos a través de las rutas públicas. Las pruebas cubren cambio
+concurrente, persistencia tras error, recursos de versiones retiradas y ausencia
+de bytes de imagen en las respuestas del catálogo.
+
+## Pila, estructura y estilo
+
+- Node.js 24, npm 11, TypeScript, Fastify 5 y PostgreSQL 17 en
+  `backend/src/modules/cursos/`, `backend/src/plugins/permisos.ts` y
+  `backend/migraciones/`. Redis 8 mantiene los controles de acceso existentes.
+- React 19, Vite 8, React Router 7 y MSW en `frontend/src/paginas/cursos/`,
+  `frontend/src/servicios/cursos.ts` y `frontend/src/mocks/cursos.ts`.
+  Express 5 sirve el HTML en `frontend/servidor.js`.
+- Node Test Runner y Fastify `inject` en `backend/test/integracion/`,
+  Vitest en el frontend, Node Test Runner en `frontend/test/` y
+  Playwright en `e2e/prb/demo/` y `e2e/prb/real/`. El contrato y recorridos
+  se documentan en `docs/API.md` y `docs/esp/`.
+- Se usa camelCase para funciones y variables, PascalCase para tipos y
+  componentes, y nombres nuevos de archivo sin guiones bajos. Este alias de
+  `backend/src/modules/cursos/cursos.rutas.ts` sigue la convención.
+
+      const admiteExternos = padronDisponible && (costo === 0 || (precioGeneral !== null && modalidadCobro !== null));
+
+## Pruebas y comandos
+
+| Comprobación | Comando |
+| --- | --- |
+| Desarrollo real y demo | `npm run dev` y `npm run dev:demo` |
+| Tipos, lint y pruebas del repositorio | `npm run typecheck`, `npm run lint -w frontend`, `npm test` y `npm run e2e:tipos` |
+| Integración de cursos, portadas y catálogo | `NODE_ENV=test DB_NAME=gestioncapa_hu51_test node --import tsx --test --test-concurrency=1 test/integracion/portadas.test.ts test/integracion/cursos.test.ts test/integracion/catalogo.test.ts`, desde `backend/`, con PostgreSQL y Redis de pruebas. `portadas.test.ts` se añadirá tras aprobar. |
+| HTML inicial y proxy Express | `npm run test:servidor -w frontend` |
+| Navegador con MSW | `npm run e2e -- catalogo.spec.ts catalogoPublico.spec.ts cursos.spec.ts` |
+| Navegador con API real | `npm run e2e:real -- catalogo.spec.ts catalogoPublico.spec.ts cursos.spec.ts`, con los servicios de pruebas y la base local dedicada de Playwright |
+| Entrega | `npm run build` a cargo del usuario. Verificación de la ficha HTTPS, descarga anónima de la imagen y vista previa de WhatsApp en un entorno autorizado. |
+
+La integración prueba permisos, límites, estados, persistencia y regresión del
+contrato. Playwright mide la fuente descargada a 360 px y comprueba foco,
+pulsación, alternativas accesibles y el recorrido desde el formulario.
+Express prueba el HTML recibido sin JavaScript. La cobertura se traza por
+criterio y comportamiento. Se mantiene el umbral vigente de asistencia.
+
+## Límites y decisiones para la aprobación
+
+- **Siempre** verificar en demo y en la API real, conservar los permisos
+  existentes y registrar las pruebas roja y verde de cada incremento.
+- **Aprobación de esta fase** confirmar la proporción estricta, el límite de
+  píxeles, la migración aditiva, Sharp, el guardado independiente en edición y
+  el alcance de recuperación de HU-40. El equipo confirma el origen público y
+  el acceso al entorno HTTPS antes de acreditar WhatsApp.
+- **Reservado al usuario** ejecutar builds y operaciones Git. La entrega de
+  HU-51 termina con la preparación para publicar y la evidencia disponible.
+
+El [plan de implementación](tasks/plan.md#hu-51--plan-de-implementación) y el
+[seguimiento](tasks/todo.md#hu-51--tareas-de-implementación) trazan la entrega.
+
+- Requisitos de texto alternativo, teclado, foco y reflow. [WCAG 2.1, W3C](https://www.w3.org/TR/WCAG21/)
+- Metadatos de imagen y texto alternativo para el HTML inicial. [Open Graph Protocol](https://ogp.me/)
+- Decodificación acotada y formatos derivados. [Constructor de Sharp](https://sharp.pixelplumbing.com/api-constructor/), [Opciones de salida de Sharp](https://sharp.pixelplumbing.com/api-output/)

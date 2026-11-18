@@ -44,6 +44,8 @@ export const router = createBrowserRouter([
   { path: '/', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
   { path: '/capacitaciones', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
   { path: '/capacitaciones/:id', element: <PaginaPublica><PaginaPublicaCursoPagina /></PaginaPublica> },
+  // HU-40: enlace corto que se comparte por WhatsApp; Express agrega su vista previa (HU-51).
+  { path: '/c/:id', element: <PaginaPublica><PaginaPublicaCursoPagina /></PaginaPublica> },
   { path: '/login', element: <LoginPagina /> },
   { path: '/registro', element: <RegistroPagina /> },
   { path: '/recuperar', element: <RecuperarPagina /> },

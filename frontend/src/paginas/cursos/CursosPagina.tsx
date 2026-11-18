@@ -12,7 +12,7 @@ import { cursoTieneAulaDemo } from '@/lib/aulaGrabadaDemo'
 import { cursos, type Curso, type CursoPublico } from '@/servicios/cursos'
 import { condicionesCobro, cuposCurso, ETIQUETA_MODALIDAD, fechasCurso } from './formatoCurso'
 import { BotonCompartir } from './CompartirCurso'
-import { EtiquetaCobro, EtiquetaModalidad, EtiquetaSinCupos, FilaDato, PortadaCurso, PreciosCurso } from './piezasCurso'
+import { EtiquetaCobro, EtiquetaModalidad, EtiquetaSinCupos, FilaDato, PortadaCurso, PreciosCurso, tamanosTarjeta } from './piezasCurso'
 import { TEXTO_COBRO } from './reglasCurso'
 
 export function FechasCurso({ curso }: { curso: Pick<Curso, 'fechaInicio' | 'fechaFin'> }) {
@@ -132,8 +132,9 @@ function EntradaBusqueda(props: InputHTMLAttributes<HTMLInputElement>) {
 }
 
 /**
- * S3 3.1 · Tarjeta del catálogo: portada 16:9, modalidad, compartir, cobro, datos y precios.
- * Toda la tarjeta lleva al curso; el botón «Compartir» queda por encima del enlace.
+ * S3 3.1 · Tarjeta del catálogo: portada 16:9 arriba y, debajo, título, modalidad, cobro, datos y precios.
+ * Toda la tarjeta lleva al curso y se resalta al pasar el cursor, enfocarla o tocarla (HU-51);
+ * el botón «Compartir» queda por encima del enlace.
  */
 function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?: boolean }; publico: boolean }) {
   const { usuario } = useAuth()
@@ -141,9 +142,8 @@ function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?
   // SCRUM-187: sin sesión, la tarjeta abre la página pública del curso (S3 5.0 → 5.1)
   const destino = publico && !usuario ? `/capacitaciones/${curso.id}` : `/cursos/${curso.id}`
   const sinCupos = curso.cuposDisponibles === 0
-  return <article className="relative flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white transition-shadow has-[a:hover]:border-brand has-[a:hover]:shadow-[0_4px_12px_rgba(100,20,43,0.12)] has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-brand">
-    <PortadaCurso curso={curso}>
-      <span className="absolute top-3 left-3"><EtiquetaModalidad modalidad={curso.modalidad} /></span>
+  return <article className="relative flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white transition-[box-shadow,border-color,background-color] has-[a:hover]:border-brand has-[a:hover]:shadow-[0_4px_12px_rgba(100,20,43,0.12)] has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-brand has-[a:active]:border-brand has-[a:active]:bg-brand-soft">
+    <PortadaCurso curso={curso} tamanos={tamanosTarjeta} diferida>
       <span className="absolute top-3 right-3 z-10"><BotonCompartir curso={curso} /></span>
       {sinCupos && <span className="absolute bottom-3 left-3"><EtiquetaSinCupos /></span>}
     </PortadaCurso>
@@ -155,6 +155,7 @@ function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?
         <ChevronRight className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden />
       </div>
       <div className="flex flex-wrap gap-1.5">
+        <EtiquetaModalidad modalidad={curso.modalidad} />
         <EtiquetaCobro curso={curso} />
         {curso.inscrito && <span className="inline-flex items-center rounded-md bg-success-soft px-2 py-0.5 text-xs leading-4 font-medium text-success">Inscrito(a)</span>}
       </div>
