@@ -6,5 +6,6 @@ it('HU32-07: sigue consultando el correo después de confirmar el dinero y termi
   expect(pagoNecesitaActualizacion(pago)).toBe(true)
   expect(pagoNecesitaActualizacion({...pago,notificaciones:[{...pago.notificaciones![0]!,estado:'ENVIANDO'}]})).toBe(true)
   expect(pagoNecesitaActualizacion({...pago,notificaciones:[{...pago.notificaciones![0]!,estado:'ENVIADO'}]})).toBe(false)
+  expect(pagoNecesitaActualizacion({...pago,notificaciones:[{...pago.notificaciones![0]!,estado:'INCIERTO'}]})).toBe(false)
   expect(pagoNecesitaActualizacion({...pago,notificaciones:undefined})).toBe(false)
 })

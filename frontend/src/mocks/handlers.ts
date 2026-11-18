@@ -168,6 +168,15 @@ export const handlers = [
   ...handlersCertificados,
   ...handlersAsistenciaPuerta,
   ...handlersPagos,
+  http.get(`${API}/admin/notificaciones/correo`, ({ request }) => {
+    const acceso = exigirRol(request, 'ADMIN')
+    if (acceso.respuesta) return acceso.respuesta
+    const pagina = Number(new URL(request.url).searchParams.get('pagina') ?? 1)
+    return HttpResponse.json({
+      items: [], pagina, haySiguiente: false, habilitado: false,
+      resumen: { pendientes: 0, fallidos: 0, inciertos: 0, pendienteDesde: null },
+    })
+  }),
   // ---------- Salud ----------
   http.get(`${API}/health`, () =>
     HttpResponse.json<EstadoSalud>({ ok: true, api: 'v1', database: 'ready', redis: 'ready' }),

@@ -474,3 +474,101 @@ propone `v3.1.0.0.0`. Si se publica después de otra entrega funcional,
 se recalcula desde la etiqueta efectiva. La rama parte de HU-36 y se debe
 delimitar el alcance antes de versionar. No hay commits ni etiquetas de HU-40
 creados en esta fase.
+
+# HU-29 · Plan de implementación
+
+La especificación de [HU-29](../SPEC.md#hu-29--notificaciones-por-correo)
+define cinco eventos que comparten entrega SMTP y seguimiento. Esta propuesta
+espera aprobación antes de iniciar T29-01.
+
+## Diseño propuesto
+
+- Conservar `notificacionesPago` como registro de comprobantes y rechazos de
+  pago. Usar una cola persistente para inscripciones, sesiones y documentos.
+  Ambas reutilizan el transporte SMTP, la política de intentos y el ciclo de
+  procesamiento existente. La vista administrativa consulta ambas fuentes.
+- Mantener la unicidad de pagos por operación y tipo. Para los demás avisos,
+  usar tipo, ID estable del evento y usuario. El intento identifica una
+  inscripción, el cambio confirmado identifica una revisión de la sesión y
+  el documento emitido identifica la constancia. Comparar cambios reales de
+  sesión bajo bloqueo de fila. Una repetición idéntica no crea una revisión.
+- Reclamar y finalizar cada aviso verificando su identificador de procesamiento.
+  Registrar la aceptación, la próxima ejecución o un estado final revisable.
+  Distinguir un rechazo temporal confirmado de una aceptación que no pudo
+  verificarse. El error de SMTP se normaliza antes de exponerlo.
+- Los enlaces salen de un origen institucional configurado y de destinos
+  permitidos construidos por la aplicación. Reutilizar los controles de
+  identidad y propiedad de los recursos de destino. Ajustar el retorno de
+  acceso solo si el recorrido real lo requiere.
+- Aplicar migraciones aditivas. Conservar los registros históricos en su lugar
+  y comprobar la forma del DTO de pago vigente. Al activar el worker, pasan
+  los avisos nuevos y el pendiente ya existente del que el operador haya
+  aprobado la entrega. Revisar las filas históricas pendientes sin reenviarlas
+  en bloque. La reversión puede pausar el SMTP existente con
+  `correoHabilitado=false`, lo que también pausa el correo de HU-32.
+
+## Orden y dependencias
+
+| Tarea | Entrega verificable | Depende de |
+| --- | --- | --- |
+| T29-01 | Plantillas CPPP con texto alternativo y enlaces protegidos. | Aprobación |
+| T29-02 | Worker de pagos con registro, reintento acotado y tratamiento de aceptación incierta. | T29-01 |
+| T29-03 | Comprobante de pago y rechazo de transferencia con plantilla y enlace reales. | T29-01, T29-02 |
+| T29-04 | Rechazos definitivos de pasarela que el servidor pueda verificar. | T29-03 |
+| T29-05 | Confirmación de inscripción sin pago previo, desde transacción hasta SMTP. | T29-01, T29-02 |
+| T29-06 | Confirmación de inscripción después de un pago vigente. | T29-03, T29-05 |
+| T29-07 | Aviso de cambio o cancelación a los inscritos afectados. | T29-05 |
+| T29-08 | Aviso al emitir o liberar una constancia. | T29-05 |
+| T29-09 | Consulta administrativa paginada y protegida con diagnósticos filtrados. | T29-02, T29-05 |
+| T29-10 | Vista administrativa, navegación y recorrido de permisos en navegador. | T29-09 |
+
+Verificar la entrega SMTP tras T29-02, los avisos de pago tras T29-04 y los
+eventos de inscripción y sesión tras T29-07. Una vez estable el contrato
+de la cola, sesiones y constancias pueden trabajarse en paralelo con cambios
+en módulos distintos. Mantener un orden único para las migraciones y coordinar
+las pruebas que compartan datos. [Tareas y controles](todo.md#hu-29--seguimiento)
+
+## Pruebas y entregas manuales
+
+- Por cada tarea de código, ejecutar primero la prueba de la regresión y
+  confirmar el fallo esperado. Implementar el mínimo cambio, comprobar en
+  verde y revisar la simplificación antes de preparar su mensaje de commit.
+  Ante un fallo, conservar evidencia, aislar causa y añadir o ajustar la prueba.
+- Backend focalizado desde `backend/`. Usar
+  `node --import tsx --test test/integracion/correoPago.test.ts` y las suites
+  de las tareas con `NODE_ENV=test`, PostgreSQL y Redis aislados y un servidor
+  SMTP en loopback. Las pruebas controlan el tiempo de reintento sin dormir
+  los intervalos de producción.
+- Ejecutar al final `npm test`, `npm run typecheck`, `npm run e2e:tipos`,
+  `npm run lint -w frontend`, `NODE_ENV=test npm run test:integracion`
+  y Playwright para el panel y el retorno desde enlaces. Cotejar calidad y
+  seguridad con
+  `~/.agents/agent-skills/references/definition-of-done.md` y
+  `~/.agents/agent-skills/references/security-checklist.md`.
+- Registrar resultados y preparar `Summary` y `Description` por incremento.
+  Los commits, etiquetas y `npm run build` corresponden al usuario.
+
+## Riesgos y preparación para publicar
+
+| Riesgo | Prueba o medida |
+| --- | --- |
+| La aplicación repite un despacho tras perder la respuesta SMTP. | Simular rechazo explícito, aceptación y pérdida de respuesta tras el cuerpo. Mantener el estado incierto y un ID para conciliar con el proveedor. |
+| Se envía un aviso de acceso antes de la confirmación del pago o después de vencer. | Leer la transición persistida de la inscripción en la transacción y comprobar reserva vigente, tardía y repetición del hecho. |
+| Un webhook o un error temporal se interpreta como rechazo definitivo. | Usar solo una transición autenticada, correlacionada y terminal. Contrastar el contrato de Izipay; si la señal sigue siendo ambigua, conservar el estado actual y documentar la brecha antes de activar. |
+| Un enlace, plantilla o diagnóstico expone datos o desvía al destinatario. | Probar permisos por objeto, origen permitido, escape de campos, cambio de correo, HTML y códigos de error. Revisar que registros y panel excluyan cuerpos, credenciales y datos de pago sensibles. |
+| Una migración pierde información histórica o reactiva correos. | Ensayar con filas anteriores enviadas y pendientes, comparar su estado y revisar la cola antes de activar. |
+
+Antes de publicar quedan el build manual, el ensayo de migraciones y pausa con
+una copia controlada, la configuración SMTP/TLS y origen HTTPS, la política de
+retención, la revisión humana y un envío de verificación en un entorno
+autorizado. Dejar visibles la antigüedad de pendientes y los totales de fallos
+e inciertos sin incluir datos personales. Antes de un rollback, pausar el envío
+y revisar entregas inciertas y registros en proceso. No se realiza publicación
+ni push como parte de la tarea.
+
+## Versión prevista
+
+La rama alcanza la etiqueta local `v3.1.0.0.0`. Si esa es la base de la próxima
+entrega que incluya HU-29, se propone `v3.2.0.0.0` por nueva función. Recalcular
+desde la etiqueta efectiva si la base cambia. La planificación no crea un
+commit ni una versión.

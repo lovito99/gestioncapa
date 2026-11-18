@@ -1,10 +1,11 @@
 import { api } from '@/lib/api'
+import type { EstadoCorreo } from './notificacionesCorreo'
 
 export type DestinoTransferencia = {id:string;banco:string;titular:string;cuenta:string;cci:string}
 export type ArchivoVoucherEntrada={tipo:'image/png'|'image/jpeg'|'application/pdf';contenidoBase64:string}
 export type VoucherPago={id:string;version:number;tipo:ArchivoVoucherEntrada['tipo'];tamano:number;hash:string;disponible:boolean;eliminarEn:string;eliminadoEn:string|null}
 export type RecepcionEfectivo={referencia:string;importeCentimos:number;fechaRecepcion:string}
-export type NotificacionPago={id:string;tipo:'COMPROBANTE'|'RECHAZO';estado:'PENDIENTE'|'ENVIANDO'|'ENVIADO';intentos:number;enviadoEn:string|null}
+export type NotificacionPago={id:string;tipo:'COMPROBANTE'|'RECHAZO';estado:EstadoCorreo;intentos:number;enviadoEn:string|null}
 export type TransferenciaPago = Omit<DestinoTransferencia,'id'> & {
   operacionId:string;referencia:string;fechaOperacion:string;estado:'INICIADO'|'DECLARADO'|'INCIERTO'|'RECHAZADO'|'CONFIRMADO';motivoRechazo:string|null;voucher?:VoucherPago|null
   /** S3 8.1a: el backend avisa si el número de operación ya existe en otro pago. */
@@ -48,7 +49,7 @@ export const codigoOrdenDe=(pago:Pick<Pago,'id'|'codigoOrden'>)=>pago.codigoOrde
 export const comisionDe=(pago:Pick<Pago,'importeCentimos'|'comisionEnLinea'>)=>pago.comisionEnLinea??{porcentaje:3.5,importeCentimos:Math.round(pago.importeCentimos*0.035)}
 export type SesionIzipay = {token:string;keyRSA:string;comercio:string;orden:string;transaccionId:string;importe:string;urlIPN:string;entorno:'sandbox'|'produccion'}
 export function pagoNecesitaActualizacion(pago:Pick<Pago,'estado'|'operaciones'|'notificaciones'>) {
-  return pago.estado==='PENDIENTE'||pago.operaciones.some(op=>['INICIADO','INCIERTO','DECLARADO'].includes(op.estado))||pago.notificaciones?.some(aviso=>aviso.estado!=='ENVIADO')===true
+  return pago.estado==='PENDIENTE'||pago.operaciones.some(op=>['INICIADO','INCIERTO','DECLARADO'].includes(op.estado))||pago.notificaciones?.some(aviso=>aviso.estado==='PENDIENTE'||aviso.estado==='ENVIANDO')===true
 }
 export const pagos = {
   obtener:async(id:string)=>(await api.get<Pago>(`/pagos/${id}`)).data,

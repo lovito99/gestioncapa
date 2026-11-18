@@ -64,7 +64,7 @@ brecha, incluso cuando ya existe una parte de una etapa posterior.
 | RF-33 | Parcial | Listado restringido de colegiados en historial; faltan búsqueda por nombre/DNI y paginación en servidor | 8 |
 | RF-34 | Pendiente | PDF individual no sustituye reportes agregados de inscritos, asistencia, pagos y certificados en PDF/Excel | 8 |
 | RF-35 | Parcial | Existen paneles y listas por rol; faltan pendientes consolidados reales | 8 |
-| RF-36 | Pendiente | Faltan notificaciones persistentes y entrega por SMTP; no marcar envíos inexistentes | 3/5/6 |
+| RF-36 | Parcial | HU-29 registra y procesa cinco avisos por SMTP con seguimiento administrativo. Falta activar y verificar el correo institucional. | 3/5/6 |
 | RF-37 | Pendiente | Falta foro por sesión con permisos, paginación y moderación | 4 |
 
 ## Requisitos no funcionales

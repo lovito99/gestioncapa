@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { env } from '../../config/env.js';
 import { pool } from '../../shared/database.js';
 import { ErrorPago, type OperacionPago } from './pagos.modelo.js';
-import { buscarOperacion, confirmarOperacion, obtenerPago, conservarRespuestaMultiple } from './pagos.repositorio.js';
+import { buscarOperacion, cambiarEstadoOperacion, confirmarOperacion, obtenerPago, conservarRespuestaMultiple } from './pagos.repositorio.js';
 import { datosIzipay, verificarRespuestaIzipay, consultarIzipay } from './izipay.js';
 import { consultarCargoCulqi, verificarCargoCulqi } from './culqi.js';
 import { solicitarProveedor } from './proveedorHttp.js';
@@ -33,6 +33,7 @@ export async function recibirIzipay(entrada:unknown) {
   return aplicarRespuestaIzipay(op.id,hecho);
 }
 async function aplicarRespuestaIzipay(id:string,hecho:Awaited<ReturnType<typeof consultarIzipay>>) {
+  if ('rechazado' in hecho) return cambiarEstadoOperacion(id, 'RECHAZADO');
   if (hecho.adicionales.length) return conservarRespuestaMultiple(id,[hecho,...hecho.adicionales]);
   return confirmarOperacion(id,hecho);
 }

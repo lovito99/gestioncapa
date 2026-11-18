@@ -5,6 +5,7 @@ import { registrarAccesoSesiones } from './modules/cursos/sesiones.acceso.js';
 import { registrarHistorial } from './modules/historial/historial.rutas.js';
 import { registrarCursos } from "./modules/cursos/cursos.rutas.js";
 import { registrarPagos } from './modules/pagos/pagos.rutas.js';
+import { registrarCorreo } from './modules/notificaciones/correo.rutas.js';
 import { registrarRutasReuniones } from "./modules/reuniones/reuniones.rutas.js";
 import { registrarEventosJitsi } from "./modules/jitsi/jitsi.eventos.js";
 import Fastify from "fastify";
@@ -55,6 +56,7 @@ export async function buildApp() {
   await app.register(clasesRoutes);
   await app.register(registrarCursos);
   await app.register(registrarPagos);
+  await app.register(registrarCorreo);
   await app.register(registrarHistorial);
   await app.register(registrarUsuarios);
   await app.register(registrarCertificados);

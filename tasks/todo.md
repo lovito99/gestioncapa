@@ -1038,3 +1038,146 @@ Estado: **implementado en local (16/11/2026); pendiente de revisión humana y bu
 Versión de entrega propuesta `v3.1.0.0.0` si la base efectiva al publicarla
 sigue siendo `v3.0.0.0.0`. Los commits, la etiqueta y la publicación se realizan
 manualmente según `AGENTS.md`.
+
+# HU-29 · Seguimiento
+
+- [x] Revisar productores, cola de HU-32, permisos y flujos de acceso.
+- [x] Escribir la propuesta del [alcance](../SPEC.md#hu-29--notificaciones-por-correo)
+  y del [orden de implementación](plan.md#hu-29--plan-de-implementación).
+- [x] Aprobación de los documentos. Se autorizó la implementación.
+
+Las pruebas de Node indicadas se ejecutan desde `backend/` con
+`node --import tsx --test` seguido del archivo. Las suites de integración
+usan `NODE_ENV=test` y servicios aislados. Los archivos nuevos tienen nombres
+previstos que se confirman durante cada incremento.
+
+- [x] **T29-01 · Renderizar plantillas y enlaces.** Cada variante produce
+  asunto, texto y HTML con datos escapados y destino interno validado.
+  - Verificar por unidad las cinco plantillas con caracteres especiales y
+    orígenes válidos o rechazados. Comprobar destinos de pago, curso e historial.
+  - Depende de aprobación. Renderizador, configuración de origen y prueba.
+- [x] **T29-02 · Registrar resultados SMTP.** Un solo trabajador reclama
+  cada aviso a la vez. Registrar aceptación o próximo intento y distinguir
+  el resultado incierto del permanente o agotado.
+  - Verificar `test/integracion/correoPago.test.ts` con SMTP local, rechazo
+    temporal, pérdida de respuesta, reinicio, concurrencia, pausa y migración.
+  - Depende de T29-01. Migración, `pagos.correo.ts`, transporte y prueba.
+- [x] **T29-03 · Enviar avisos de operaciones manuales.** Conservar un solo
+  comprobante o rechazo por operación, con enlace protegido y PDF si aplica.
+  - Verificar `test/integracion/transferenciasPago.test.ts` y
+    `test/integracion/correoPago.test.ts`, incluidos aprobación, rechazo,
+    conciliación y repetición de la revisión o del hecho financiero.
+  - Depende de T29-01 y T29-02. `pagos.avisos.ts`, renderizado y pruebas.
+- [x] **T29-04 · Avisar rechazos definitivos de pasarela.** Encolar solo la
+  transición terminal acreditada y correlacionada. Mantener el estado
+  financiero ante respuestas inválidas, inciertas o repetidas.
+  - Verificar contrato de pasarela, rechazo definitivo y replay.
+  - Depende de T29-03. Adaptador y servicio de pagos, repositorio y pruebas.
+- [x] **T29-05 · Confirmar inscripción sin pago previo.** Una inscripción
+  gratuita o con cobro por constancia encola y entrega un aviso con enlace al
+  curso. Un rollback o una reserva pendiente queda sin aviso.
+  - Verificar `test/integracion/correoInscripcion.test.ts` con ambas modalidades,
+    concurrencia, correo inválido y cambio de dirección antes del despacho.
+  - Depende de T29-01 y T29-02. Migración de cola, repositorio de notificaciones,
+    ciclo existente, productor de cursos y prueba.
+- [x] **T29-06 · Avisar confirmación de reserva pagada.** El pago que activa
+  la reserva encola la confirmación. El ingreso tardío conserva su
+  comprobante y la repetición conserva la misma confirmación.
+  - Verificar `test/integracion/correoInscripcion.test.ts` con pago vigente,
+    tardío y repetido.
+  - Depende de T29-03 y T29-05. Repositorio de pagos y prueba de inscripción.
+- [x] **T29-07 · Avisar cambios de sesión.** Un cambio real o cancelación
+  encola un aviso por inscrito elegible. Una edición idéntica, rechazada o
+  revertida queda sin aviso.
+  - Verificar `test/integracion/sesionesCurso.test.ts` y la prueba de correos
+    de sesión con dos revisiones, concurrencia y destinatarios no elegibles.
+  - Depende de T29-05. Rutas y repositorio de clases, productor y pruebas.
+- [x] **T29-08 · Avisar emisión de constancia.** Cierre, excepción o liberación
+  encolan después de guardar el documento. Retención y rollback quedan sin aviso.
+  - Verificar `test/integracion/certificados.test.ts` y la prueba de liberación
+    con cobro. Comprobar que una constancia anterior queda fuera del despacho.
+  - Depende de T29-05. Repositorio de certificados y pruebas.
+- [x] **T29-09 · Consultar resultados como administrador.** La API lista ambas
+  colas con filtros, intentos, fechas y causa normalizada.
+  - Verificar respuestas para admin, otros roles y anónimo. Probar paginación,
+    filas históricas y ausencia de cuerpos y diagnósticos crudos.
+  - Depende de T29-02 y T29-05. Ruta, matriz de permisos, consulta y prueba.
+- [x] **T29-10 · Mostrar resultados en administración.** El administrador
+  encuentra el aviso, su estado y la causa. El destinatario llega a su
+  destino protegido después de iniciar sesión.
+  - Verificar permisos, filtros, estados y enlaces con Playwright real.
+  - Depende de T29-09. Cliente, pantalla, rutas o navegación y prueba E2E.
+
+## Puntos de control
+
+- [x] Tras T29-02, verificar exclusión concurrente, plazo SMTP, reintentos y
+  resultados inciertos sin datos sensibles. Revisar migración de filas previas.
+- [x] Tras T29-04, validar aprobación y rechazo de pago en SMTP local. Confirmar
+  si el contrato autorizado de Izipay permite probar rechazos definitivos.
+- [x] Tras T29-07, validar inscripción directa, pago vigente y sesión cambiada
+  con rollback y repetición.
+- [x] Tras T29-10, completar pruebas generales, revisión y simplificación.
+  Cotejar Definition of Done y Security Checklist, preparar los mensajes de
+  commit manuales y registrar los pasos de activación pendientes.
+- [ ] Build manual, ensayo de migraciones, SMTP institucional, origen HTTPS,
+  retención acordada, revisión humana y validación en entorno autorizado.
+
+## Línea base de la planificación
+
+- `npm run typecheck` aprobó backend y frontend.
+- `node --import tsx --test test/integracion/correoPago.test.ts` aprobó
+  2 casos existentes con PostgreSQL aislado y SMTP local. Uno documenta que
+  hoy se reintenta tras perder la respuesta final. HU-29 propone registrar un
+  resultado incierto en ese escenario.
+
+## Verificación de la implementación
+
+| Comprobación | Resultado |
+| --- | --- |
+| `npm test` | 520 aprobadas. 353 de backend, 164 de frontend y 3 de Express. Una prueba de Jitsi agotó su espera en una ejecución paralela y aprobó al repetir la suite. |
+| `NODE_ENV=test npm run test:integracion` | 355 aprobadas en PostgreSQL y Redis aislados. Incluye SMTP local, rechazos firmados de prueba, cambios de sesión, permisos y rollback. |
+| Playwright real de HU-29 | 2 aprobadas. Panel con filtros y modo pausado, retorno al curso tras autenticarse y acceso administrativo denegado al agremiado. |
+| Playwright demo de HU-29 | 2 aprobadas. El panel indica envío pausado en escritorio y móvil. |
+| Tipos, lint y espacios | `npm run typecheck`, `npm run e2e:tipos`, `npm run lint -w frontend` y `git diff --check` aprobados. Lint conserva dos avisos preexistentes. |
+
+## Revisión de calidad y seguridad
+
+- La cola reclama registros con `FOR UPDATE SKIP LOCKED` y comprueba su ID
+  de procesamiento antes de finalizar. La prueba SMTP distingue rechazo
+  temporal, definitivo, agotamiento y aceptación incierta. Una respuesta
+  perdida después de los datos y un procesamiento abandonado conservan el
+  estado incierto sin despacho automático.
+- El cambio registra el aviso en la transacción del negocio. Las pruebas
+  cubren repetición y concurrencia, reserva tardía, cambio de correo del
+  titular y reversión de una emisión si falla la auditoría.
+- Se revisaron los controles aplicables de Definition of Done y Security
+  Checklist. La API aplica el rol ADMIN y usa una respuesta explícita con
+  códigos normalizados. El renderer escapa valores, usa destinos de lista
+  cerrada y se comprueba el origen HTTPS. Los enlaces reutilizan sesión y
+  autorización. El procesamiento informa totales y fallos operativos sin
+  incluir cuerpos, correos ni respuestas SMTP en logs.
+- La auditoría de producción informó cero alertas. La auditoría completa de
+  la instalación local informó seis alertas altas en desarrollo. HU-29
+  conserva los manifiestos y dependencias declaradas.
+- Pendientes el build manual, el ensayo con datos de entrega, el dominio
+  y SMTP institucional, validar con Izipay un rechazo en su entorno
+  autorizado, acordar retención y aprobar las colas históricas antes de
+  activar. [Operación y reversión](../docs/correos/README.md#operar-el-envío)
+
+## Commits propuestos para ejecución manual
+
+| Tarea | Summary | Description |
+| --- | --- | --- |
+| T29-01 | `feat: generar avisos de correo con enlaces protegidos` | Renderiza asunto, HTML escapado y texto para cinco eventos. Pruebas de contenidos y orígenes aprobadas. Build manual pendiente. |
+| T29-02 | `fix: distinguir reintentos y entregas SMTP inciertas` | Registra aceptación y clasifica rechazos, agotamiento y envíos abandonados. Pruebas SMTP local y concurrencia aprobadas. Build manual pendiente. |
+| T29-03 | `feat: informar aprobaciones y rechazos de pago por correo` | Reutiliza el aviso de pagos manuales y conserva el PDF. Pruebas del MIME y los pagos aprobadas. Build manual pendiente. |
+| T29-04 | `feat: avisar rechazos definitivos de pasarela` | Correlaciona el rechazo firmado de Izipay y lo registra una vez. Pruebas de contrato y webhook sintético aprobadas. Build y validación de pasarela pendientes. |
+| T29-05 | `feat: avisar inscripciones confirmadas sin pago previo` | Integra la cola general y la confirmación de altas inmediatas. Pruebas de concurrencia, SMTP y cambio de correo aprobadas. Build manual pendiente. |
+| T29-06 | `feat: avisar reservas que se confirman por pago` | Encola después de verificar la transición de la reserva. Integración de pago vigente y tardío aprobada. Build manual pendiente. |
+| T29-07 | `feat: avisar cambios y cancelaciones de sesiones` | Encola cambios reales por inscrito elegible. Integración de edición concurrente, cancelación y destinatarios aprobada. Build manual pendiente. |
+| T29-08 | `feat: avisar la emisión de constancias` | Registra correo con el documento persistido y cubre excepción, liberación y rollback. Pruebas de emisión aprobadas. Build manual pendiente. |
+| T29-09 | `feat: consultar resultados de correo como administrador` | Añade la API con filtros, permisos, resumen y diagnóstico. Integración HTTP aprobada. Build manual pendiente. |
+| T29-10 | `feat: mostrar el estado de los correos en administración` | Añade la pantalla y adapta estados visibles de comprobantes. Playwright verifica el panel y el retorno de los enlaces. Build manual pendiente. |
+
+Versión propuesta `v3.2.0.0.0` si la próxima entrega incluye HU-29 sobre
+`v3.1.0.0.0`. Los commits y la etiqueta quedan para ejecución manual.

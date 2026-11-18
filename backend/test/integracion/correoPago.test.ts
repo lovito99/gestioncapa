@@ -7,10 +7,15 @@ import { pool } from '../../src/shared/database.js';
 import { migrar } from '../../src/shared/migraciones.js';
 import { crearObligacion,registrarEfectivo,obtenerPago } from '../../src/modules/pagos/pagos.repositorio.js';
 import { enviarNotificacionesPago } from '../../src/modules/pagos/pagos.correo.js';
+import { inscribirseEnCurso } from '../../src/modules/cursos/cursos.repositorio.js';
+import { buildApp } from '../../src/app.js';
+import { redis } from '../../src/shared/redis.js';
+import { procesarColaCorreo } from '../../src/modules/notificaciones/correo.envio.js';
 
 const mensajes:string[]=[];
 const conexiones=new Set<Socket>();
 let rechazar=true;
+let codigoRechazo=451;
 let bloquearEntrega=false;
 let cursoId:string;
 let admin:number;
@@ -26,7 +31,7 @@ const servidor=createServer(conexion=>{
     while((indice=pendiente.indexOf('\r\n'))>=0) {
       const linea=pendiente.slice(0,indice);pendiente=pendiente.slice(indice+2);
       if(datos) {
-        if(linea==='.') {datos=false;mensajes.push(mensaje.join('\r\n'));mensaje=[];if(!bloquearEntrega) conexion.write(rechazar?'451 Reintentar entrega\r\n':'250 Aceptado localmente\r\n');}
+        if(linea==='.') {datos=false;mensajes.push(mensaje.join('\r\n'));mensaje=[];if(!bloquearEntrega) conexion.write(rechazar?`${codigoRechazo} Rechazo de prueba\r\n`:'250 Aceptado localmente\r\n');}
         else mensaje.push(linea.startsWith('..')?linea.slice(1):linea);
       } else if(/^EHLO|^HELO/.test(linea)) conexion.write('250 localhost\r\n');
       else if(linea==='DATA') {datos=true;conexion.write('354 Enviar mensaje\r\n');}
@@ -36,14 +41,16 @@ const servidor=createServer(conexion=>{
   });
 });
 
-test('HU32-07: cancela un SMTP sin respuesta antes de agotar el lease y conserva el reintento', {timeout:2000},async()=>{
+test('HU29: una respuesta final perdida deja la entrega incierta y evita el reenvío', {timeout:2000},async()=>{
   const pago=await crearObligacion(pool,{cursoId,usuarioId:alumno,intentoId:randomUUID(),concepto:'CURSO',importeCentimos:15050,moneda:'PEN'});
   await registrarEfectivo(pago.id,admin,`CAJA-${randomUUID()}`);
   Object.assign(env,{correoPlazoEnvioMs:200,correoHabilitado:true});bloquearEntrega=true;
   try {
     assert.equal(await enviarNotificacionesPago(),0);
-    const aviso=(await pool.query('select estado,intentos from "notificacionesPago" where "pagoId"=$1',[pago.id])).rows[0];
-    assert.equal(aviso.estado,'PENDIENTE');assert.equal(aviso.intentos,1);
+    const aviso=(await pool.query('select estado,intentos,"ultimoError" from "notificacionesPago" where "pagoId"=$1',[pago.id])).rows[0];
+    assert.equal(aviso.estado,'INCIERTO');assert.equal(aviso.intentos,1);
+    assert.equal(aviso.ultimoError,'SMTP_RESULTADO_INCIERTO');
+    assert.equal(await enviarNotificacionesPago(),0);
     assert.equal((await obtenerPago(pago.id))?.estado,'PAGADO');
   } finally {bloquearEntrega=false;Object.assign(env,{correoPlazoEnvioMs:60000});}
 });
@@ -57,6 +64,7 @@ before(async()=>{
   await new Promise<void>(resolver=>servidor.listen(0,'127.0.0.1',resolver));
   const direccion=servidor.address();assert.ok(direccion&&typeof direccion==='object');
   Object.assign(env,{correoServidor:'127.0.0.1',correoPuerto:direccion.port,correoRemitente:'pagos@prueba.local',correoSinTlsParaPruebas:true});
+  env.correoOrigenPublico='https://aula.prueba.local';
 });
 after(async()=>{
   Object.assign(env,anterior);for(const conexion of conexiones) conexion.destroy();
@@ -82,9 +90,89 @@ test('HU32-07: SMTP local rechaza, reintenta y entrega un PDF; dos trabajadores 
   assert.equal(mensajes.length,2);
   const identificador=(mensaje:string)=>mensaje.match(/^Message-ID: (.+)$/mi)?.[1];
   assert.equal(identificador(mensajes[0]!),identificador(mensajes[1]!));
+  assert.match(mensajes[1]!, /Content-Type: text\/html/);
+  assert.ok(mensajes[1]!.includes(`https://aula.prueba.local/cursos/${cursoId}`));
   assert.match(mensajes[1]!,/Content-Type: application\/pdf/);
   const pdf=mensajes[1]!.slice(mensajes[1]!.indexOf('Content-Type: application/pdf')).split('\r\n\r\n')[1]!.split('\r\n--')[0]!.replace(/\s/g,'');
   assert.match(Buffer.from(pdf,'base64').toString(),/^%PDF-/);
   assert.equal(await enviarNotificacionesPago(),0);
   assert.equal((await pool.query('select estado from "notificacionesPago" where "pagoId"=$1',[pago.id])).rows[0].estado,'ENVIADO');
+});
+
+test('HU29: una inscripción gratuita se confirma por correo una vez', async () => {
+  await pool.query(`update cursos set estado='PUBLICADO',costo=0,"modalidadCobro"='GRATUITO' where id=$1`, [cursoId]);
+  const resultados = await Promise.all([inscribirseEnCurso(cursoId, alumno), inscribirseEnCurso(cursoId, alumno)]);
+  assert.deepEqual(resultados.sort(), ['INSCRITO', 'YA_INSCRITO']);
+  const avisos = await pool.query(`select tipo,estado from "notificacionesCorreo" where "cursoId"=$1`, [cursoId]);
+  assert.deepEqual(avisos.rows, [{ tipo: 'INSCRIPCION_CONFIRMADA', estado: 'PENDIENTE' }]);
+  const enviados = await Promise.all([procesarColaCorreo('cursos'), procesarColaCorreo('cursos')]);
+  assert.equal(enviados.reduce((total, cantidad) => total + cantidad), 1);
+  assert.equal((await pool.query(`select estado from "notificacionesCorreo" where "cursoId"=$1`, [cursoId])).rows[0].estado, 'ENVIADO');
+});
+
+test('HU29: solo el administrador consulta resultados paginados sin datos de entrega privados', async () => {
+  const app=await buildApp();
+  try {
+    const ruta='/api/admin/notificaciones/correo';
+    const pedir=(usuario: number, url: string) => app.inject({method:'GET',url,headers:{authorization:`Bearer ${app.jwt.sign({sub:String(usuario)})}`}});
+    assert.equal((await app.inject({method:'GET',url:ruta})).statusCode,401);
+    assert.equal((await pedir(alumno,ruta)).statusCode,403);
+    const respuesta=await pedir(admin,`${ruta}?tipo=COMPROBANTE&estado=INCIERTO&limite=1`);
+    assert.equal(respuesta.statusCode,200,respuesta.body);
+    assert.equal(respuesta.headers['cache-control'],'private, no-store');
+    assert.equal(respuesta.json().items[0]?.ultimoError,'SMTP_RESULTADO_INCIERTO');
+    assert.doesNotMatch(respuesta.body,/prueba.local|destinatario|"datos"|"texto"/);
+    assert.equal((await pedir(admin,ruta+'?limite=10000')).statusCode,422);
+  } finally {
+    await app.close();
+    redis.disconnect();
+  }
+});
+
+test('HU29: agota reintentos, distingue un rechazo permanente y no redespacha envíos abandonados', async () => {
+  async function pendiente() {
+    const pago=await crearObligacion(pool,{cursoId,usuarioId:alumno,intentoId:randomUUID(),concepto:'CONSTANCIA',importeCentimos:100,moneda:'PEN'});
+    await registrarEfectivo(pago.id,admin,`CAJA-${randomUUID()}`);
+    return pago.id;
+  }
+  const abandonado=await pendiente();
+  await pool.query(`update "notificacionesPago" set estado='ENVIANDO',"bloqueadoHasta"=clock_timestamp()-interval '1 second'
+    where "pagoId"=$1`,[abandonado]);
+  const agotado=await pendiente();
+  await pool.query('update "notificacionesPago" set intentos=4 where "pagoId"=$1',[agotado]);
+  rechazar=true;
+  mensajes.length=0;
+  try {
+    assert.equal(await enviarNotificacionesPago(),0);
+    assert.equal(mensajes.length,1);
+    codigoRechazo=550;
+    const permanente=await pendiente();
+    assert.equal(await enviarNotificacionesPago(),0);
+    const filas=(await pool.query(`select estado,"ultimoError" from "notificacionesPago"
+      where "pagoId"=any($1::bigint[]) order by "pagoId"`,[[abandonado,agotado,permanente]])).rows;
+    assert.deepEqual(filas,[
+      {estado:'INCIERTO',ultimoError:'SMTP_RESULTADO_INCIERTO'},
+      {estado:'FALLIDO',ultimoError:'SMTP_INTENTOS_AGOTADOS'},
+      {estado:'FALLIDO',ultimoError:'SMTP_RECHAZADO'},
+    ]);
+  } finally { rechazar=false; codigoRechazo=451; }
+});
+
+test('HU29: omite un aviso si cambia el correo del titular antes de enviarlo', async () => {
+  const nuevo=(await pool.query<{id:string}>(`insert into cursos
+    (creador_id,instructor_id,titulo,horas_lectivas,modalidad,costo,cupos,tipo_certificado,estado,"modalidadCobro")
+    values($1,$1,'Cambio de destinatario HU29',8,'PRESENCIAL',0,5,'PARTICIPACION','PUBLICADO','GRATUITO') returning id::text`,[admin])).rows[0]!.id;
+  const email=(await pool.query<{email:string}>('select email from users where id=$1',[alumno])).rows[0]!.email;
+  try {
+    assert.equal(await inscribirseEnCurso(nuevo,alumno),'INSCRITO');
+    await pool.query('update users set email=$2 where id=$1',[alumno,`cambio-${randomUUID()}@prueba.local`]);
+    const cantidad=mensajes.length;
+    assert.equal(await procesarColaCorreo('cursos'),0);
+    assert.equal(mensajes.length,cantidad);
+    assert.deepEqual((await pool.query('select estado,"ultimoError" from "notificacionesCorreo" where "cursoId"=$1',[nuevo])).rows,
+      [{estado:'OMITIDO',ultimoError:'DESTINATARIO_CAMBIADO'}]);
+  } finally {
+    await pool.query('update users set email=$2 where id=$1',[alumno,email]);
+    await pool.query('delete from cursos where id=$1',[nuevo]);
+  }
 });

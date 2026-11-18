@@ -27,6 +27,7 @@ export const permisos: Permiso[] = [
   { metodo:'POST',ruta:'/api/pagos/:id/transferencias/:operacionId/revision',acceso:['ADMIN'],critica:true },
   { metodo:'POST',ruta:'/api/pagos/:id/conciliar',acceso:['ADMIN'],critica:true },
   { metodo:'POST',ruta:'/api/pagos/notificaciones/:proveedor',acceso:'publico',critica:true },
+  { metodo:'GET',ruta:'/api/admin/notificaciones/correo',acceso:['ADMIN'] },
   { metodo: 'GET', ruta: '/api/usuarios', acceso: ['ADMIN'] },
   { metodo: 'POST', ruta: '/api/usuarios', acceso: ['ADMIN'], critica: true },
   { metodo: 'PUT', ruta: '/api/usuarios/:id', acceso: ['ADMIN'], critica: true },

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { Pago } from './pagos.modelo.js';
+import type { DatosCorreo } from '../notificaciones/correo.contenido.js';
 
 export async function encolarAvisoPago(cliente:PoolClient,pago:Pago,operacionId:string,tipo:'COMPROBANTE'|'RECHAZO',motivo?:string) {
   const contexto=(await cliente.query<{email:string;nombre:string;curso:string;medio:string;referencia:string;fecha:string;conciliar:boolean}>(`
@@ -17,6 +18,20 @@ export async function encolarAvisoPago(cliente:PoolClient,pago:Pago,operacionId:
     tipo==='RECHAZO'?`Transferencia rechazada. Motivo: ${motivo}`:'Recepción del pago confirmada y registrada por el CPPP.',
     ...(contexto.conciliar?['Este ingreso requiere conciliación. No recupera automáticamente cupos ni cambia una reserva vencida.']:[]),
     'Consulta en tu curso el estado de la inscripción o constancia.'].join('\n');
-  await cliente.query(`insert into "notificacionesPago"(id,"pagoId","operacionId",tipo,destinatario,asunto,texto)
-    values($1,$2,$3,$4,$5,$6,$7) on conflict ("operacionId",tipo) do nothing`,[randomUUID(),pago.id,operacionId,tipo,contexto.email,asunto,texto]);
+  const datos: DatosCorreo = {
+    nombre: contexto.nombre, curso: contexto.curso, cursoId: pago.cursoId,
+    detalles: [
+      `Orden de pago: ${pago.id}`, `Importe: S/ ${(pago.importeCentimos/100).toFixed(2)}`,
+      `Medio: ${contexto.medio}`,
+      ...(contexto.fecha ? [`Fecha del pago: ${contexto.fecha.slice(0, 10)}`] : []),
+      tipo === 'RECHAZO'
+        ? 'Consulta en tu curso el resultado y las opciones disponibles.'
+        : contexto.conciliar
+          ? 'Se registró la recepción del pago. Está en conciliación y no activa la inscripción.'
+          : 'El CPPP confirmó la recepción del pago.',
+    ],
+  };
+  await cliente.query(`insert into "notificacionesPago"(id,"pagoId","operacionId",tipo,destinatario,asunto,texto,datos)
+    values($1,$2,$3,$4,$5,$6,$7,$8) on conflict ("operacionId",tipo) do nothing`,
+  [randomUUID(),pago.id,operacionId,tipo,contexto.email,asunto,texto,datos]);
 }

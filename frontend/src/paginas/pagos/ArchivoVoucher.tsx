@@ -37,9 +37,18 @@ export function ArchivoVoucher({pagoId,transferencia,alActualizar,puedeReponer=f
     {error&&<p role="alert" className="text-danger">{error}</p>}
   </div>
 }
+const estadosAvisoPago: Record<NotificacionPago['estado'], string> = {
+  ENVIADO: 'Correo enviado',
+  ENVIANDO: 'Correo en proceso de envío',
+  PENDIENTE: 'Correo pendiente de envío',
+  FALLIDO: 'No se pudo enviar el correo',
+  INCIERTO: 'Envío de correo en revisión',
+  OMITIDO: 'Correo omitido',
+}
+
 export function EstadoCorreosPago({notificaciones=[]}:{notificaciones?:NotificacionPago[]}) {
   if(!notificaciones.length) return null
   return <section aria-label="Notificaciones por correo" className="space-y-2 text-sm">
-    {notificaciones.map(aviso=><p key={aviso.id} role="status">{aviso.tipo==='COMPROBANTE'?'Comprobante de pago':'Resultado de revisión'} · {aviso.estado==='ENVIADO'?'Correo enviado':aviso.estado==='ENVIANDO'?'Correo en proceso de envío':'Correo pendiente de envío'}. Consulta aquí el estado de tu pago.</p>)}
+    {notificaciones.map(aviso=><p key={aviso.id} role="status">{aviso.tipo==='COMPROBANTE'?'Comprobante de pago':'Resultado de revisión'} · {estadosAvisoPago[aviso.estado]}. Consulta aquí el estado de tu pago.</p>)}
   </section>
 }

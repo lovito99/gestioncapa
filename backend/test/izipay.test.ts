@@ -9,13 +9,17 @@ const firmar = (cambio: object = {}) => {
   return { payloadHttp,signature:createHmac('sha256',claveHash).update(payloadHttp).digest('base64') };
 };
 test('HU53-04: verifica firma de bytes originales y datos del cobro Izipay', () => {
-  assert.equal(verificarRespuestaIzipay(firmar(),esperado,claveHash).referencia,'COMERCIO-PRUEBA:venta-prueba-1');
+  const cobro=verificarRespuestaIzipay(firmar(),esperado,claveHash);
+  assert.ok('referencia' in cobro);
+  assert.equal(cobro.referencia,'COMERCIO-PRUEBA:venta-prueba-1');
   assert.throws(()=>verificarRespuestaIzipay({...firmar(),signature:'falsa'},esperado,claveHash));
   assert.throws(()=>verificarRespuestaIzipay(firmar({transactionId:'otra'}),esperado,claveHash));
   assert.throws(()=>verificarRespuestaIzipay(firmar({code:'05'}),esperado,claveHash));
   assert.throws(()=>verificarRespuestaIzipay(firmar(),{...esperado,comercio:'otro'},claveHash));
   // El importe verificado discrepante debe llegar al libro como incidencia, no confirmar la deuda.
-  assert.equal(verificarRespuestaIzipay(firmar(),{...esperado,importeCentimos:1},claveHash).importeCentimos,15050);
+  const discrepante=verificarRespuestaIzipay(firmar(),{...esperado,importeCentimos:1},claveHash);
+  assert.ok('importeCentimos' in discrepante);
+  assert.equal(discrepante.importeCentimos,15050);
 });
 
 test('HU53-07: conserva dos autorizaciones verificadas para conciliar un posible doble cargo', () => {
@@ -23,6 +27,16 @@ test('HU53-07: conserva dos autorizaciones verificadas para conciliar un posible
   contenido.response.order.push({...contenido.response.order[0],uniqueId:'venta-prueba-2'});
   const payloadHttp=JSON.stringify(contenido);
   const respuesta=verificarRespuestaIzipay({payloadHttp,signature:createHmac('sha256',claveHash).update(payloadHttp).digest('base64')},esperado,claveHash);
+  assert.ok('adicionales' in respuesta);
   assert.equal(respuesta.adicionales.length,1);
   assert.equal(respuesta.adicionales[0]?.referencia,'COMERCIO-PRUEBA:venta-prueba-2');
+});
+
+test('HU29: distingue un rechazo firmado y correlacionado de una respuesta incierta', () => {
+  const response={merchant:{merchantCode:esperado.comercio},order:[
+    {orderNumber:esperado.orden,amount:'150.50',currency:'PEN',stateMessage:'Denegado'},
+  ]};
+  assert.deepEqual(verificarRespuestaIzipay(firmar({code:'51',response}),esperado,claveHash),{rechazado:true});
+  assert.throws(()=>verificarRespuestaIzipay(firmar({code:'21',response}),esperado,claveHash));
+  assert.throws(()=>verificarRespuestaIzipay(firmar({code:'51',response}),{...esperado,importeCentimos:1},claveHash));
 });

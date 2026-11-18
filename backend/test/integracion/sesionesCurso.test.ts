@@ -11,7 +11,7 @@ let app: FastifyInstance;
 const org = String(Date.now());
 const ajena = String(Number(org) + 1);
 const usuarios = new Map<string, { id: string; token: string }>();
-const llamar = (usuario: string | null, method: 'GET' | 'POST', url: string, payload?: object) => app.inject({ method, url,
+const llamar = (usuario: string | null, method: 'GET' | 'POST' | 'PUT', url: string, payload?: object) => app.inject({ method, url,
   headers: usuario ? { authorization: `Bearer ${usuarios.get(usuario)!.token}` } : {}, ...(payload ? { payload } : {}) });
 async function curso(modalidad = 'PRESENCIAL') {
   const respuesta = await llamar('admin', 'POST', '/api/cursos', { titulo: 'Sesiones HU-13', instructorId: usuarios.get('docente')!.id,
@@ -20,6 +20,25 @@ async function curso(modalidad = 'PRESENCIAL') {
   return respuesta.json();
 }
 const sesion = (cambios = {}) => ({ nombre: 'Práctica presencial', fecha: '2033-06-10', horaInicio: '10:00', horaFin: '11:00', lugar: 'Auditorio CPPP', ...cambios });
+test('HU29: un cambio real y la cancelación avisan una vez al inscrito del curso', async () => {
+  const c = await curso();
+  assert.equal((await llamar('admin', 'POST', `/api/cursos/${c.id}/publicar`)).statusCode, 200);
+  assert.equal((await llamar('colegiado', 'POST', `/api/cursos/${c.id}/inscribirme`)).statusCode, 201);
+  const datos = sesion({ fecha: '2034-06-10', modalidad: 'PRESENCIAL' });
+  const alta = await llamar('admin', 'POST', `/api/cursos/${c.id}/sesiones`, datos);
+  assert.equal(alta.statusCode, 201, alta.body);
+  const ruta = `/api/clases/${alta.json().id}`;
+  const cambios = { ...datos, instructorId: usuarios.get('docente')!.id, lugar: 'Sala 2' };
+  const ediciones = await Promise.all([llamar('admin', 'PUT', ruta, cambios), llamar('admin', 'PUT', ruta, cambios)]);
+  assert.deepEqual(ediciones.map(respuesta => respuesta.statusCode), [200, 200], ediciones[0]!.body);
+  assert.equal((await llamar('admin', 'POST', ruta + '/cancelar')).statusCode, 200);
+  assert.equal((await llamar('admin', 'POST', ruta + '/cancelar')).statusCode, 409);
+  const { rows } = await pool.query(`select "usuarioId"::text,datos->'detalles' as detalles from "notificacionesCorreo"
+    where "cursoId"=$1 and tipo='CAMBIO_SESION' order by "creadoEn"`, [c.id]);
+  assert.deepEqual(rows.map(fila => fila.usuarioId), [usuarios.get('colegiado')!.id, usuarios.get('colegiado')!.id]);
+  assert.match(rows[0]!.detalles.join(' '), /Auditorio CPPP.*Sala 2/);
+  assert.match(rows[1]!.detalles.join(' '), /canceló/);
+});
 before(async () => {
   await migrar(pool); app = await buildApp();
 

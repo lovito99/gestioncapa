@@ -7,6 +7,7 @@ import { ocultarDni } from '../historial/historial.modelo.js';
 import { crearConstancia } from './certificados.pdf.js';
 import { ErrorCertificado, type DatosDocumento, type FilaCierre } from './certificados.modelo.js';
 import { crearObligacion } from '../pagos/pagos.repositorio.js';
+import { encolarAvisoCurso } from '../notificaciones/correo.repositorio.js';
 
 export type CursoEmision = { id: string; estado: string; titulo: string; modalidad: string; costo: number; modalidadCobro?:string|null; tipoCertificado: string; horasLectivas: number; instructorNombre: string };
 export async function cursoAdministrable(cliente: PoolClient, id: string, actor: UsuarioAutenticado) {
@@ -54,9 +55,18 @@ export async function emitir(cliente: PoolClient, curso: CursoEmision, usuarioId
   const codigo = `CPPP-${randomBytes(16).toString('hex').toUpperCase()}`;
   const emitidoEn = new Date().toISOString();
   const archivo = await crearConstancia(datos,codigo,emitidoEn);
-  await cliente.query(`insert into certificados_curso(curso_id,usuario_id,codigo,tipo,emitido_en,archivo,datos,"porExcepcion") values($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [curso.id,usuarioId,codigo,datos.tipo,emitidoEn,archivo,datos,!!motivo]);
+  const certificado = (await cliente.query<{ id: string }>(`insert into certificados_curso
+    (curso_id,usuario_id,codigo,tipo,emitido_en,archivo,datos,"porExcepcion")
+    values($1,$2,$3,$4,$5,$6,$7,$8) returning id::text`,
+  [curso.id,usuarioId,codigo,datos.tipo,emitidoEn,archivo,datos,!!motivo])).rows[0]!;
   await auditar(cliente,actor,curso.id,motivo ? 'EXCEPCION':'EMITIR',codigo,motivo);
+  await encolarAvisoCurso(cliente, {
+    tipo: 'CONSTANCIA_EMITIDA', cursoId: curso.id, usuarioId, eventoId: certificado.id,
+    detalles: [
+      datos.tipo === 'APROBACION' ? 'Tu certificado de aprobación ya está disponible.' : 'Tu constancia de participación ya está disponible.',
+      `Horas lectivas: ${datos.horasLectivas}`,
+    ],
+  });
   return {codigo,datos};
 }
 async function emitirSegunCobro(cliente:PoolClient,curso:CursoEmision,usuarioId:string,actor:UsuarioAutenticado,motivo?:string) {
