@@ -1,5 +1,5 @@
 import { delay, http, HttpResponse } from 'msw'
-import type { Bandeja, ItemBandeja, Pago, PendientesPorDni, TransferenciaPago } from '@/servicios/pagos'
+import type { Bandeja, InstrumentoPago, ItemBandeja, Pago, PendientesPorDni, TransferenciaPago } from '@/servicios/pagos'
 import { dniPorUsuario, enmascararDni } from './asistenciaPuerta'
 import { participantes, usuarios } from './datos'
 import { pdfTextoDemo } from './pdfTexto'
@@ -10,7 +10,8 @@ import { pdfTextoDemo } from './pdfTexto'
  * «Tarjeta» se aprueba y «Yape» se rechaza para poder ver los dos resultados.
  */
 const API = import.meta.env.VITE_API_URL ?? '/api'
-const COMISION = 3.5
+const COMISION = 350
+const instrumentos: InstrumentoPago[] = ['TARJETA', 'YAPE']
 const DESTINO = { id: 'bcp-1', banco: 'BCP', titular: 'Colegio de Profesores del Perú – Cusco', cuenta: '285-1234567-0-89', cci: '002-285-001234567089-12' }
 
 type PagoSimulado = Pago & { usuarioId: string }
@@ -34,6 +35,7 @@ const error = (status: number, code: string, message: string, fields?: Record<st
 /** Crea la orden de pago de una inscripción (la llama el mock de cursos al inscribir). */
 export function crearPago(datos: { cursoId: string; cursoTitulo: string; usuarioId: string; importeCentimos: number; plazoMinutos: number | null; concepto?: Pago['concepto'] }) {
   const id = String(siguientePago++)
+  const comisionCentimos = Math.floor((datos.importeCentimos * COMISION + 5000) / 10000)
   const pago: PagoSimulado = {
     id,
     usuarioId: datos.usuarioId,
@@ -52,7 +54,10 @@ export function crearPago(datos: { cursoId: string; cursoTitulo: string; usuario
     notificaciones: [],
     medios: { izipay: true, culqi: false, efectivo: true, transferencia: true, entorno: 'sandbox' },
     codigoOrden: `ORD-${new Date().getFullYear()}-${id.padStart(5, '0')}`,
-    comisionEnLinea: { porcentaje: COMISION, importeCentimos: Math.round((datos.importeCentimos * COMISION) / 100) },
+    opcionesEnLinea: instrumentos.map(instrumento => ({
+      medio: 'IZIPAY', nombre: 'Izipay', instrumento, moneda: 'PEN', cotizacion: `demo-${id}-${instrumento}`,
+      baseCentimos: datos.importeCentimos, comisionCentimos, totalCentimos: datos.importeCentimos + comisionCentimos,
+    })),
     venceEn: datos.plazoMinutos ? new Date(Date.now() + datos.plazoMinutos * 60000).toISOString() : null,
     correoEnmascarado: correoDe(datos.usuarioId),
   }
@@ -65,6 +70,7 @@ export const pagoDeInscripcion = (cursoId: string, usuarioId: string) =>
 
 function confirmar(pago: PagoSimulado) {
   pago.estado = 'PAGADO'
+  pago.opcionesEnLinea = []
   pago.notificaciones = [...(pago.notificaciones ?? []), { id: `n-${pago.id}-${Date.now()}`, tipo: 'COMPROBANTE', estado: 'ENVIADO', intentos: 1, enviadoEn: ahora() }]
 }
 
@@ -196,13 +202,21 @@ export const handlersPagos = [
     if (respuesta) return respuesta
     await delay(700)
     if (pago.estado === 'PAGADO') return error(409, 'PAGO_YA_CONFIRMADO', 'Este pago ya está confirmado.')
-    const { instrumento } = (await request.json()) as { instrumento?: 'TARJETA' | 'YAPE' }
+    const { medio, instrumento, cotizacion } = (await request.json()) as { medio: string; instrumento: InstrumentoPago; cotizacion: string }
+    const opcion = pago.opcionesEnLinea?.find(item => item.medio === medio && item.instrumento === instrumento && item.cotizacion === cotizacion)
+    if (!opcion) return error(409, 'COTIZACION_CAMBIO', 'Revisa el total actualizado antes de confirmar.')
     const operacionId = `op-${siguienteOperacion++}`
     // Demo de pruebas: tarjeta → aprobado; Yape → rechazado
     const aprobado = instrumento !== 'YAPE'
-    pago.operaciones.push({ id: operacionId, medio: 'IZIPAY', estado: aprobado ? 'CONFIRMADO' : 'RECHAZADO', referenciaExterna: `IZI-${operacionId}`,
-      detalle: instrumento === 'YAPE' ? 'Yape' : 'Tarjeta Visa •••• 4242', confirmadoEn: aprobado ? ahora() : null })
-    if (aprobado) confirmar(pago)
+    const referencia = `IZI-${operacionId}`
+    const fecha = ahora()
+    pago.operaciones.unshift({ id: operacionId, medio, instrumento, estado: aprobado ? 'CONFIRMADO' : 'RECHAZADO',
+      referenciaExterna: aprobado ? referencia : null, detalle: instrumento === 'YAPE' ? 'Yape' : 'Tarjeta', confirmadoEn: aprobado ? fecha : null })
+    if (aprobado) {
+      const { baseCentimos, comisionCentimos, totalCentimos, moneda } = opcion
+      pago.comprobante = { operacionId, medio, instrumento, referencia, fecha, estadoCorreo: 'ENVIADO', baseCentimos, comisionCentimos, totalCentimos, moneda }
+      confirmar(pago)
+    }
     return HttpResponse.json({ operacionId, estado: aprobado ? 'CONFIRMADO' : 'RECHAZADO' })
   }),
 
@@ -275,7 +289,10 @@ export const handlersPagos = [
     const op = pago.operaciones.find((o) => o.estado === 'CONFIRMADO')
     const pdf = pdfTextoDemo('Comprobante de pago - CPPP Región Cusco', [
       `Código de orden: ${pago.codigoOrden}`, `Agremiado: ${pago.participanteNombre}`, `Curso: ${pago.cursoTitulo}`,
-      `Importe: S/ ${(pago.importeCentimos / 100).toFixed(2)}`, `Medio: ${op?.detalle ?? op?.medio ?? '—'}`, `Fecha: ${op?.confirmadoEn ?? ''}`,
+      `Importe base: S/ ${(pago.importeCentimos / 100).toFixed(2)}`,
+      `Comisión: S/ ${((pago.comprobante?.comisionCentimos ?? 0) / 100).toFixed(2)}`,
+      `Total pagado: S/ ${((pago.comprobante?.totalCentimos ?? pago.importeCentimos) / 100).toFixed(2)}`,
+      `Medio: ${op?.detalle ?? op?.medio ?? '—'}`, `Fecha: ${op?.confirmadoEn ?? ''}`,
     ])
     return new HttpResponse(pdf, { headers: { 'Content-Type': 'application/pdf' } })
   }),

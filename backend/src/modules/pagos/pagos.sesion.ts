@@ -5,7 +5,7 @@ import { env } from '../../config/env.js';
 import { ErrorPago } from './pagos.modelo.js';
 
 const esquemaSesion=z.object({token:z.string(),keyRSA:z.string(),comercio:z.string(),orden:z.string(),transaccionId:z.string(),
-  importe:z.string(),urlIPN:z.string(),entorno:z.enum(['sandbox','produccion'])});
+  importe:z.string(),urlIPN:z.string(),entorno:z.enum(['sandbox','produccion']),instrumento:z.enum(['TARJETA','YAPE']).optional()});
 type SesionIzipay=z.infer<typeof esquemaSesion>;
 const claveSesion=()=>createHash('sha256').update('gestioncapa/sesion-izipay/v1:').update(env.JWT_SECRET).digest();
 

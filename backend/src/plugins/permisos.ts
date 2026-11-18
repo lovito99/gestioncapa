@@ -20,6 +20,8 @@ const rolesGestionClases: Rol[] = ["ADMIN"];
 export const permisos: Permiso[] = [
   { metodo:'GET',ruta:'/api/pagos/:id',acceso:['ADMIN','AGREMIADO'] },
   { metodo:'POST',ruta:'/api/pagos/:id/intentos',acceso:['AGREMIADO'],critica:true },
+  { metodo:'POST',ruta:'/api/pagos/:id/intentos/:operacionId/sesion',acceso:['AGREMIADO'],critica:true },
+  { metodo:'GET',ruta:'/api/pagos/:id/comprobante',acceso:['ADMIN','AGREMIADO'] },
   { metodo:'POST',ruta:'/api/pagos/:id/efectivo',acceso:['ADMIN'],critica:true },
   { metodo:'POST',ruta:'/api/pagos/:id/transferencias',acceso:['AGREMIADO'],critica:true },
   { metodo:'GET',ruta:'/api/pagos/:id/transferencias/:operacionId/voucher',acceso:['ADMIN','AGREMIADO'] },

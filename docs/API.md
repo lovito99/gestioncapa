@@ -211,8 +211,10 @@ catálogo público. CANCELADA indica la reserva vencida, no una deuda pagada.
 
 | Método/ruta | Actor | Cuerpo/resultado |
 | --- | --- | --- |
-| GET /api/pagos/:id | Propietario o ADMIN | Obligación en céntimos, contexto privado, operaciones/incidencias, medios disponibles; no secretos |
-| POST /api/pagos/:id/intentos | Propietario AGREMIADO | `{medio:"IZIPAY" o "CULQI",clave:UUID,token?:string}`; Culqi exige token del entorno; sesión Izipay solo al iniciador |
+| GET /api/pagos/:id | Propietario o ADMIN | Obligación en céntimos, contexto privado, operaciones, incidencias, medios y opciones en línea |
+| POST /api/pagos/:id/intentos | Propietario AGREMIADO | `{medio,clave:UUID,instrumento,cotizacion}` para nuevas altas. Sesión opaca del proveedor solo al iniciador |
+| POST /api/pagos/:id/intentos/:operacionId/sesion | Propietario AGREMIADO | Recupera la sesión original vigente cuando el medio sigue activo, con `{operacionId,estado,sesion?}` |
+| GET /api/pagos/:id/comprobante | Propietario o ADMIN | PDF del cobro registrado, o 409 si la obligación sigue pendiente o requiere revisión |
 | POST /api/pagos/:id/efectivo | ADMIN activo | `{referencia:string,importeCentimos:number,fechaRecepcion:"YYYY-MM-DD"}`; importe recibido igual al completo de la orden, fecha no futura y recepción auditada |
 | POST /api/pagos/:id/conciliar | ADMIN | `{operacionId:UUID,referencia?:string}` de esta obligación; verifica al proveedor y no crea cargos |
 | POST /api/pagos/notificaciones/:proveedor | Público con prueba del proveedor | Izipay: payloadHttp original y signature; Culqi: referencia de evento/cargo que el backend consulta autenticado |
@@ -221,7 +223,7 @@ Repetir la misma clave exige misma carga; otra carga o una operación activa dev
 409. Una repetición Izipay puede recuperar exactamente la sesión original vigente,
 cifrada, mientras la obligación siga exigible. Una operación incierta no habilita
 otro cobro. `CONCILIACION` significa evidencia conservada sin confirmación aplicable.
-401 sin sesión, 403 por propiedad/rol, 404 inexistente, 422 validación/firma/token,
+401 sin sesión, 403 por propiedad/rol, 404 inexistente, 422 validación/firma/correlación,
 409 conflicto y 503 proveedor no configurado/incierto. Los webhooks tienen límite
 de 256 KiB y 120 solicitudes/minuto/IP/proveedor; solicitudes internas de pago 4 KiB.
 Las respuestas privadas de pago no se almacenan en caché.
@@ -235,7 +237,8 @@ Más detalles, migración, límites y evidencia: [Cobro de cursos](esp/cobroCurs
 
 ## T-25 — Izipay y transferencias bancarias
 
-Para nuevos intentos, `POST /api/pagos/:id/intentos` recibe `medio:"IZIPAY"`.
+Para nuevos intentos, `POST /api/pagos/:id/intentos` recibe el proveedor ofrecido
+por la cotización. Izipay es la primera integración habilitable.
 `CULQI` devuelve 503 `PASARELA_NO_SELECCIONADA`, también cuando sus credenciales
 históricas están configuradas. Se conservan sus notificaciones y conciliación;
 los clientes deben cambiar de pasarela explícitamente, sin reutilizar tokens Culqi.
@@ -275,6 +278,33 @@ Se pueden conservar declaraciones tardías o de ingresos adicionales a un destin
 ya ofrecido. Confirmar un pago tardío conserva la incidencia TARDIO sin recuperar
 cupo; un ingreso adicional deja hecho e incidencia para conciliación sin aplicar
 otra vez la deuda. No se automatizan devoluciones ni se aceptan pagos parciales.
+
+## HU-54 — Cotización y resultado del pago en línea
+
+`GET /api/pagos/:id` devuelve `opcionesEnLinea` con objetos
+`{medio,nombre,instrumento,baseCentimos,comisionCentimos,totalCentimos,moneda,cotizacion}`.
+Solo incluye combinaciones configuradas para una obligación pendiente exigible.
+La cotización tiene vigencia de hasta cinco minutos. `POST /api/pagos/:id/intentos`
+recibe su identificador opaco, junto con el medio, el instrumento
+(`TARJETA` o `YAPE`) y la clave del intento.
+Una cotización ausente, vencida o incompatible devuelve 409 `COTIZACION_CAMBIO`.
+El consumidor refresca el pago y solicita una confirmación nueva. Este requisito
+cambia el contrato de alta para clientes anteriores.
+
+La primera solicitud aceptada devuelve `{operacionId,estado,sesion?}`.
+`sesion` tiene `{medio,datos}` y la sesión Izipay conserva el alias `izipay` en la
+respuesta por compatibilidad. Repetir exactamente la clave y la carga conserva el
+intento aun si cambió la tarifa. Los intentos históricos se recuperan por la clave
+original o por la ruta de sesión, cuando siguen abiertos y vigentes.
+
+Un resultado autenticado puede dejar la operación `CONFIRMADO`, `RECHAZADO` o
+`CANCELADO`. Los estados `INICIADO` e `INCIERTO` esperan verificación. El retorno
+del checkout actualiza la lectura del pago. IPN y conciliación verifican y
+aplican la operación en el servidor. El PDF y `comprobante` de la consulta
+usan los importes del hecho registrado, con base, comisión y total. El envío
+se consulta mediante `notificaciones`.
+
+[Configuración, activación y reversión](esp/hu54Pagos.md)
 
 ## HU-32 — Vouchers privados y comprobantes por correo
 
@@ -516,8 +546,6 @@ Simulación: `frontend/src/mocks/pagos.ts`. Se suma a T-25 y HU-32 (arriba).
 |---|---|---|
 | `GET /api/pagos/bandeja?estado=&buscar=` | ADMIN | `200 { resumen: { enRevision, confirmadosMes, rechazadosMes }, items }`. `estado`: `EN_REVISION`, `CONFIRMADO` o `RECHAZADO`. `buscar` compara nombre, código de orden, número de operación y DNI. Primero los `EN_REVISION`, luego por fecha descendente |
 | `GET /api/pagos/pendientes?dni=` | ADMIN | Para «Registrar pago en efectivo». `200 { agremiado: { nombre, dniParcial }, pagos: [{ pagoId, codigoOrden, cursoTitulo, concepto, importeCentimos }] }`. DNI sin 8 dígitos → `422`; desconocido → `404 DNI_NO_ENCONTRADO` |
-| `GET /api/pagos/:id/comprobante` | Propietario o ADMIN | `200 application/pdf`. Si el pago no está `PAGADO` → `409 PAGO_PENDIENTE` |
-| `POST /api/pagos/:id/intentos` | Propietario | **Pedido:** aceptar `instrumento: "TARJETA"\|"YAPE"`. Hoy el esquema es estricto y lo rechaza con 422, así que el frontend aún no lo envía |
 
 Cada `item` de la bandeja: `{ pagoId, operacionId, codigoOrden, agremiado: { nombre, dniParcial },
 cursoTitulo, concepto, importeCentimos, medio: "TRANSFERENCIA"|"IZIPAY"|"EFECTIVO", detalleMedio,
@@ -526,7 +554,7 @@ referencia, fecha, estado }`.
 Campos nuevos de `GET /api/pagos/:id`:
 - `codigoOrden` («ORD-2026-00482»): el agremiado lo escribe en el concepto de la transferencia.
   Si falta, el frontend lo arma con el id.
-- `comisionEnLinea: { porcentaje: 3.5, importeCentimos }`: comisión de la pasarela, que se suma solo al pago en línea.
+- `opcionesEnLinea` contiene el desglose por instrumento y la cotización necesaria para las altas de HU-54.
 - `venceEn`: fin del plazo para pagar (cuenta regresiva de la pantalla).
 - `POST /api/pagos/:id/efectivo` con un importe distinto del pago → `422 IMPORTE_NO_COINCIDE` con `fields.importe`.
 - El rechazo de un voucher envía uno de los motivos de `MOTIVOS_RECHAZO` (`servicios/pagos.ts`) o un texto libre.

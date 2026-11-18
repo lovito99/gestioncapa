@@ -33,6 +33,11 @@ const requerida = (validar: (schema: z.ZodString) => z.ZodString = (schema) => s
       .refine((value) => !esValorDeEjemplo(value), MOTIVO_EJEMPLO)
   );
 
+const comisionOpcional = z.preprocess(
+  valor => typeof valor === 'string' ? valor.trim() || undefined : valor,
+  z.string().regex(/^\d{1,5}$/).transform(Number).pipe(z.number().max(10000)).optional(),
+);
+
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "test", "production"])
@@ -80,6 +85,9 @@ const envSchema = z.object({
   catalogoOrigenPublico: z.string().optional(),
   correoSinTlsParaPruebas: booleanFromEnv.default(false),
   izipayHabilitado: booleanFromEnv.default(false),
+  izipayConciliacionHabilitada: booleanFromEnv.default(false),
+  izipayComisionTarjeta: comisionOpcional,
+  izipayComisionYape: comisionOpcional,
   izipayCodigoComercio: z.string().min(1).max(15).optional(),
   izipayClavePublica: z.string().min(16).max(400).optional(),
   izipayClaveHash: z.string().min(32).optional(),
@@ -139,11 +147,17 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     if (configuracion.pagosEntorno === 'produccion' && configuracion.NODE_ENV !== 'production') contexto.addIssue({ code:'custom',path:['pagosEntorno'],message:'los cobros de producción requieren NODE_ENV=production' });
     const requeridos = [
       ...(configuracion.izipayHabilitado ? ['izipayCodigoComercio','izipayClavePublica','izipayClaveHash','izipayRsaPublica','pagosUrlPublica'] as const : []),
+      ...(configuracion.izipayConciliacionHabilitada && !configuracion.izipayHabilitado
+        ? ['izipayCodigoComercio','izipayClavePublica','izipayClaveHash'] as const : []),
       ...(configuracion.culqiHabilitado ? ['culqiClavePublica','culqiClaveSecreta','pagosUrlPublica'] as const : []),
     ];
     for (const nombre of requeridos) {
       const valor = configuracion[nombre];
       if (!valor || esValorDeEjemplo(valor)) contexto.addIssue({ code:'custom',path:[nombre],message:'configura credenciales propias para habilitar la pasarela' });
+    }
+    if (configuracion.izipayHabilitado && configuracion.pagosEntorno === 'produccion'
+      && configuracion.izipayComisionTarjeta === undefined && configuracion.izipayComisionYape === undefined) {
+      contexto.addIssue({ code:'custom',path:['izipayComisionTarjeta'],message:'configura explícitamente la comisión de cada instrumento habilitado' });
     }
     if ((configuracion.izipayHabilitado || configuracion.culqiHabilitado) && configuracion.pagosUrlPublica) {
       const url = new URL(configuracion.pagosUrlPublica);

@@ -13,7 +13,8 @@ jobs:
   pruebas:
     name: E2E demo y real
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    # Instalación sin lockfile, build y las suites demo (~6 min) y real (~3 min) superan 15 min.
+    timeout-minutes: 30
     env:
       # El backend ya no tiene valores por defecto para la conexión (CFG-01).
       DB_HOST: 127.0.0.1

@@ -1,6 +1,6 @@
-import { Banknote, BookOpen, CircleCheck, CircleX, Clock, Copy, CreditCard, Download, FileText, Landmark, Lock, RefreshCw, Smartphone, Upload, X, type LucideIcon } from 'lucide-react'
+import { Banknote, BookOpen, CircleCheck, Clock, Copy, CreditCard, Download, FileText, Landmark, Upload, X, type LucideIcon } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Aviso } from '@/components/ui/Aviso'
@@ -11,13 +11,14 @@ import { mensajeDeError, esApiError } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { cursos, type DetalleCurso } from '@/servicios/cursos'
 import { guardarDescarga } from '@/servicios/historial'
-import { abrirIzipay } from '@/servicios/izipay'
-import { codigoOrdenDe, comisionDe, leerVoucher, pagoNecesitaActualizacion, pagos, type Pago } from '@/servicios/pagos'
+import { codigoOrdenDe, leerVoucher, nombreInstrumento, pagoNecesitaActualizacion, pagos, type Pago } from '@/servicios/pagos'
 import { ETIQUETA_MODALIDAD, fechasCurso } from '@/paginas/cursos/formatoCurso'
 import { PortadaCurso } from '@/paginas/cursos/piezasCurso'
 import { soles } from '@/paginas/cursos/reglasCurso'
+import { EstadoIntentoEnLinea, PagoEnLinea } from './PagoEnLinea'
+import { EstadoCorreosPago } from './ArchivoVoucher'
 
-type Paso = 'elegir' | 'en-linea' | 'transferencia' | 'efectivo' | 'rechazado'
+type Paso = 'elegir' | 'en-linea' | 'transferencia' | 'efectivo'
 const centimos = (c: number) => soles(c / 100)
 const tarjeta = 'flex w-full flex-col gap-3 rounded-xl border border-line bg-white p-4 sm:p-5'
 
@@ -31,6 +32,7 @@ const fechaHora = (iso: string, conAnio = false) =>
  */
 export function PagarCursoPagina() {
   const { id = '' } = useParams()
+  const cache = useQueryClient()
   const curso = useQuery({ queryKey: ['curso', id], queryFn: () => cursos.obtener(id) })
   const pagoId = curso.data?.miInscripcion?.pagoId ?? ''
   const pago = useQuery({
@@ -40,6 +42,11 @@ export function PagarCursoPagina() {
     refetchInterval: (q) => (q.state.data && pagoNecesitaActualizacion(q.state.data) ? 5000 : false),
   })
   const [paso, setPaso] = useState<Paso>('elegir')
+  useEffect(() => {
+    if (pago.data?.estado === 'PAGADO') {
+      void Promise.all(['curso', 'historial', 'participante'].map(clave => cache.invalidateQueries({ queryKey: [clave] })))
+    }
+  }, [cache, pago.data?.estado])
 
   if (curso.isPending || (pagoId && pago.isPending)) return <Contenedor><Cargando texto="Cargando tu pago…" /></Contenedor>
   if (curso.isError) return <Contenedor><ErrorCarga mensaje={mensajeDeError(curso.error, 'No pudimos cargar el curso.')} onReintentar={curso.refetch} /></Contenedor>
@@ -58,16 +65,16 @@ export function PagarCursoPagina() {
   const enRevision = p.estado === 'PENDIENTE' && p.transferencias.some((t) => t.estado === 'DECLARADO' || t.estado === 'INICIADO')
   if (p.estado === 'PAGADO') return <Contenedor><PagoAprobado pago={p} cursoId={id} /></Contenedor>
   if (enRevision) return <Contenedor><PagoEnRevision pago={p} /></Contenedor>
-  if (paso === 'rechazado') return <Contenedor><PagoRechazado pago={p} alReintentar={() => setPaso('en-linea')} alOtroMedio={() => setPaso('elegir')} /></Contenedor>
 
   const rechazada = p.transferencias.findLast((t) => t.estado === 'RECHAZADO')
-  const encabezados: Record<Exclude<Paso, 'rechazado'>, { titulo: string; texto: string }> = {
+  const encabezados: Record<Paso, { titulo: string; texto: string }> = {
     elegir: { titulo: '¿Cómo quieres pagar?', texto: 'Elige una opción. Tu cupo está reservado hasta la fecha límite.' },
-    'en-linea': { titulo: 'Pagar en línea', texto: 'Con tarjeta o Yape. Tu pago se confirma al instante.' },
+    'en-linea': { titulo: 'Pagar en línea', texto: 'Revisa el total y completa el pago en la pasarela.' },
     transferencia: { titulo: 'Pago por transferencia BCP', texto: 'Sin comisión. Transfiere desde tu banco o app y sube tu voucher.' },
     efectivo: { titulo: 'Pago en efectivo', texto: 'Sin comisión. Paga en la caja del CPPP con tu código de orden.' },
   }
   const { titulo, texto } = encabezados[paso]
+  const refrescar = () => pago.refetch({ throwOnError: true })
 
   return (
     <Contenedor ancho>
@@ -85,13 +92,13 @@ export function PagarCursoPagina() {
       )}
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_23.75rem] lg:items-start lg:gap-6">
         <div className="order-2 flex min-w-0 flex-col gap-4 lg:order-1">
-          {paso === 'elegir' && <ElegirMedio pago={p} alContinuar={setPaso} />}
-          {paso === 'en-linea' && <PagarEnLinea pago={p} alRechazo={() => setPaso('rechazado')} />}
+          {paso === 'elegir' && <><EstadoIntentoEnLinea pago={p} /><ElegirMedio pago={p} alContinuar={setPaso} /></>}
+          {paso === 'en-linea' && <PagoEnLinea key={p.id} pago={p} alActualizar={refrescar} />}
           {paso === 'transferencia' && <PagarTransferencia pago={p} />}
           {paso === 'efectivo' && <PagarEfectivo pago={p} />}
         </div>
         <div className="order-1 lg:order-2 lg:sticky lg:top-32">
-          <ResumenPago pago={p} curso={c} conComision={paso === 'en-linea'} />
+          <ResumenPago pago={p} curso={c} />
         </div>
       </div>
     </Contenedor>
@@ -116,9 +123,7 @@ function Fila({ etiqueta, children, fuerte = false }: { etiqueta: string; childr
 }
 
 /** Tarjeta «Resumen del pago» común a todas las pantallas de pago. */
-function ResumenPago({ pago, curso, conComision }: { pago: Pago; curso: DetalleCurso; conComision: boolean }) {
-  const comision = comisionDe(pago)
-  const total = pago.importeCentimos + (conComision ? comision.importeCentimos : 0)
+function ResumenPago({ pago, curso }: { pago: Pago; curso: DetalleCurso }) {
   const etiquetaPrecio = { GENERAL: 'Precio general', COLEGIADO: 'Precio de colegiado' }
   const concepto = pago.concepto === 'CONSTANCIA' ? 'Constancia' : curso.miPrecio ? etiquetaPrecio[curso.miPrecio.tipo] : 'Precio del curso'
   return (
@@ -137,12 +142,6 @@ function ResumenPago({ pago, curso, conComision }: { pago: Pago; curso: DetalleC
       <hr className="border-line" />
       <dl className="flex flex-col gap-3">
         <Fila etiqueta={concepto}>{centimos(pago.importeCentimos)}</Fila>
-        {conComision && <Fila etiqueta={`Comisión de la pasarela (${comision.porcentaje} %)`}>{centimos(comision.importeCentimos)}</Fila>}
-        {conComision && <hr className="border-line" />}
-        <div className="flex items-center gap-2">
-          <dt className="flex-1 text-base leading-6 font-medium text-ink">Total a pagar</dt>
-          <dd className="font-serif text-xl leading-7 font-bold text-brand-ink">{centimos(total)}</dd>
-        </div>
         <Fila etiqueta="Código de orden" fuerte>{codigoOrdenDe(pago)}</Fila>
       </dl>
       {pago.venceEn && (
@@ -183,65 +182,18 @@ function OpcionRadio({ activa, deshabilitada, onElegir, icono: Icono, titulo, et
 }
 
 function ElegirMedio({ pago, alContinuar }: { pago: Pago; alContinuar: (paso: Paso) => void }) {
-  const disponibles: Paso[] = [pago.medios.izipay && 'en-linea', pago.medios.transferencia && pago.destinoTransferencia && 'transferencia', pago.medios.efectivo && 'efectivo'].filter(Boolean) as Paso[]
-  const [medio, setMedio] = useState<Paso>(disponibles[0] ?? 'efectivo')
-  const comision = comisionDe(pago)
+  const enLinea = Boolean(pago.opcionesEnLinea?.length || pago.operaciones.some(op => op.sesionRecuperable))
+  const disponibles: Paso[] = [enLinea && 'en-linea', pago.medios.transferencia && pago.destinoTransferencia && 'transferencia', pago.medios.efectivo && 'efectivo'].filter(Boolean) as Paso[]
+  const [elegido, setMedio] = useState<Paso>()
+  const medio = elegido && disponibles.includes(elegido) ? elegido : disponibles[0] ?? 'efectivo'
   return (
     <fieldset className="flex flex-col gap-4">
       <legend className="sr-only">Forma de pago</legend>
-      <OpcionRadio activa={medio === 'en-linea'} deshabilitada={!disponibles.includes('en-linea')} onElegir={() => setMedio('en-linea')} icono={CreditCard} titulo="Pagar en línea" etiqueta={{ texto: `Comisión ${comision.porcentaje} %` }} descripcion="Tarjeta de crédito, débito o Yape. Se confirma al instante." />
+      <OpcionRadio activa={medio === 'en-linea'} deshabilitada={!disponibles.includes('en-linea')} onElegir={() => setMedio('en-linea')} icono={CreditCard} titulo="Pagar en línea" descripcion="Revisa los instrumentos habilitados y el importe antes de confirmar." />
       <OpcionRadio activa={medio === 'transferencia'} deshabilitada={!disponibles.includes('transferencia')} onElegir={() => setMedio('transferencia')} icono={Landmark} titulo="Transferencia BCP" etiqueta={{ texto: 'Sin comisión', exito: true }} descripcion="Transfiere y sube tu voucher. Lo revisamos en 1 día hábil." />
       <OpcionRadio activa={medio === 'efectivo'} deshabilitada={!disponibles.includes('efectivo')} onElegir={() => setMedio('efectivo')} icono={Banknote} titulo="Efectivo en la sede" etiqueta={{ texto: 'Sin comisión', exito: true }} descripcion="Paga en la caja del CPPP (lun. a vie., 9 a. m. – 5 p. m.)." />
       <Boton onClick={() => alContinuar(medio)} disabled={disponibles.length === 0} className="h-12 w-full text-base">Continuar</Boton>
     </fieldset>
-  )
-}
-
-// ---------- En línea ----------
-
-function PagarEnLinea({ pago, alRechazo }: { pago: Pago; alRechazo: () => void }) {
-  const cache = useQueryClient()
-  const [instrumento, setInstrumento] = useState<'TARJETA' | 'YAPE'>('TARJETA')
-  const total = pago.importeCentimos + comisionDe(pago).importeCentimos
-  const refrescar = async () => {
-    const actualizado = await cache.fetchQuery({ queryKey: ['pago', pago.id], queryFn: () => pagos.obtener(pago.id) })
-    await Promise.all(['curso', 'historial', 'participante'].map((clave) => cache.invalidateQueries({ queryKey: [clave] })))
-    return actualizado
-  }
-  const iniciar = useMutation({
-    mutationFn: () => pagos.iniciar(pago.id, { medio: 'IZIPAY', clave: crypto.randomUUID(), instrumento }),
-    onSuccess: async (resultado) => {
-      if (resultado.izipay) {
-        await abrirIzipay(resultado.izipay, (respuesta) => {
-          void pagos.notificarIzipay(respuesta).then(refrescar).then((p) => p.estado !== 'PAGADO' && alRechazo()).catch(() => alRechazo())
-        })
-        return
-      }
-      const actualizado = await refrescar()
-      if (actualizado.estado !== 'PAGADO' || resultado.estado === 'RECHAZADO') alRechazo()
-    },
-  })
-  return (
-    <section className={tarjeta}>
-      <h2 className="text-base leading-6 font-semibold text-ink">Elige cómo pagar</h2>
-      <fieldset className="flex flex-col gap-3">
-        <legend className="sr-only">Medio en línea</legend>
-        <OpcionRadio activa={instrumento === 'TARJETA'} onElegir={() => setInstrumento('TARJETA')} icono={CreditCard} titulo="Tarjeta" descripcion="Visa, Mastercard o American Express" />
-        <OpcionRadio activa={instrumento === 'YAPE'} onElegir={() => setInstrumento('YAPE')} icono={Smartphone} titulo="Yape" descripcion="Paga con el código de tu app" />
-      </fieldset>
-      <Aviso titulo="Pago seguro en la pasarela">Te llevaremos a la página segura de la pasarela. El CPPP no guarda los datos de tu tarjeta.</Aviso>
-      {iniciar.isError && <Aviso tipo="error" titulo="No pudimos iniciar el pago">{mensajeDeError(iniciar.error, 'Intenta de nuevo en unos minutos.')}</Aviso>}
-      <Boton onClick={() => iniciar.mutate()} cargando={iniciar.isPending} className="h-12 w-full text-base">
-        <Lock className="size-5" aria-hidden />
-        Pagar {centimos(total)}
-      </Boton>
-      {pago.medios.entorno === 'sandbox' && (
-        <p className="flex flex-wrap items-center justify-center gap-2 text-xs leading-4 text-muted">
-          <span className="rounded-md bg-surface-3 px-2 py-0.5 font-medium">Modo de pruebas</span>
-          No se hará ningún cargo real.
-        </p>
-      )}
-    </section>
   )
 }
 
@@ -424,9 +376,12 @@ function Datos({ children }: { children: ReactNode }) {
 
 function PagoAprobado({ pago, cursoId }: { pago: Pago; cursoId: string }) {
   const [descargando, setDescargando] = useState(false)
-  const operacion = pago.operaciones.findLast((o) => o.estado === 'CONFIRMADO')
-  const enLinea = operacion?.medio === 'IZIPAY' || operacion?.medio === 'CULQI'
-  const total = pago.importeCentimos + (enLinea ? comisionDe(pago).importeCentimos : 0)
+  const comprobante = pago.comprobante
+  const operacion = pago.operaciones.find(op => op.id === comprobante?.operacionId)
+    ?? pago.operaciones.find(op => op.estado === 'CONFIRMADO')
+  const medio = comprobante?.medio ?? operacion?.medio
+  const instrumento = comprobante?.instrumento
+  const fecha = comprobante?.fecha ?? operacion?.confirmadoEn
   const descargar = async () => {
     setDescargando(true)
     try {
@@ -438,32 +393,21 @@ function PagoAprobado({ pago, cursoId }: { pago: Pago; cursoId: string }) {
     }
   }
   return (
-    <Resultado tono="exito" icono={CircleCheck} titulo="¡Pago confirmado!" texto={<>Tu inscripción está confirmada. Enviamos el comprobante a tu correo{pago.correoEnmascarado ? ` ${pago.correoEnmascarado}` : ''}.</>}>
+    <Resultado tono="exito" icono={CircleCheck} titulo="¡Pago confirmado!" texto={pago.incidencias.length
+      ? 'El pago se registró y requiere conciliación del CPPP.'
+      : 'El CPPP confirmó la recepción de tu pago.'}>
       <Datos>
         <Fila etiqueta="Código de orden">{codigoOrdenDe(pago)}</Fila>
-        <Fila etiqueta="Medio">{operacion?.detalle ?? (operacion?.medio === 'TRANSFERENCIA' ? 'Transferencia BCP' : operacion?.medio === 'EFECTIVO' ? 'Efectivo' : 'En línea')}</Fila>
-        <Fila etiqueta="Total pagado" fuerte>{centimos(total)}</Fila>
-        {operacion?.confirmadoEn && <Fila etiqueta="Fecha">{fechaHora(operacion.confirmadoEn, true)}</Fila>}
+        <Fila etiqueta="Medio">{instrumento ? nombreInstrumento[instrumento]
+          : operacion?.detalle ?? (medio === 'TRANSFERENCIA' ? 'Transferencia BCP' : medio === 'EFECTIVO' ? 'Efectivo' : 'En línea')}</Fila>
+        {comprobante && comprobante.comisionCentimos > 0 && <Fila etiqueta="Comisión">{centimos(comprobante.comisionCentimos)}</Fila>}
+        <Fila etiqueta="Total pagado" fuerte>{centimos(comprobante?.totalCentimos ?? pago.importeCentimos)}</Fila>
+        {fecha && <Fila etiqueta="Fecha">{fechaHora(fecha, true)}</Fila>}
       </Datos>
+      <EstadoCorreosPago notificaciones={pago.notificaciones?.filter(aviso => aviso.tipo === 'COMPROBANTE')} />
       <div className="flex w-full flex-col gap-3">
         <Link to={`/cursos/${cursoId}`} className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink"><BookOpen className="size-5" aria-hidden />Ir al curso</Link>
         <Boton variante="secundario" onClick={() => void descargar()} cargando={descargando} className="h-12 w-full text-base text-brand ring-brand"><Download className="size-5" aria-hidden />Descargar comprobante</Boton>
-      </div>
-    </Resultado>
-  )
-}
-
-function PagoRechazado({ pago, alReintentar, alOtroMedio }: { pago: Pago; alReintentar: () => void; alOtroMedio: () => void }) {
-  return (
-    <Resultado tono="error" icono={CircleX} titulo="No se pudo completar el pago" texto="La pasarela rechazó el pago o lo cancelaste. No se hizo ningún cargo y tu inscripción sigue pendiente.">
-      <Datos>
-        <Fila etiqueta="Código de orden">{codigoOrdenDe(pago)}</Fila>
-        <Fila etiqueta="Estado">Pendiente de pago</Fila>
-        {pago.venceEn && <Fila etiqueta="Fecha límite">{fechaHora(pago.venceEn)}</Fila>}
-      </Datos>
-      <div className="flex w-full flex-col gap-3">
-        <Boton onClick={alReintentar} className="h-12 w-full text-base"><RefreshCw className="size-5" aria-hidden />Intentar de nuevo</Boton>
-        <Boton variante="secundario" onClick={alOtroMedio} className="h-12 w-full text-base text-brand ring-brand">Pagar por transferencia o efectivo</Boton>
       </div>
     </Resultado>
   )

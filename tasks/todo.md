@@ -1411,3 +1411,218 @@ operaciones Git.
   previas) y `git diff --check`.
 - Pendientes: build manual, prueba de WhatsApp en HTTPS autorizado, configurar
   `catalogoOrigenPublico` y revisión humana. `package-lock.json` está ignorado por Git.
+
+# HU-54 · Tareas de implementación
+
+## Preparación documental
+
+- [x] Revisar la API, los dos puntos de entrada del cliente, los adaptadores,
+  el esquema financiero, el envío SMTP y las pruebas existentes.
+- [x] Incorporar la historia original, contrastar T-25 y la documentación de
+  Izipay, y redactar [la especificación](../SPEC.md#hu-54--pago-en-línea-con-pasarela-intercambiable)
+  y [el plan](plan.md#hu-54--plan-de-implementación).
+- [x] Línea base. Backend 8/8 aprobadas con `node --import tsx --test test/izipay.test.ts test/culqi.test.ts test/pagosConfiguracion.test.ts` desde `backend/`.
+  Frontend 11/11 aprobadas con `npm exec -w frontend -- vitest run src/servicios/pagos.test.ts src/paginas/cursos/PagoCurso.test.tsx`.
+- [x] Aprobación de la especificación y el plan mediante la instrucción de implementar.
+
+## Incrementos tras la aprobación
+
+### T54-01 · Despachar la conciliación histórica
+
+- [x] Mantener las rutas y los resultados existentes. Despachar IPN y
+  recuperación por adaptador, con capacidades separadas para altas y resolución.
+- [x] Verificar con dos adaptadores registrados. Apagar o quitar uno del
+  registro deja operativo el otro, y apagar solo altas preserva IPN y consulta.
+- **Comprobación** Node focalizado y `cobroCurso.test.ts` aislado. Casos de
+  Izipay, Culqi histórico, recuperación y proveedor desconocido.
+- **Depende de la aprobación** · M, 3–5 archivos previstos en
+  `backend/src/modules/pagos/` y sus pruebas.
+
+### T54-02 · Persistir el desglose por intento
+
+- [x] Migrar el catálogo de medios y admitir desglose y correlación en
+  nuevas operaciones en línea. Conservar montos, medios, estados y sesiones
+  de las filas históricas y restricciones de exclusión.
+- [x] Comprobar que un proveedor registrado de pruebas puede reservar un
+  intento y ser leído tras quitar su adaptador de ejecución.
+- **Comprobación** migración sobre una base de pruebas con historial y
+  `pagosCurso.test.ts` para restricciones, compatibilidad y redondeo en céntimos.
+- **Depende de T54-01** · M, 3–5 archivos previstos entre migración, repositorio,
+  modelo e integración.
+
+### Punto de control tras T54-02
+
+- [x] Verificar historial, registro, exclusión de intentos y compatibilidad de
+  los endpoints actuales con clientes en uso. Adjuntar pruebas rojas y verdes.
+
+### T54-03 · Cotizar y reservar un pago consentido
+
+- [x] Ofrecer opciones e importe del servidor para el propietario autorizado.
+  Rechazar antes del proveedor si la cotización caducó, cambió o no corresponde
+  a la opción elegida. Reservar el desglose bajo la exclusión existente.
+- [x] Repetir una solicitud con igual clave conserva intento y total al
+  cambiar la configuración. Cambiar proveedor, instrumento o consentimiento
+  con esa clave genera conflicto. Conservar la recuperación histórica.
+- **Comprobación** integración API/BD con adaptador controlado en
+  `pagosCurso.test.ts` y `cobroCurso.test.ts`, incluidos permisos, paralelismo,
+  efecto de flags, cambio de tarifa y error del proveedor.
+- **Depende de T54-02** · M, 3–5 archivos previstos en rutas, servicio
+  y pruebas de backend.
+
+### T54-04 · Aplicar resultados auténticos de Izipay
+
+- [x] Usar el total persistido para iniciar y verificar Izipay. Cubrir tarjeta
+  y Yape con las formas oficiales y validar el resultado antes de cambiar la
+  deuda. Aislar la compatibilidad con intentos históricos en el adaptador.
+- [x] Diferenciar rechazo, cancelación acreditada e incertidumbre. Conservar
+  la conciliación para discrepancias, múltiples autorizaciones y pagos tardíos.
+- **Comprobación** `izipay.test.ts` y `cobroCurso.test.ts`. Usar fixtures de
+  prueba depurados para firma, identificadores, comercio, entorno, orden,
+  instrumento, importe, moneda, revisión de orden y repeticiones.
+- **Depende de T54-03** · M, 3–5 archivos previstos en adaptador y verificación,
+  transición transaccional y pruebas.
+
+### Punto de control tras T54-04
+
+- [x] Comprobar que el total consentido es el enviado y el verificado, que la
+  deuda base y las reservas respetan HU-53 y que ningún error indeterminado
+  ofrece otro cargo. Registrar aparte el estado del ensayo sandbox oficial.
+
+### T54-05 · Entregar el comprobante registrado
+
+- [x] Correo y descarga autorizada usan el desglose registrado del pago,
+  con una cola por confirmación y el PDF coherente con el hecho financiero.
+- [x] Repeticiones y fallo SMTP conservan la confirmación. La descarga
+  es privada, disponible tras la confirmación y funciona con datos históricos.
+- **Comprobación** `correoPago.test.ts` y `cobroCurso.test.ts` en entorno de
+  pruebas, incluidos PDF, propietario, ADMIN, tercero y repetición.
+- **Depende de T54-04** · M, 3–5 archivos previstos en avisos, PDF, rutas y
+  pruebas de integración.
+
+### T54-06 · Mostrar el total y abrir el checkout
+
+- [x] Mostrar en la ruta principal solo las opciones habilitadas. El
+  instrumento elegido y su total llegan al SDK del proveedor registrado.
+- [x] Al cambiar o caducar la cotización se solicita nueva confirmación.
+  El formulario propio contiene únicamente la selección y el consentimiento.
+- **Comprobación** Vitest y MSW con `npm exec -w frontend -- vitest run src/servicios/pagos.test.ts`
+  más la prueba nueva de pantalla o SDK. Navegador demo con
+  `npm run e2e -- pagoEnLinea.spec.ts` tras incorporar ese archivo.
+- **Depende de T54-03 y T54-04** · M, 3–5 archivos previstos en cliente API,
+  registro de checkout, pantalla, MSW y pruebas.
+
+### T54-07 · Mostrar el estado verificado
+
+- [x] Diferenciar aprobación, rechazo, cancelación e incertidumbre desde
+  los estados de la API. Recarga y callback duplicado muestran el mismo
+  resultado. Una operación activa usa recuperación o consulta.
+- [x] La confirmación presenta el total registrado, descarga y estado
+  real del comprobante. El foco y los avisos son accesibles.
+- **Comprobación** Playwright demo y real `pagoEnLinea.spec.ts` y componente
+  en Vitest. Cubrir cierre, error de red, rechazo firmado y aceptación SMTP.
+- **Depende de T54-05 y T54-06** · M, 3–5 archivos previstos en pantalla,
+  presentación compartida de estados y pruebas.
+
+### Punto de control tras T54-07
+
+- [x] Recorrer cotización, autorización, mensaje final y comprobante desde
+  el navegador con API de prueba. Probar teclado, recarga y pantalla estrecha.
+
+### T54-08 · Usar el mismo recorrido en el historial
+
+- [x] Reusar cotización, recuperación y estados de la ruta principal en
+  `PagoCurso`. Confirmar antes de abrir el SDK también desde el historial.
+- [x] Mantener las reglas de constancias y reserva vencida, y la consulta
+  de documentos y transferencias previas.
+- **Comprobación** `npm exec -w frontend -- vitest run src/paginas/cursos/PagoCurso.test.tsx`
+  y recorridos de historial o constancia en integración y navegador.
+- **Depende de T54-07** · M, 3–5 archivos previstos en componentes y pruebas.
+
+### T54-09 · Verificar la continuidad de BCP y efectivo
+
+- [x] Ejercitar BCP con voucher y revisión autorizada, y efectivo con
+  registro ADMIN por el importe base, al cambiar disponibilidad de adaptadores.
+- [x] Verificar coexistencia de notificación externa tardía y abono manual
+  previamente realizado sin duplicar efectos, y recorrido completo en navegador
+  con los servicios de pruebas.
+- **Comprobación** `transferenciasPago.test.ts`, `voucherPago.test.ts`,
+  `pagosCurso.test.ts`, `npm run e2e -- pagoEnLinea.spec.ts` y
+  `npm run e2e:real -- pagoEnLinea.spec.ts transferenciaPago.spec.ts`.
+- **Depende de T54-07 y T54-08** · M, 3–5 archivos previstos en fixtures y
+  pruebas de integración o navegador.
+
+### T54-10 · Documentar puesta en marcha y reversión
+
+- [x] Actualizar contrato API y procedimiento de configuración por entorno,
+  retiro y recuperación. Simplificar lo tocado y revisar calidad y seguridad
+  contra las dos referencias requeridas.
+- [x] Entregar evidencia y mensajes de commit manuales, versión revisada
+  y pendientes concretos de sandbox oficial, build y publicación.
+- **Comprobación** `npm run typecheck`, `npm run lint -w frontend`, `npm test`,
+  `npm run e2e:tipos`, `git diff --check` y regresiones de los controles
+  anteriores. `npm run build` queda a cargo del usuario.
+- **Depende de T54-09** · S, 1–2 archivos previstos en documentación operativa
+  y contrato API además del registro de evidencia. Si la revisión detecta un
+  defecto, registrar un incremento focalizado y su prueba de regresión.
+
+### Punto de control tras T54-10
+
+- [x] Trazar HU54-01 a HU54-07 a resultados observados. Registrar evidencia
+  de sandbox externo para tarjeta y Yape, o el impedimento específico.
+- [ ] Confirmar comisión, métodos contratados, destino BCP, HTTPS/IPN, SMTP,
+  respaldo, monitoreo y reversión antes de habilitar producción. Registrar
+  revisión humana, build manual y SHAs que aporte el usuario.
+
+## Evidencia de HU-54
+
+| Criterio | Verificación local |
+| --- | --- |
+| HU54-01 | Unidad de redondeo con 0 explícito y límite de precisión. API/BD verifica la cotización vencida, importe manipulado, carreras, tarifa cambiada y recuperación. Playwright comprueba el desglose antes de pagar. |
+| HU54-02 | Aprobación firmada y repetida, hecho financiero, PDF privado y cola únicos. SMTP de prueba acepta el comprobante de Yape con el importe cobrado. |
+| HU54-03 | Playwright demo verifica rechazo; Playwright con API real y SDK sustituido verifica cierre, bloqueo de otro cargo, cancelación firmada y persistencia al recargar. |
+| HU54-04 | Firma del payload original, comercio, orden, instrumento y monto se verifican antes de confirmar. El SDK del proveedor recibe los datos de pago. La aplicación descarta el cuerpo de su callback en el navegador y procesa IPN en memoria. |
+| HU54-05 | Registro con dos adaptadores y prueba de desactivación. Izipay concilia con altas apagadas. Regresiones reales de Culqi, transferencia con voucher y efectivo. |
+| HU54-06 | UI demo y Playwright con la API real ejercitan la integración simulada. Pendiente el ensayo frente al sandbox oficial, con credenciales y medios habilitados por Izipay. |
+| HU54-07 | Migración `0039 → 0040` ensayada con hechos previos de los cuatro medios. Pruebas de idempotencia, conciliación tardía, vencimiento, carreras con transferencias y recuperación tras caída. |
+
+- **Rojo observado.** Registro y cotizador inexistentes en la unidad inicial,
+  oferta ausente en la API, región de desglose ausente en Chromium, error de
+  precisión en importes extremos y tasa vacía interpretada como cero.
+- **Verde local.** `npm test` con 381 unitarias backend, 167 Vitest y 7 Express.
+  Integración completa 376/376, Playwright demo 4/4 y Playwright con API real 3/3.
+  Tipos de los workspaces y de Playwright, lint con dos advertencias previas,
+  y `git diff --check`. La auditoría de dependencias de producción con el
+  lockfile local reportó cero avisos. El lockfile no está versionado.
+- **Revisión.** Se verificaron permisos por obligación, estado privado
+  y no almacenable en caché, entrada acotada, firma previa al acceso a la BD,
+  separación de entornos, idempotencia, migración y ausencia de datos de
+  tarjeta y de códigos Yape en persistencia y logs de GestionCapa.
+  Se revisaron también accesibilidad por teclado, pantalla de 360 px, errores
+  de consola de la aplicación y el procedimiento de reversión. La revisión
+  usó `definition-of-done.md` y `security-checklist.md`.
+- **Salida pendiente.** Completar el sandbox oficial, aplicar la migración
+  en el destino, validar tarifa, BCP, HTTPS e IPN y SMTP institucionales,
+  ejecutar build manual y obtener revisión humana antes de habilitar producción.
+  [Guía de operación](../docs/esp/hu54Pagos.md)
+
+## Mensajes de commit sugeridos
+
+Los commits y la etiqueta los ejecuta el usuario. Versión única propuesta
+para la entrega `v4.0.0.0.0` sobre `v3.1.0.0.0`. El contrato HTTP de nuevos
+intentos exige instrumento y cotización.
+
+El build manual queda pendiente para la entrega y el ensayo oficial queda
+pendiente para las tareas que se prueban con un proveedor sustituido.
+
+| Tarea | Summary | Description |
+| --- | --- | --- |
+| T54-01 | `refactor: despachar la conciliación por adaptador de pago` | Separa altas, notificaciones y recuperación. Pruebas de registro, permisos e integración con Culqi e Izipay. |
+| T54-02 | `feat: conservar el desglose por intento de pago` | Persiste medio, instrumento, comercio, orden y total. Migración ensayada con hechos históricos de los cuatro medios. |
+| T54-03 | `feat!: exigir la cotización aceptada al iniciar un pago` | Aplica cotización firmada e idempotencia. Pruebas de vigencia, concurrencia, propiedad, redondeo y recuperación. |
+| T54-04 | `feat: verificar resultados de tarjeta y Yape con Izipay` | Correlaciona estados y total con el intento. Pruebas de IPN con respuestas firmadas, rechazo, cancelación y repeticiones. |
+| T54-05 | `feat: entregar el comprobante del importe cobrado` | Ofrece PDF privado y encola el comprobante del hecho financiero. Pruebas de permisos, duplicados y SMTP local. |
+| T54-06 | `feat: mostrar el total antes de abrir el checkout` | Presenta el desglose por instrumento en el recorrido principal. Pruebas Vitest y Playwright. |
+| T54-07 | `fix: reflejar el resultado verificado del pago` | Presenta estados de operación y comprobante a partir del servidor. Playwright verifica recarga y cierre del checkout. |
+| T54-08 | `improve: reutilizar el pago en línea desde el historial` | Reusa desglose y recuperación junto a la consulta de pagos pasados y constancias. Regresiones en Vitest e integración. |
+| T54-09 | `test: verificar pagos en línea y medios manuales en navegador` | Prueba pago en línea, transferencia con voucher y continuidad de efectivo. Checkout simulado con API y PostgreSQL reales. |
+| T54-10 | `docs: documentar activación y reversión del pago en línea` | Actualiza el contrato API, variables, verificación y procedimiento de operación. Se revisó el diff documental. |

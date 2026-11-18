@@ -11,7 +11,7 @@ export default defineConfig({
   projects: [{ name: 'real', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'npm run e2e:prep -w backend && npm exec -w backend -- tsx src/server.ts',
+      command: 'npm run e2e:prep -w backend && npm exec -w backend -- tsx --import ../e2e/ayud/izipayE2e.mjs src/server.ts',
       url: 'http://127.0.0.1:8180/api/health',
       reuseExistingServer: false,
       env: entornoBackendReal,
