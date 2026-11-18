@@ -8,6 +8,12 @@ test('NAV-01: el administrador navega y gestiona clases, inscritos, asistencia y
   await recorrerGestionAdmin(page)
 })
 
+test('HU29: la demo abre el panel con el envío pausado', async ({ page }) => {
+  await entrar(page, cuentas.admin)
+  await page.getByRole('link', { name: 'Correos', exact: true }).click()
+  await expect(page.getByText('Envío pausado', { exact: true })).toBeVisible({ timeout: 5000 })
+})
+
 test('NAV-04: todas las rutas administrativas requieren sesión', async ({ page }) => {
   for (const ruta of [
     '/admin/clases',

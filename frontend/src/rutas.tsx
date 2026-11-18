@@ -1,6 +1,7 @@
 import { UsuariosPagina } from '@/paginas/admin/UsuariosPagina'
 import { EfectivoPagina } from '@/paginas/pagos/EfectivoPagina'
 import { BandejaPagosPagina } from '@/paginas/pagos/BandejaPagosPagina'
+import { CorreosPagina } from '@/paginas/notificaciones/CorreosPagina'
 import { RecuperarPagina } from '@/paginas/RecuperarPagina'
 import { HistorialPagina, HistorialesAdminPagina } from '@/paginas/historial/HistorialPagina'
 import { CatalogoPagina, CursosPagina } from '@/paginas/cursos/CursosPagina'
@@ -109,6 +110,7 @@ export const router = createBrowserRouter([
           // S3 8.1: bandeja de pagos; la conciliación con la pasarela queda aparte
           { path: 'pagos', element: <BandejaPagosPagina /> },
           { path: 'pagos/conciliar', element: <EfectivoPagina /> },
+          { path: 'notificaciones/correo', element: <CorreosPagina /> },
           { path: 'clases', element: <ClasesPagina /> },
           { path: 'clases/nueva', element: <ClaseFormPagina /> },
           { path: 'clases/:id', element: <DetalleClasePagina /> },

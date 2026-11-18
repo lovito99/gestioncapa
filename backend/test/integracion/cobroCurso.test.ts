@@ -129,6 +129,8 @@ test('HU53-09/12: reserva congela condiciones y el efectivo confirma el acceso s
   const confirmado=(await llamar('alumno','GET',`/api/cursos/${curso.id}`)).json();
   assert.equal(confirmado.estadoInscripcion,'EN_CURSO');
   assert.equal(confirmado.cuposDisponibles,0);
+  const avisos=await pool.query(`select tipo from "notificacionesCorreo" where "eventoId"=$1`,[alta.json().intentoId]);
+  assert.deepEqual(avisos.rows,[{tipo:'INSCRIPCION_CONFIRMADA'}]);
 });
 
 test('HU53-11/13: vencimiento libera cupo y un pago tardío no reactiva la reserva', async () => {
@@ -145,6 +147,7 @@ test('HU53-11/13: vencimiento libera cupo y un pago tardío no reactiva la reser
   assert.equal((await llamar('alumno','GET',`/api/cursos/${curso.id}`)).json().estadoInscripcion,'CANCELADA');
   assert.equal((await llamar('otro','GET',`/api/cursos/${curso.id}`)).json().estadoInscripcion,'PENDIENTE_PAGO');
   assert.equal((await llamar('alumno','GET',`/api/pagos/${primera.pagoId}`)).json().incidencias[0].motivo,'TARDIO');
+  assert.equal((await pool.query('select 1 from "notificacionesCorreo" where "eventoId"=$1',[primera.intentoId])).rowCount,0);
 });
 
 test('HU53-14/17: certificado y gratuito confirman sin cobrar la inscripción', async () => {
@@ -246,6 +249,28 @@ test('HU53-19: una oferta histórica de costo cero permite nuevas inscripciones 
   const alta=await llamar('alumno','POST',`/api/cursos/${curso.id}/inscribirme`);
   assert.equal(alta.statusCode,201,alta.body);
   assert.equal((await llamar('alumno','GET',`/api/cursos/${curso.id}`)).json().miInscripcion.modalidadCobro,'GRATUITO');
+});
+
+test('HU29: el IPN firmado de un rechazo definitivo encola un solo aviso', async () => {
+  const anterior={izipayHabilitado:env.izipayHabilitado,izipayCodigoComercio:env.izipayCodigoComercio,izipayClaveHash:env.izipayClaveHash};
+  const clave='clave-de-firma-solo-para-pruebas-32';
+  Object.assign(env,{izipayHabilitado:true,izipayCodigoComercio:'PRUEBA',izipayClaveHash:clave});
+  try {
+    const curso=await crear(); await llamar('admin','POST',`/api/cursos/${curso.id}/publicar`);
+    const alta=(await llamar('alumno','POST',`/api/cursos/${curso.id}/inscribirme`,{versionCobro:1})).json();
+    const op=await iniciarOperacion(alta.pagoId,Number(usuarios.get('alumno')!.id),{medio:'IZIPAY',clave:randomUUID(),cargaHash:'b'.repeat(64)});
+    const response={merchant:{merchantCode:'PRUEBA'},order:[{orderNumber:op.numero.padStart(10,'0'),amount:'150.50',currency:'PEN',stateMessage:'Denegado'}]};
+    const enviar = (code:string) => {
+      const payloadHttp=JSON.stringify({code,transactionId:op.id,response});
+      return llamar(null,'POST','/api/pagos/notificaciones/izipay',{payloadHttp,signature:createHmac('sha256',clave).update(payloadHttp).digest('base64')});
+    };
+    assert.equal((await enviar('21')).statusCode,409);
+    const respuestas=await Promise.all([enviar('51'),enviar('51')]);
+    for (const respuesta of respuestas) assert.deepEqual(respuesta.json(),{estado:'RECHAZADO'});
+    assert.deepEqual((await pool.query('select tipo from "notificacionesPago" where "operacionId"=$1',[op.id])).rows,[{tipo:'RECHAZO'}]);
+    assert.equal((await obtenerPago(alta.pagoId))?.estado,'PENDIENTE');
+    assert.equal((await pool.query('select 1 from "notificacionesCorreo" where "eventoId"=$1',[alta.intentoId])).rowCount,0);
+  } finally { Object.assign(env,anterior); }
 });
 
 test('HU53-05/08: Culqi consulta el cargo y no confía en los datos del webhook', async () => {

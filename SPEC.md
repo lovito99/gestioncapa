@@ -1274,3 +1274,104 @@ ya público del instructor.
 
 - Formato oficial de enlace con mensaje precargado. [Ayuda de WhatsApp](https://faq.whatsapp.com/5913398998672934)
 - Metadatos en el HTML, URL canónica y vista previa. [Open Graph](https://ogp.me/), [Meta para webmasters](https://developers.facebook.com/documentation/sharing/webmasters)
+
+# HU-29 · Notificaciones por correo
+
+## Objetivo
+
+Como colegiado, quiero recibir un aviso cuando se confirme mi inscripción,
+se resuelva mi pago, cambie una sesión de mi curso o se emita mi certificado.
+Como administrador, quiero saber si se intentó el envío, si se reintentará
+y qué error requiere atención. La historia desarrolla RF-36 y las cinco
+plantillas de SCRUM-211. [Diseño de los correos](docs/correos/README.md)
+
+## Punto de partida
+
+| Lo que existe | Lo que falta para HU-29 |
+| --- | --- |
+| HU-32 encola comprobantes y rechazos de transferencias en `notificacionesPago`. El worker SMTP registra intentos y conserva adjuntos PDF en aprobaciones. La ficha de pago muestra el estado de su propio correo. | Usar las plantillas CPPP y enlaces protegidos en los avisos reales. Unificar el seguimiento administrativo y evitar un segundo correo de aprobación para la misma operación. |
+| `pagos.correo.ts` reclama envíos con bloqueo y conserva un `Message-ID` estable. Cualquier excepción vuelve a dejar el envío pendiente, incluso un corte al esperar la respuesta final. | Separar los fallos que permiten reintento de los resultados inciertos. Conservar los estados y contratos históricos durante la transición. |
+| `inscribirseEnCurso` confirma el alta sin cobro previo. Para una reserva con pago previo, el trigger `pagoConfirmaReserva` activa el acceso solo si la reserva sigue vigente. | Encolar al confirmar el acceso. Un ingreso tardío en conciliación puede tener comprobante de recepción, pero la inscripción sigue sin confirmarse. |
+| La edición y la cancelación de clases de un curso pasan por transacciones que recalculan modalidad y sincronizan la sala. | Detectar cambios reales de la sesión dentro de la transacción y avisar a sus inscritos confirmados. |
+| `emitir` guarda el documento. `liberarRetenidas` también usa ese camino cuando se confirma el pago. Una corrección genera su propio reemplazo por otra vía. | Avisar al emitir el documento disponible, como parte de la misma transacción. |
+| Izipay verifica cobros exitosos. La ruta de rechazo de transferencia persiste `RECHAZADO` y un flujo legado de Culqi puede registrar un rechazo explícito. | Cubrir rechazos definitivos acreditados. Validar el contrato de Izipay para identificar un rechazo terminal sin confundirlo con una respuesta incompleta o una incidencia. |
+
+## Comportamiento propuesto
+
+| Evento | Destinatario, condición y enlace |
+| --- | --- |
+| Inscripción confirmada | Titular del intento que adquiere acceso al curso. Incluye gratuidad, cobro al emitir constancia y reserva pagada a tiempo. Enlace al detalle del curso. |
+| Pago aprobado | Titular de la obligación. El comprobante de HU-32 es el aviso de aprobación e incluye su PDF vigente. Para un ingreso tardío o en conciliación, el aviso de recepción explica el estado y evita afirmar que el acceso está confirmado. Enlace al estado del pago en el curso. |
+| Pago rechazado | Titular de la operación cuya revisión o pasarela acredita el rechazo definitivo. Cada nueva operación se considera por su ID. Enlace a consultar el pago o retomarlo si la acción sigue disponible. |
+| Sesión modificada o cancelada | Participantes activos con inscripción confirmada a quienes afecta la sesión del curso. Avisar por cambio de fecha, hora, lugar, modalidad, nombre o cancelación. Conservar los valores anteriores y nuevos que correspondan. Enlace a las sesiones del curso. |
+| Emisión de constancia o certificado | Titular del documento disponible al cerrar el curso, por excepción o al liberar la retención tras el pago. Enlace a su historial autenticado, donde puede abrir el documento. |
+
+- Un cambio de sesión con los mismos valores, una edición rechazada, un ajuste
+  de controles de sala, una inscripción pendiente y un documento retenido
+  carecen de evento de correo. Las clases independientes, reemisiones por
+  corrección, anulaciones, recordatorios y envíos históricos masivos quedan
+  fuera de esta propuesta.
+- La unidad de deduplicación es el evento persistido y su destinatario. Una
+  aprobación que confirma una inscripción produce el comprobante de pago y el
+  aviso de inscripción, uno por cada hecho. Se conserva un identificador de
+  correo estable en cada reintento.
+- Se propone usar enlaces HTTPS de un origen de aplicación configurado y
+  destinos internos permitidos. Tras iniciar sesión se recupera el destino.
+  El servidor conserva el control de acceso al recurso. Los enlaces carecen
+  de credenciales y tokens de sesión y pueden abrirse más de una vez.
+
+## Criterios de aceptación
+
+| ID | Resultado verificable |
+| --- | --- |
+| HU29-01 | Cuando se completa cualquiera de los cinco eventos con una cuenta activa y un correo válido, queda un registro por destinatario, persistido en la misma transacción que el evento. Repetir la solicitud, recalcular el mismo estado o revertir la transacción no duplica ni genera un aviso indebido. |
+| HU29-02 | Las cinco plantillas producen asunto, HTML y texto con los campos del evento y un enlace al recurso. Un visitante llega al destino previsto tras acceder y otra cuenta carece de acceso a los datos privados. Se prueban caracteres especiales y URL hostiles como entradas rechazadas o escapadas. |
+| HU29-03 | Cuando un servidor SMTP acepta el mensaje, se guarda la fecha de aceptación. Dos trabajadores concurrentes no entregan dos veces el mismo aviso. El resultado describe la aceptación SMTP. La llegada a la bandeja no se mide en esta historia. |
+| HU29-04 | Un fallo temporal con entrega descartada se reintenta hasta cinco intentos totales, con esperas propuestas de 1, 5, 15 y 60 minutos. Un rechazo SMTP permanente o un correo inválido termina con un código revisable. Un corte después de la fase de envío o un intento abandonado cuya aceptación no pueda descartarse se registra como incierto, pendiente de conciliación con el proveedor antes de volver a enviar. |
+| HU29-05 | Un administrador autenticado puede consultar una lista paginada, filtrar por tipo y estado y ver intentos, próximo intento o fecha de aceptación y una causa legible. El acceso anónimo devuelve 401 y los demás roles reciben 403. La lista omite el cuerpo y los detalles SMTP sin filtrar. |
+| HU29-06 | Un aviso a una cuenta inactiva o con un correo que ya no coincide se registra como omitido sin transferir el mensaje a otra dirección. La confirmación del negocio conserva su resultado. La configuración local y CI usan exclusivamente buzones sintéticos. |
+| HU29-07 | Se conserva el historial de correos de pago y el comprobante de HU-32 durante el cambio de worker. Los registros existentes se pueden consultar sin volver a enviar avisos que ya se aceptaron. Apagar el envío conserva los registros y reintentos por procesar. |
+
+SMTP puede aceptar el contenido antes de perderse su respuesta final. Para
+aplicar el requisito de un solo mensaje proponemos reconciliar ese caso con el
+proveedor antes de reintentar. La aceptación normal y la pérdida de respuesta
+se verifican con un servidor SMTP de prueba. [RFC 5321, sección 6.1](https://www.rfc-editor.org/rfc/rfc5321.html#section-6.1)
+
+## Estructura, convenciones y verificación
+
+- Fastify y TypeScript para emisión e inspección. PostgreSQL para persistencia,
+  exclusión entre trabajadores y estado de entrega. Reutilizar Nodemailer y el
+  planificador de procesos existente. React para la vista de administración.
+- Los productores viven con inscripción, pagos, sesiones y certificados. La
+  lógica de correo se concentra en `backend/src/modules`. Las pruebas siguen
+  la estructura actual de `backend/test`, `backend/test/integracion` y `e2e`.
+- Mantener las convenciones de `AGENTS.md` y nombres ya utilizados, como
+  `enviarNotificacionesPago` y `ultimoError`. Usar consultas parametrizadas,
+  opciones de enlace de lista cerrada, HTML escapado y un remitente fijo.
+- Ejecutar `npm test`, `npm run typecheck`, `npm run e2e:tipos`,
+  `npm run lint -w frontend` y, con PostgreSQL y Redis aislados,
+  `NODE_ENV=test npm run test:integracion`. El plan precisa las pruebas
+  enfocadas de SMTP, permisos y navegador. `npm run build` se ejecuta
+  manualmente en la fase de entrega.
+
+## Límites y decisiones para aprobación
+
+- Verificar identidad y propiedad al abrir el destino. Excluir DNI, voucher,
+  cuentas bancarias, datos de tarjeta y respuestas crudas del proveedor del
+  cuerpo nuevo, del panel y de los logs. Mantener el comprobante de pago y
+  revisar sus campos por separado dentro de HU-32.
+- La aprobación del plan incluye la propuesta de migraciones aditivas y una
+  vista de administración en el sistema. El diseño utiliza el SMTP existente.
+  Cualquier proveedor nuevo, enlaces de acceso sin sesión o cambio de
+  infraestructura requieren una decisión de alcance.
+- Confirmar con el equipo si se aceptan dos avisos para un pago que también
+  confirma la inscripción y si basta un enlace HTTPS con autenticación y
+  autorización en destino. Estas son las opciones propuestas para el desarrollo.
+- Para la activación se necesita origen HTTPS, remitente y SMTP institucional,
+  acceso de operaciones al registro del proveedor para casos inciertos y una
+  política de retención de destinatarios y contenidos. Propuesta para aprobar
+  antes de iniciar el envío real: 90 días para datos operativos de correo,
+  con conservación de la auditoría financiera según su propia política.
+- Guardar las credenciales en la configuración del entorno. La compilación y
+  las operaciones Git son manuales según `AGENTS.md`. La implementación
+  espera aprobación humana. La publicación queda fuera de esta tarea.

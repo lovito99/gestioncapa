@@ -74,8 +74,8 @@ export async function listarClasesDeInstructor(instructorId: number) {
   return resultado.rows.map(aClase);
 }
 
-export async function obtenerClase(id: number, consultor: Consultor = pool) {
-  const resultado = await consultor.query<FilaClase>(`${SELECT_CLASE} where c.id = $1`, [id]);
+export async function obtenerClase(id: number, consultor: Consultor = pool, bloquear = false) {
+  const resultado = await consultor.query<FilaClase>(`${SELECT_CLASE} where c.id = $1${bloquear ? ' for update of c' : ''}`, [id]);
   const fila = resultado.rows[0];
   return fila ? aClase(fila) : null;
 }
@@ -171,9 +171,10 @@ export async function actualizarClase(id: number, datos: DatosClase, consultor: 
   return resultado.rowCount === 1;
 }
 
-/** Curso de la sesión, o null si es una clase suelta. */
-export async function cursoDeClase(id: number, consultor: Consultor = pool) {
-  return (await consultor.query<{ cursoId: string | null }>('select curso_id::text as "cursoId" from classes where id = $1', [id])).rows[0]?.cursoId ?? null;
+/** Respeta el orden curso → sesión usado en las transacciones de cobro y asistencia. */
+export async function bloquearCursoDeClase(id: number, cliente: PoolClient) {
+  return (await cliente.query<{ id: string }>(`select c.id::text from cursos c
+    join classes s on s.curso_id=c.id where s.id=$1 for update of c`, [id])).rows[0]?.id;
 }
 
 /** Cambia PROGRAMADA → CANCELADA; devuelve false si no estaba programada. */

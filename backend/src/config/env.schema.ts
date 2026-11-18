@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { origenCorreoValido } from '../modules/notificaciones/correo.contenido.js';
 
 const booleanFromEnv = z.preprocess((value) => {
   if (typeof value !== "string") {
@@ -74,6 +75,7 @@ const envSchema = z.object({
   correoUsuario: z.string().min(1).max(180).optional(),
   correoClave: z.string().min(1).max(1024).optional(),
   correoRemitente: z.email().max(180).optional(),
+  correoOrigenPublico: z.string().optional(),
   correoSinTlsParaPruebas: booleanFromEnv.default(false),
   izipayHabilitado: booleanFromEnv.default(false),
   izipayCodigoComercio: z.string().min(1).max(15).optional(),
@@ -118,6 +120,10 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
         const valor=configuracion[nombre];
         if(!valor||esValorDeEjemplo(valor)) contexto.addIssue({code:'custom',path:[nombre],message:'configura el servicio SMTP antes de habilitar correo'});
       }
+    }
+    if ((configuracion.correoHabilitado || configuracion.correoOrigenPublico !== undefined)
+      && !origenCorreoValido(configuracion.correoOrigenPublico ?? configuracion.FRONTEND_URL, configuracion.NODE_ENV !== 'production')) {
+      contexto.addIssue({ code: 'custom', path: ['correoOrigenPublico'], message: 'usa el origen HTTPS de la aplicación, sin ruta ni credenciales' });
     }
     if (configuracion.transferenciaHabilitada) {
       for (const nombre of ['transferenciaBanco','transferenciaTitular','transferenciaCuenta','transferenciaCci'] as const) {

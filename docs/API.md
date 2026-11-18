@@ -530,3 +530,22 @@ Campos nuevos de `GET /api/pagos/:id`:
 Las cinco plantillas del Figma S3 10.1–10.5 están en [docs/correos](correos/README.md):
 inscripción confirmada, pago aprobado, pago rechazado, cambio de sesión y constancia emitida,
 con la lista de campos que el backend debe reemplazar en cada una.
+
+`GET /api/admin/notificaciones/correo` requiere el rol ADMIN. Acepta
+`tipo`, `estado`, `pagina` (1–1000) y `limite` (1–50, 25 por defecto).
+Los tipos son `INSCRIPCION_CONFIRMADA`, `COMPROBANTE`, `RECHAZO`,
+`CAMBIO_SESION` y `CONSTANCIA_EMITIDA`. Los estados son `PENDIENTE`,
+`ENVIANDO`, `ENVIADO`, `FALLIDO`, `INCIERTO` y `OMITIDO`.
+
+Devuelve `items`, `pagina`, `haySiguiente`, `habilitado` y `resumen`.
+Cada fila expone el ID, tipo, estado, curso, pago si corresponde, número
+de intentos, creación, aceptación SMTP, próximo intento y un código de
+error normalizado. El resumen indica pendientes, fallidos, inciertos y la
+fecha del pendiente más antiguo. La respuesta usa `private, no-store`.
+Las cuentas no administradoras reciben `403` y las solicitudes anónimas,
+`401`. Los cuerpos, adjuntos, direcciones y respuestas SMTP se mantienen
+fuera de esta consulta.
+
+El correo incluye un enlace HTTPS al curso o al historial propio. El destino
+usa la sesión y los permisos existentes. Los comprobantes de pago conservan
+su PDF y su historial. El estado `ENVIADO` registra la aceptación por SMTP.

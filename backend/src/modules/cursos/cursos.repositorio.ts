@@ -10,6 +10,7 @@ import { crearObligacion } from '../pagos/pagos.repositorio.js';
 import { cancelarReservasVencidas } from './inscripciones.vencimiento.js';
 import { env } from '../../config/env.js';
 import { cotizarInscripcion } from './precioInscripcion.js';
+import { avisarInscripcionConfirmada } from '../notificaciones/correo.repositorio.js';
 
 export async function actualizarCobro(id: string, datos: PoliticaCobro & { versionCobro: number }) {
   return (await pool.query(`update cursos set "modalidadCobro"=$2::varchar,costo=$3,"plazoPagoMinutos"=$4,"versionCobro"="versionCobro"+1,
@@ -162,9 +163,12 @@ export async function inscribirseEnCurso(cursoId: string, usuarioId: number, ver
       const pago=await crearObligacion(cliente,{cursoId,usuarioId,intentoId,concepto:'CURSO',importeCentimos,moneda:'PEN'});
       await cliente.query('update "intentosInscripcion" set "pagoId"=$2 where id=$1',[intentoId,pago.id]);
     }
-    if (!pendiente) await cliente.query(`insert into enrollments(class_id,user_id)
-      select id,$2 from classes where curso_id=$1 and estado='PROGRAMADA'
-      on conflict(class_id,user_id) do nothing`, [cursoId, usuarioId]);
+    if (!pendiente) {
+      await cliente.query(`insert into enrollments(class_id,user_id)
+        select id,$2 from classes where curso_id=$1 and estado='PROGRAMADA'
+        on conflict(class_id,user_id) do nothing`, [cursoId, usuarioId]);
+      await avisarInscripcionConfirmada(cliente, cursoId, usuarioId, intentoId);
+    }
     return pendiente ? 'INSCRITO_PENDIENTE' as const : 'INSCRITO' as const;
   });
 }

@@ -56,6 +56,8 @@ test('HU-20: cerrar emite solo 80 %, es idempotente y deja razón de asistencia 
   assert.equal(filas.find((f: {agremiado:{id:string}})=>f.agremiado.id===usuarios.get('setenta')!.id).certificado,null);
   assert.equal((await pedir('admin','POST',`/api/cursos/${curso}/cerrar`,{excepciones:[]})).statusCode,200);
   assert.equal((await pool.query('select count(*)::int as total from certificados_curso where curso_id=$1',[curso])).rows[0].total,1);
+  const avisos=await pool.query(`select "usuarioId"::text,tipo from "notificacionesCorreo" where "cursoId"=$1 and tipo='CONSTANCIA_EMITIDA'`,[curso]);
+  assert.deepEqual(avisos.rows,[{usuarioId:usuarios.get('ochenta')!.id,tipo:'CONSTANCIA_EMITIDA'}]);
 });
 test('HU-20: verificación pública mínima; PDF privado idéntico en dos descargas', async () => {
   const publico = await pedir(null,'GET',`/api/certificados/${codigo.toLowerCase()}`);
@@ -122,5 +124,6 @@ test('HU-20: un fallo de auditoría revierte curso, inscripción y archivo emiti
     assert.equal((await pool.query('select estado from inscripciones_curso where curso_id=$1',[nuevo])).rows[0].estado,'EN_CURSO');
     assert.equal((await pool.query('select count(*)::int as total from certificados_curso where curso_id=$1',[nuevo])).rows[0].total,0);
     assert.equal((await pool.query('select count(*)::int as total from "auditoriaCertificados" where "cursoId"=$1',[nuevo])).rows[0].total,0);
+    assert.equal((await pool.query('select 1 from "notificacionesCorreo" where "cursoId"=$1 and tipo=\'CONSTANCIA_EMITIDA\'',[nuevo])).rowCount,0);
   } finally {await pool.query('alter table "auditoriaCertificados" drop constraint "falloAuditoriaPrueba"')}
 });

@@ -4,6 +4,7 @@ import { liberarRetenidas } from './modules/certificados/certificados.repositori
 import { recuperarOperaciones } from './modules/pagos/pagos.procesador.js';
 import { enviarNotificacionesPago } from './modules/pagos/pagos.correo.js';
 import { eliminarVouchersVencidos } from './modules/pagos/pagos.archivos.js';
+import { procesarColaCorreo } from './modules/notificaciones/correo.envio.js';
 
 export async function procesarAccesoCobro() {
   return {cursosRevisados:await vencerReservas(),constanciasEmitidas:await liberarRetenidas()};
@@ -26,9 +27,16 @@ export function iniciarProcesosCobro(app:FastifyInstance) {
   };
   const revisarRecibos=()=>{
     if(recibos) return;
-    recibos=Promise.all([enviarNotificacionesPago(),eliminarVouchersVencidos()]).then(([correosEnviados,vouchersEliminados])=>{
-      if(correosEnviados||vouchersEliminados) app.log.info({correosEnviados,vouchersEliminados},'Procesados comprobantes y retención de vouchers.');
-    }).catch(()=>app.log.error('No se pudieron procesar comprobantes y vouchers. Se reintentará el ciclo.')).finally(()=>{recibos=null;});
+    recibos=Promise.allSettled([enviarNotificacionesPago(),procesarColaCorreo('cursos'),eliminarVouchersVencidos()])
+      .then(([pagos, cursos, vouchers])=>{
+        const total = (resultado: PromiseSettledResult<number>) => resultado.status === 'fulfilled' ? resultado.value : 0;
+        if (total(pagos) || total(cursos) || total(vouchers)) {
+          app.log.info({ correosPago: total(pagos), correosCurso: total(cursos), vouchersEliminados: total(vouchers) }, 'Procesados correos y retención de vouchers.');
+        }
+        if ([pagos, cursos, vouchers].some(resultado => resultado.status === 'rejected')) {
+          app.log.error('Falló un proceso de correo o retención. Se reintentará el ciclo.');
+        }
+      }).finally(()=>{recibos=null;});
   };
   const intervaloAcceso=setInterval(revisarAcceso,30000);
   const intervaloPagos=setInterval(revisarPagos,60000);

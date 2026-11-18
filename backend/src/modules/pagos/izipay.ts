@@ -11,6 +11,18 @@ const respuestaFirmada = z.object({
     order: z.array(z.object({ orderNumber:z.string(),amount:z.string().regex(/^\d{1,10}\.\d{2}$/),currency:z.string().regex(/^[A-Z]{3}$/),uniqueId:z.string().min(1).max(100),
       codeAuth:z.string().min(1),stateMessage:z.literal('Autorizado') })).min(1).max(6) }),
 });
+// Códigos terminales del emisor documentados por Izipay. Los códigos de
+// comunicación, esperas y aprobaciones parciales quedan para conciliación.
+const rechazoFirmado = z.object({
+  code: z.enum(['04', '05', '51', '54', '57', '59', '61', '62', '65', '70']),
+  transactionId: z.string(),
+  response: z.object({ merchant: z.object({ merchantCode: z.string() }),
+    order: z.tuple([z.object({
+      orderNumber: z.string(), amount: z.string().regex(/^\d{1,10}\.\d{2}$/), currency: z.literal('PEN'),
+      stateMessage: z.string().refine(valor => valor.trim().toLowerCase() !== 'autorizado'),
+    })]),
+  }),
+});
 // Firma del payload original; nunca reconstruir JSON antes de verificarlo.
 // https://developers.izipay.pe/web-core/Modalidades/firma-validation/
 export function verificarRespuestaIzipay(entrada: unknown, esperado: EsperadoIzipay, claveHash: string) {
@@ -21,6 +33,16 @@ export function verificarRespuestaIzipay(entrada: unknown, esperado: EsperadoIzi
   if (!timingSafeEqual(firma,Buffer.from(signature,'base64'))) throw new ErrorPago(422,'FIRMA_INVALIDA','No se pudo verificar la notificación.');
   let contenido: unknown;
   try { contenido=JSON.parse(payloadHttp); } catch { throw new ErrorPago(422,'RESPUESTA_INVALIDA','La respuesta firmada no es válida.'); }
+  const rechazo = rechazoFirmado.safeParse(contenido);
+  if (rechazo.success) {
+    const datos = rechazo.data;
+    const [orden] = datos.response.order;
+    if (datos.transactionId !== esperado.transaccionId || datos.response.merchant.merchantCode !== esperado.comercio
+      || orden.orderNumber !== esperado.orden || Number(orden.amount.replace('.', '')) !== esperado.importeCentimos) {
+      throw new ErrorPago(422,'CORRELACION_INVALIDA','La operación no corresponde al pago esperado.');
+    }
+    return { rechazado: true } as const;
+  }
   const validacion=respuestaFirmada.safeParse(contenido);
   if (!validacion.success) throw new ErrorPago(409,'PAGO_NO_CONFIRMADO','La pasarela no acredita un cobro exitoso.');
   const datos=validacion.data;

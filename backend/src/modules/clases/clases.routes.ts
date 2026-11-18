@@ -1,12 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   actualizarClase,
+  bloquearCursoDeClase,
   buscarConflicto,
   buscarInscripcion,
   buscarParticipante,
   cancelarClase,
   conInstructorBloqueado,
-  cursoDeClase,
   esInstructorActivo,
   inscribir,
   insertarClase,
@@ -24,6 +24,8 @@ import { camposDeError } from "../../shared/validacion.js";
 import type { PoolClient } from "pg";
 import { recalcularModalidadCurso, type ModalidadSesion } from "../cursos/modalidadCurso.js";
 import { conTransaccion, sincronizarSalaSesion } from "../reuniones/reuniones.repositorio.js";
+import { randomUUID } from 'node:crypto';
+import { encolarAvisoCurso } from '../notificaciones/correo.repositorio.js';
 
 // El acceso por rol de cada ruta lo aplica la matriz de backend/src/plugins/permisos.ts.
 
@@ -74,10 +76,26 @@ function errorConflicto(reply: FastifyReply, conflicto: Clase) {
   );
 }
 
-/** HU-36: tras cambiar una sesión, el curso se reclasifica y su sala se ajusta en la misma transacción. */
-async function despuesDeCambiarSesion(cliente: PoolClient, claseId: number, actorId: number) {
-  const cursoId = await cursoDeClase(claseId, cliente);
-  if (cursoId) await recalcularModalidadCurso(cliente, cursoId);
+async function leerSesionParaCambio(cliente: PoolClient, claseId: number) {
+  const cursoId = await bloquearCursoDeClase(claseId, cliente);
+  return { cursoId, anterior: await obtenerClase(claseId, cliente, true) };
+}
+
+function resumenSesion(sesion: Clase) {
+  return `${sesion.nombre} · ${sesion.fecha} · ${sesion.horaInicio}–${sesion.horaFin} (Lima) · ${sesion.lugar} · ${sesion.modalidad}`;
+}
+
+async function despuesDeCambiarSesion(cliente: PoolClient, claseId: number, actorId: number, cursoId: string | undefined, anterior: Clase, actual: Clase) {
+  if (cursoId) {
+    await recalcularModalidadCurso(cliente, cursoId);
+    const antes = resumenSesion(anterior);
+    const ahora = resumenSesion(actual);
+    if (antes !== ahora || anterior.estado !== actual.estado) {
+      const detalles = actual.estado === 'CANCELADA' ? [`Se canceló la sesión: ${antes}`]
+        : [`Antes: ${antes}`, `Ahora: ${ahora}`];
+      await encolarAvisoCurso(cliente, { tipo: 'CAMBIO_SESION', cursoId, eventoId: randomUUID(), detalles });
+    }
+  }
   await sincronizarSalaSesion(cliente, claseId, actorId);
 }
 
@@ -127,7 +145,7 @@ export async function clasesRoutes(app: FastifyInstance) {
       const conflicto = await buscarConflicto(datos, consultor);
       if (conflicto) return { conflicto };
       const id = await insertarClase(datos, consultor);
-      await despuesDeCambiarSesion(consultor, id, request.usuario!.id);
+      await sincronizarSalaSesion(consultor, id, request.usuario!.id);
       return { clase: await obtenerClase(id, consultor) };
     });
 
@@ -146,14 +164,20 @@ export async function clasesRoutes(app: FastifyInstance) {
     if (!datos) return reply;
 
     const resultado = await conInstructorBloqueado(datos.instructorId, async (consultor) => {
-      const conflicto = await buscarConflicto(datos, consultor, id);
+      const { cursoId, anterior } = await leerSesionParaCambio(consultor, id);
+      if (!anterior || anterior.estado === 'CANCELADA') return { cancelada: true };
+      const vigente = anterior.modalidad === actual.modalidad ? { ok: true as const, datos }
+        : validarClase(request.body, anterior.modalidad);
+      if (!vigente.ok) return { campos: vigente.fields };
+      const conflicto = await buscarConflicto(vigente.datos, consultor, id);
       if (conflicto) return { conflicto };
-      // Pudo cancelarse entre la lectura y la escritura.
-      if (!(await actualizarClase(id, datos, consultor))) return { cancelada: true };
-      await despuesDeCambiarSesion(consultor, id, request.usuario!.id);
-      return { clase: await obtenerClase(id, consultor) };
+      if (!(await actualizarClase(id, vigente.datos, consultor))) return { cancelada: true };
+      const clase = (await obtenerClase(id, consultor))!;
+      await despuesDeCambiarSesion(consultor, id, request.usuario!.id, cursoId, anterior, clase);
+      return { clase };
     });
 
+    if (resultado.campos) return errorValidacion(reply, resultado.campos);
     if (resultado.conflicto) return errorConflicto(reply, resultado.conflicto);
     if (resultado.cancelada) return claseCancelada(reply);
     return resultado.clase;
@@ -164,8 +188,9 @@ export async function clasesRoutes(app: FastifyInstance) {
     if (!id) return claseNoExiste(reply);
 
     const cancelada = await conTransaccion(async cliente => {
-      if (!(await cancelarClase(id, cliente))) return false;
-      await despuesDeCambiarSesion(cliente, id, request.usuario!.id);
+      const { cursoId, anterior } = await leerSesionParaCambio(cliente, id);
+      if (!anterior || !(await cancelarClase(id, cliente))) return false;
+      await despuesDeCambiarSesion(cliente, id, request.usuario!.id, cursoId, anterior, { ...anterior, estado: 'CANCELADA' });
       return true;
     });
     if (!cancelada) {

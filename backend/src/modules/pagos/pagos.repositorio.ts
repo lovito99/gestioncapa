@@ -6,6 +6,7 @@ import { reservarReferenciaTransferencia,guardarVoucher } from './pagos.archivos
 import type { ArchivoVoucher,RecepcionEfectivo } from './pagos.voucher.js';
 import { env } from '../../config/env.js';
 import { encolarAvisoPago } from './pagos.avisos.js';
+import { avisarInscripcionConfirmada } from '../notificaciones/correo.repositorio.js';
 
 const columnasPago = `id::text,"cursoId"::text,"usuarioId"::text,"intentoId",concepto,"importeCentimos"::float8,moneda,estado,medio,"pagadoEn"::text`;
 const columnasOperacion = `id,numero::text,"pagoId"::text,medio,clave,"cargaHash",estado,"referenciaExterna",entorno`;
@@ -94,9 +95,14 @@ export async function guardarHecho(cliente: PoolClient, pago: Pago, op: Operacio
   if(pago.estado==='PAGADO') await cliente.query(`insert into "incidenciasPago"("pagoId","operacionId",motivo,referencia,"importeCentimos",moneda)
     values($1,$2,'REFERENCIA',$3,$4,$5) on conflict do nothing`,[pago.id,op.id,hecho.referencia,hecho.importeCentimos,hecho.moneda]);
   await cliente.query(`update "operacionesPago" set estado='CONFIRMADO',"referenciaExterna"=coalesce("referenciaExterna",$2),"actualizadoEn"=clock_timestamp() where id=$1`,[op.id,hecho.referencia]);
+  const reservaPendiente = pago.concepto === 'CURSO' && pago.estado === 'PENDIENTE'
+    && (await cliente.query(`select 1 from "intentosInscripcion" where id=$1 and estado='PENDIENTE_PAGO'`, [pago.intentoId])).rowCount;
   await cliente.query(`update "obligacionesPago" set estado='PAGADO',medio=$2,"pagadoEn"=clock_timestamp() where id=$1 and estado='PENDIENTE'`,[pago.id,op.medio]);
   await cliente.query(`insert into "auditoriaPagos"("pagoId","actorId",accion,"operacionId") values($1,$2,'CONFIRMAR',$3)`,[pago.id,actorId,op.id]);
   await encolarAvisoPago(cliente,pago,op.id,'COMPROBANTE');
+  if (reservaPendiente && (await cliente.query(`select 1 from "intentosInscripcion" where id=$1 and estado='EN_CURSO'`, [pago.intentoId])).rowCount) {
+    await avisarInscripcionConfirmada(cliente, pago.cursoId, pago.usuarioId, pago.intentoId);
+  }
   return 'CONFIRMADO' as const;
 }
 export async function confirmarOperacion(id: string, hecho: { referencia: string; importeCentimos: number; moneda: string }) {
@@ -118,7 +124,23 @@ export async function conservarRespuestaMultiple(id:string,hechos:{referencia:st
   });
 }
 export async function cambiarEstadoOperacion(id: string, estado: 'INCIERTO'|'RECHAZADO') {
-  await pool.query(`update "operacionesPago" set estado=$2,"actualizadoEn"=clock_timestamp() where id=$1 and estado<>'CONFIRMADO'`,[id,estado]);
+  if (estado === 'INCIERTO') {
+    await pool.query(`update "operacionesPago" set estado=$2,"actualizadoEn"=clock_timestamp()
+      where id=$1 and estado in ('INICIADO','INCIERTO')`, [id, estado]);
+    return estado;
+  }
+  const operacion = await buscarOperacion(id);
+  if (!operacion) throw new ErrorPago(404,'OPERACION_NO_EXISTE','La operación no existe.');
+  return conPago(operacion.pagoId, async (cliente,pago) => {
+    const cambio = await cliente.query(`update "operacionesPago" set estado='RECHAZADO',"actualizadoEn"=clock_timestamp()
+      where id=$1 and medio in ('IZIPAY','CULQI') and estado in ('INICIADO','INCIERTO')`, [id]);
+    if (cambio.rowCount) {
+      await encolarAvisoPago(cliente, pago, id, 'RECHAZO', 'La pasarela rechazó el pago.');
+      return 'RECHAZADO' as const;
+    }
+    return (await cliente.query<{ estado: OperacionPago['estado'] }>('select estado from "operacionesPago" where id=$1', [id])).rows[0]?.estado
+      ?? 'RECHAZADO';
+  });
 }
 export async function registrarEfectivo(pagoId: string, actorId: number, referencia: string, datos?:Pick<RecepcionEfectivo,'importeCentimos'|'fechaRecepcion'>) {
   return conPago(pagoId, async (cliente,pago) => {
