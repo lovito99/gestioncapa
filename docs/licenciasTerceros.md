@@ -29,3 +29,16 @@ Está construido sobre los proyectos anteriores sin modificarlos. HU-26 lo compl
 con sala de espera, políticas guardadas, expulsión sin reingreso, vigilancia de
 pantalla y asistencia virtual. Si existe otro prototipo fuera del repositorio, debe
 registrarse aquí antes de integrarlo.
+
+## Diagramas de arquitectura y flujos
+
+Archify 3.2.0 se incluye como herramienta local de Codex en
+`.agents/skills/archify`, desde la revisión
+`44781293f38728baf04dbad33ce1a0cef8c39cca` de
+[tt-a1i/archify](https://github.com/tt-a1i/archify). Se utiliza para generar los
+[diagramas HTML](flujos.md); no forma parte de las dependencias de la aplicación.
+La copia conserva sin cambios su [licencia Apache-2.0](../.agents/skills/archify/LICENSE),
+[NOTICE](../.agents/skills/archify/NOTICE),
+[licencia MIT complementaria](../.agents/skills/archify/LICENSE-MIT) y
+[avisos de terceros](../.agents/skills/archify/THIRD_PARTY_NOTICES.md), incluidos
+los nombres originales exigidos por el paquete.

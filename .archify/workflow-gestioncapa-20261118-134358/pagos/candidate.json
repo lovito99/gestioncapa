@@ -1,0 +1,307 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Pagos por pasarela, transferencia y efectivo",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-gestioncapa-20261118-134358/pagos/pagos.html",
+    "repository": {
+      "url": "https://github.com/lovito99/gestioncapa.git",
+      "revision": "1e932c24ff76b49cfc4afa75b9081d67dc5a9007"
+    }
+  },
+  "lanes": [
+    {
+      "id": "origen",
+      "label": "Obligación"
+    },
+    {
+      "id": "online",
+      "label": "Pago en línea"
+    },
+    {
+      "id": "banco",
+      "label": "Transferencia"
+    },
+    {
+      "id": "caja",
+      "label": "Efectivo"
+    },
+    {
+      "id": "resultado",
+      "label": "Resultado y seguimiento"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "obligacion",
+      "lane": "origen",
+      "col": 0,
+      "type": "database",
+      "label": "Obligación pendiente",
+      "sublabel": "Curso o constancia",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.repositorio.ts",
+          "line": 16,
+          "end_line": 19
+        }
+      ]
+    },
+    {
+      "id": "online",
+      "lane": "online",
+      "col": 1,
+      "type": "backend",
+      "label": "Iniciar operación",
+      "sublabel": "Izipay o Culqi habilitado",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.servicio.ts",
+          "line": 10,
+          "end_line": 51
+        }
+      ]
+    },
+    {
+      "id": "verificar",
+      "lane": "online",
+      "col": 2,
+      "type": "security",
+      "label": "Verificar proveedor",
+      "sublabel": "Firma o consulta remota",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.notificaciones.ts",
+          "line": 19,
+          "end_line": 57
+        }
+      ]
+    },
+    {
+      "id": "declarar",
+      "lane": "banco",
+      "col": 1,
+      "type": "frontend",
+      "label": "Declarar transferencia",
+      "sublabel": "Referencia y voucher",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.transferencias.ts",
+          "line": 23,
+          "end_line": 26
+        }
+      ]
+    },
+    {
+      "id": "revisar",
+      "lane": "banco",
+      "col": 2,
+      "type": "security",
+      "label": "Revisión de ADMIN",
+      "sublabel": "Voucher, importe y fecha",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.transferencias.ts",
+          "line": 60,
+          "end_line": 89
+        }
+      ]
+    },
+    {
+      "id": "efectivo",
+      "lane": "caja",
+      "col": 1,
+      "type": "backend",
+      "label": "Registrar recepción",
+      "sublabel": "Solo ADMIN",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.repositorio.ts",
+          "line": 145,
+          "end_line": 163
+        }
+      ]
+    },
+    {
+      "id": "hecho",
+      "lane": "resultado",
+      "col": 3,
+      "type": "database",
+      "label": "Registrar hecho válido",
+      "sublabel": "CONFIRMADO / PAGADO",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.repositorio.ts",
+          "line": 81,
+          "end_line": 106
+        }
+      ]
+    },
+    {
+      "id": "aplicar",
+      "lane": "resultado",
+      "col": 4,
+      "type": "backend",
+      "label": "Aplicar derecho",
+      "sublabel": "Según reserva o entrega",
+      "sources": [
+        {
+          "path": "backend/migraciones/0023-inscripcionCobro.sql",
+          "line": 31,
+          "end_line": 60
+        },
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 90,
+          "end_line": 104
+        }
+      ]
+    },
+    {
+      "id": "correo",
+      "lane": "resultado",
+      "col": 5,
+      "type": "messagebus",
+      "label": "Encolar comprobante",
+      "sublabel": "Envío SMTP habilitado",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.repositorio.ts",
+          "line": 100,
+          "end_line": 104
+        },
+        {
+          "path": "backend/src/modules/notificaciones/correo.envio.ts",
+          "line": 64,
+          "end_line": 89
+        }
+      ]
+    },
+    {
+      "id": "conciliar",
+      "lane": "online",
+      "col": 4,
+      "type": "security",
+      "label": "Revisar pendientes",
+      "sublabel": "INCIERTO / incidencia",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.procesador.ts",
+          "line": 5,
+          "end_line": 30
+        }
+      ]
+    },
+    {
+      "id": "rechazo",
+      "lane": "banco",
+      "col": 4,
+      "type": "security",
+      "label": "Operación rechazada",
+      "sublabel": "Sin acreditar obligación",
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.transferencias.ts",
+          "line": 73,
+          "end_line": 89
+        },
+        {
+          "path": "backend/src/modules/pagos/pagos.repositorio.ts",
+          "line": 126,
+          "end_line": 140
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "obligacion",
+      "to": "online",
+      "label": "En línea"
+    },
+    {
+      "from": "online",
+      "to": "verificar"
+    },
+    {
+      "from": "obligacion",
+      "to": "declarar",
+      "label": "Transferencia"
+    },
+    {
+      "from": "declarar",
+      "to": "revisar"
+    },
+    {
+      "from": "obligacion",
+      "to": "efectivo",
+      "label": "Efectivo"
+    },
+    {
+      "from": "verificar",
+      "to": "hecho",
+      "label": "Validado"
+    },
+    {
+      "from": "revisar",
+      "to": "hecho",
+      "label": "Aprobado"
+    },
+    {
+      "from": "efectivo",
+      "to": "hecho"
+    },
+    {
+      "from": "hecho",
+      "to": "aplicar"
+    },
+    {
+      "from": "aplicar",
+      "to": "correo"
+    },
+    {
+      "from": "verificar",
+      "to": "conciliar",
+      "label": "Incierto",
+      "role": "async",
+      "variant": "dashed"
+    },
+    {
+      "from": "revisar",
+      "to": "rechazo",
+      "label": "Rechazar",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "obligacion",
+    "online",
+    "verificar",
+    "hecho",
+    "aplicar",
+    "correo"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Confirmación en el servidor",
+      "items": [
+        "El retorno del navegador no acredita por sí mismo el pago. Izipay verifica la respuesta firmada y Culqi consulta el cargo.",
+        "Una transferencia declarada permanece pendiente hasta la revisión administrativa.",
+        "La interfaz ofrece Izipay cuando está habilitado; Culqi conserva un adaptador backend pero mediosDisponibles devuelve culqi: false."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Incidencias y reintentos",
+      "items": [
+        "Referencia, importe y moneda se verifican antes de acreditar. Las discrepancias generan conciliación.",
+        "El proceso automático revisa operaciones pendientes de pasarelas habilitadas cada 60 segundos.",
+        "Un pago de CURSO solo abre acceso con reserva vigente; el de CONSTANCIA libera una entrega previamente autorizada."
+      ]
+    }
+  ]
+}

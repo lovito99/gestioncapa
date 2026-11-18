@@ -1,0 +1,239 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Preparación de cursos y sesiones",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-gestioncapa-20261118-134358/cursos/cursos.html",
+    "repository": {
+      "url": "https://github.com/lovito99/gestioncapa.git",
+      "revision": "1e932c24ff76b49cfc4afa75b9081d67dc5a9007"
+    }
+  },
+  "lanes": [
+    {
+      "id": "admin",
+      "label": "Administración"
+    },
+    {
+      "id": "api",
+      "label": "Validación y persistencia"
+    },
+    {
+      "id": "salas",
+      "label": "Sesiones"
+    },
+    {
+      "id": "rechazo",
+      "label": "Condiciones que impiden continuar"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "crear",
+      "lane": "admin",
+      "col": 0,
+      "type": "frontend",
+      "label": "Crear curso",
+      "sublabel": "Instructor y módulos",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.rutas.ts",
+          "line": 82,
+          "end_line": 86
+        }
+      ]
+    },
+    {
+      "id": "guardar",
+      "lane": "api",
+      "col": 1,
+      "type": "database",
+      "label": "Guardar borrador",
+      "sublabel": "Instructor activo",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.repositorio.ts",
+          "line": 71,
+          "end_line": 82
+        }
+      ]
+    },
+    {
+      "id": "publicar",
+      "lane": "api",
+      "col": 2,
+      "type": "backend",
+      "label": "Publicar curso",
+      "sublabel": "Horas y módulos",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.repositorio.ts",
+          "line": 94,
+          "end_line": 97
+        }
+      ]
+    },
+    {
+      "id": "catalogo",
+      "lane": "admin",
+      "col": 3,
+      "type": "frontend",
+      "label": "Mostrar catálogo",
+      "sublabel": "Curso publicado",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.rutas.ts",
+          "line": 45,
+          "end_line": 59
+        }
+      ]
+    },
+    {
+      "id": "sesion",
+      "lane": "salas",
+      "col": 3,
+      "type": "backend",
+      "label": "Programar sesión",
+      "sublabel": "Horario y modalidad",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/sesiones.repositorio.ts",
+          "line": 27,
+          "end_line": 43
+        }
+      ]
+    },
+    {
+      "id": "sala",
+      "lane": "salas",
+      "col": 4,
+      "type": "backend",
+      "label": "Sincronizar sala",
+      "sublabel": "Virtual o ambas",
+      "sources": [
+        {
+          "path": "backend/src/modules/reuniones/reuniones.repositorio.ts",
+          "line": 138,
+          "end_line": 152
+        }
+      ]
+    },
+    {
+      "id": "lista",
+      "lane": "salas",
+      "col": 5,
+      "type": "database",
+      "label": "Sesión preparada",
+      "sublabel": "Inscritos con acceso",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/sesiones.repositorio.ts",
+          "line": 35,
+          "end_line": 43
+        }
+      ]
+    },
+    {
+      "id": "incompleto",
+      "lane": "rechazo",
+      "col": 2,
+      "type": "security",
+      "label": "Publicación impedida",
+      "sublabel": "Sin horas o módulos",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.rutas.ts",
+          "line": 125,
+          "end_line": 129
+        }
+      ]
+    },
+    {
+      "id": "conflicto",
+      "lane": "rechazo",
+      "col": 3,
+      "type": "security",
+      "label": "Sesión rechazada",
+      "sublabel": "Conflicto o curso cerrado",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.rutas.ts",
+          "line": 111,
+          "end_line": 122
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "crear",
+      "to": "guardar"
+    },
+    {
+      "from": "guardar",
+      "to": "publicar"
+    },
+    {
+      "from": "publicar",
+      "to": "catalogo",
+      "label": "Publicado"
+    },
+    {
+      "from": "catalogo",
+      "to": "sesion",
+      "label": "Gestionar"
+    },
+    {
+      "from": "sesion",
+      "to": "sala",
+      "label": "Sin conflicto"
+    },
+    {
+      "from": "sala",
+      "to": "lista"
+    },
+    {
+      "from": "publicar",
+      "to": "incompleto",
+      "label": "Incompleto",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "from": "sesion",
+      "to": "conflicto",
+      "label": "No válido",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "crear",
+    "guardar",
+    "publicar",
+    "catalogo",
+    "sesion",
+    "sala",
+    "lista"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Permisos y orden",
+      "items": [
+        "Solo ADMIN crea, publica y programa sesiones. La programación también puede realizarse antes de publicar.",
+        "Publicar exige horas lectivas y al menos un módulo; no exige haber programado sesiones."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Modalidades",
+      "items": [
+        "Una sesión virtual o ambas obtiene su sala; al pasar a presencial se cancela la sala todavía programada.",
+        "Los cursos grabados no admiten sesiones con fecha; su aula está disponible únicamente en modo demo."
+      ]
+    }
+  ]
+}

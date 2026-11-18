@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/arquitectura/candidate.json",
+    "sha256": "66d252ebcc715e5771d693a0d3baf0d3c94cc61e47e1235d3b982d77cf374424",
+    "bytes": 6216
+  },
+  "artifact": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/arquitectura/arquitectura.html",
+    "sha256": "75cab6b75a74856b1d3f3798375c4c76e7f490b692a055e0e20b013bdae8e959",
+    "bytes": 848810
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/arquitectura/arquitectura.finalize.json",
+    "summaryReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/arquitectura/arquitectura.finalize-summary.json",
+    "browserCheckReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/arquitectura/arquitectura.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4483,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  },
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "routesOverSuggestedBends": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [],
+      "detours": [
+        {
+          "relationship": {
+            "id": "sql",
+            "from": "api",
+            "to": "postgres",
+            "label": "SQL",
+            "collectionIndex": 1,
+            "artifactIndex": 2
+          },
+          "bends": 3,
+          "stretch": 1.147
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "api has 4 relationships facing its right side, which fits 3 ports: make that side at least 74px, or move some of those neighbours so they face another side of api.",
+      "api → postgres needs 3 bends: move node api or postgres so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/cursos/candidate.json",
+    "sha256": "f038db864c76fa2dc5afeabb955387bf2ee7b922786b4973b336ec677d2d91b5",
+    "bytes": 5301
+  },
+  "artifact": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/cursos/cursos.html",
+    "sha256": "5c6d4bea4ee3221088e01cc28882f134ffe35cb656d712b90f93f7417f88360c",
+    "bytes": 846423
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/cursos/cursos.finalize.json",
+    "summaryReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/cursos/cursos.finalize-summary.json",
+    "browserCheckReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/cursos/cursos.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4484,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

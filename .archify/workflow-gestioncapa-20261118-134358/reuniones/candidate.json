@@ -1,0 +1,256 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Reunión virtual y acreditación de asistencia",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-gestioncapa-20261118-134358/reuniones/reuniones.html",
+    "repository": {
+      "url": "https://github.com/lovito99/gestioncapa.git",
+      "revision": "1e932c24ff76b49cfc4afa75b9081d67dc5a9007"
+    }
+  },
+  "lanes": [
+    {
+      "id": "gestion",
+      "label": "Gestión y acceso"
+    },
+    {
+      "id": "sala",
+      "label": "Jitsi y eventos"
+    },
+    {
+      "id": "cierre",
+      "label": "Cierre y asistencia"
+    },
+    {
+      "id": "rechazo",
+      "label": "Sin acreditación"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "iniciar",
+      "lane": "gestion",
+      "col": 0,
+      "type": "backend",
+      "label": "Iniciar reunión",
+      "sublabel": "ADMIN o instructor",
+      "sources": [
+        {
+          "path": "backend/src/modules/reuniones/reuniones.rutas.ts",
+          "line": 58,
+          "end_line": 70
+        }
+      ]
+    },
+    {
+      "id": "credencial",
+      "lane": "gestion",
+      "col": 1,
+      "type": "security",
+      "label": "Solicitar credencial",
+      "sublabel": "Acceso y aviso si aplica",
+      "sources": [
+        {
+          "path": "backend/src/modules/reuniones/reuniones.rutas.ts",
+          "line": 115,
+          "end_line": 140
+        },
+        {
+          "path": "backend/src/modules/reuniones/reuniones.repositorio.ts",
+          "line": 80,
+          "end_line": 94
+        }
+      ]
+    },
+    {
+      "id": "jitsi",
+      "lane": "sala",
+      "col": 2,
+      "type": "external",
+      "label": "Entrar en sala Jitsi",
+      "sublabel": "JWT de sala: 300 s",
+      "sources": [
+        {
+          "path": "backend/src/modules/reuniones/reuniones.rutas.ts",
+          "line": 135,
+          "end_line": 137
+        }
+      ]
+    },
+    {
+      "id": "eventos",
+      "lane": "sala",
+      "col": 3,
+      "type": "database",
+      "label": "Guardar conexiones",
+      "sublabel": "Webhook autenticado",
+      "sources": [
+        {
+          "path": "backend/src/modules/jitsi/jitsi.eventos.ts",
+          "line": 29,
+          "end_line": 58
+        }
+      ]
+    },
+    {
+      "id": "finalizar",
+      "lane": "cierre",
+      "col": 3,
+      "type": "backend",
+      "label": "Finalizar reunión",
+      "sublabel": "Cierra intervalos abiertos",
+      "sources": [
+        {
+          "path": "backend/src/modules/reuniones/reuniones.rutas.ts",
+          "line": 58,
+          "end_line": 70
+        },
+        {
+          "path": "backend/src/modules/reuniones/reuniones.repositorio.ts",
+          "line": 32,
+          "end_line": 43
+        }
+      ]
+    },
+    {
+      "id": "calcular",
+      "lane": "cierre",
+      "col": 4,
+      "type": "security",
+      "label": "Calcular asistencia",
+      "sublabel": "Umbral y no expulsado",
+      "sources": [
+        {
+          "path": "backend/src/modules/reuniones/reuniones.repositorio.ts",
+          "line": 44,
+          "end_line": 56
+        },
+        {
+          "path": "backend/src/modules/reuniones/asistenciaVirtual.ts",
+          "line": 8,
+          "end_line": 24
+        }
+      ]
+    },
+    {
+      "id": "presente",
+      "lane": "cierre",
+      "col": 5,
+      "type": "database",
+      "label": "Registrar presencia",
+      "sublabel": "Clase y curso abiertos",
+      "sources": [
+        {
+          "path": "backend/src/modules/reuniones/reuniones.repositorio.ts",
+          "line": 48,
+          "end_line": 56
+        }
+      ]
+    },
+    {
+      "id": "denegado",
+      "lane": "rechazo",
+      "col": 1,
+      "type": "security",
+      "label": "Entrada impedida",
+      "sublabel": "Sin acceso o sin aviso",
+      "sources": [
+        {
+          "path": "backend/src/modules/reuniones/reuniones.rutas.ts",
+          "line": 118,
+          "end_line": 140
+        }
+      ]
+    },
+    {
+      "id": "ausente",
+      "lane": "rechazo",
+      "col": 4,
+      "type": "database",
+      "label": "No acreditar",
+      "sublabel": "Bajo umbral o expulsado",
+      "sources": [
+        {
+          "path": "backend/src/modules/reuniones/reuniones.repositorio.ts",
+          "line": 44,
+          "end_line": 51
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "iniciar",
+      "to": "credencial"
+    },
+    {
+      "from": "credencial",
+      "to": "jitsi",
+      "label": "Autorizado"
+    },
+    {
+      "from": "jitsi",
+      "to": "eventos",
+      "label": "Entrar / salir"
+    },
+    {
+      "from": "eventos",
+      "to": "finalizar",
+      "label": "Al cerrar"
+    },
+    {
+      "from": "finalizar",
+      "to": "calcular"
+    },
+    {
+      "from": "calcular",
+      "to": "presente",
+      "label": "Cumple"
+    },
+    {
+      "from": "credencial",
+      "to": "denegado",
+      "label": "Denegado",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "from": "calcular",
+      "to": "ausente",
+      "label": "No cumple",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "iniciar",
+    "credencial",
+    "jitsi",
+    "eventos",
+    "finalizar",
+    "calcular",
+    "presente"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Acceso a la sala",
+      "items": [
+        "Requiere Jitsi habilitado, reunión iniciada, clase activa y autorización sobre esa sesión.",
+        "Si está prevista grabación, el participante debe aceptar el aviso antes de obtener su primera credencial."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Cálculo al finalizar",
+      "items": [
+        "Usa eventos autenticados de Prosody; el navegador no declara su propia asistencia.",
+        "Recorta intervalos al tiempo real de la reunión y une reconexiones o pestañas simultáneas.",
+        "El umbral de conexión es configurable por reunión. No equivale al 80 % de sesiones exigido para la constancia."
+      ]
+    }
+  ]
+}

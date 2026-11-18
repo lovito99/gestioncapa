@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "b816bb9b-d37a-4c19-84f7-cc778ba8391b",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/pagos/candidate.json",
+  "output": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/pagos/pagos.html",
+  "specification": {
+    "sha256": "d3af3df1dd923a986a67156db96840919576b5b2da813681996e9ab28a3b9008",
+    "bytes": 7130
+  },
+  "artifact": {
+    "sha256": "bb1b2689b42e20e0bd4974f79efbeb52835496f4d6f3231a27296746106b5491",
+    "bytes": 853624
+  }
+}

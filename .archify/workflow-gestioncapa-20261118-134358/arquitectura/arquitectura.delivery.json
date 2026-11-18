@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "24a968af-0dfc-4888-b738-c42c221fcfdb",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/arquitectura/candidate.json",
+  "output": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/arquitectura/arquitectura.html",
+  "specification": {
+    "sha256": "66d252ebcc715e5771d693a0d3baf0d3c94cc61e47e1235d3b982d77cf374424",
+    "bytes": 6216
+  },
+  "artifact": {
+    "sha256": "75cab6b75a74856b1d3f3798375c4c76e7f490b692a055e0e20b013bdae8e959",
+    "bytes": 848810
+  }
+}

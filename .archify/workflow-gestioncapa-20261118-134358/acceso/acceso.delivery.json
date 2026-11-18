@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "6d1c6b6f-b364-40ef-8621-cc3283636048",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/acceso/candidate.json",
+  "output": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/acceso/acceso.html",
+  "specification": {
+    "sha256": "47b9ab777b47ed48269870310fb1ecae1c105ff182fb37334c7d91553d5ff1f4",
+    "bytes": 4707
+  },
+  "artifact": {
+    "sha256": "6fb5724da58ea292336120983a45f4494d51bb818b505eecbe9addc0420ea2d9",
+    "bytes": 843662
+  }
+}

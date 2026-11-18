@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/pagos/candidate.json",
+    "sha256": "d3af3df1dd923a986a67156db96840919576b5b2da813681996e9ab28a3b9008",
+    "bytes": 7130
+  },
+  "artifact": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/pagos/pagos.html",
+    "sha256": "bb1b2689b42e20e0bd4974f79efbeb52835496f4d6f3231a27296746106b5491",
+    "bytes": 853624
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/pagos/pagos.finalize.json",
+    "summaryReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/pagos/pagos.finalize-summary.json",
+    "browserCheckReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/pagos/pagos.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 8037,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

@@ -1,0 +1,255 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Inscripción y condiciones de cobro",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-gestioncapa-20261118-134358/inscripcion/inscripcion.html",
+    "repository": {
+      "url": "https://github.com/lovito99/gestioncapa.git",
+      "revision": "1e932c24ff76b49cfc4afa75b9081d67dc5a9007"
+    }
+  },
+  "lanes": [
+    {
+      "id": "persona",
+      "label": "Participante"
+    },
+    {
+      "id": "api",
+      "label": "Comprobaciones"
+    },
+    {
+      "id": "reserva",
+      "label": "Pago previo"
+    },
+    {
+      "id": "acceso",
+      "label": "Acceso confirmado"
+    },
+    {
+      "id": "vencimiento",
+      "label": "Reserva vencida"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "elegir",
+      "lane": "persona",
+      "col": 0,
+      "type": "frontend",
+      "label": "Elegir curso",
+      "sublabel": "Catálogo y tarifa",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.rutas.ts",
+          "line": 88,
+          "end_line": 104
+        }
+      ]
+    },
+    {
+      "id": "validar",
+      "lane": "api",
+      "col": 1,
+      "type": "security",
+      "label": "Validar inscripción",
+      "sublabel": "Publicado, cupo y precio",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.repositorio.ts",
+          "line": 125,
+          "end_line": 151
+        }
+      ]
+    },
+    {
+      "id": "modalidad",
+      "lane": "api",
+      "col": 2,
+      "type": "backend",
+      "label": "Aplicar modalidad",
+      "sublabel": "Condiciones congeladas",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.repositorio.ts",
+          "line": 152,
+          "end_line": 161
+        }
+      ]
+    },
+    {
+      "id": "reservar",
+      "lane": "reserva",
+      "col": 2,
+      "type": "database",
+      "label": "Reservar plaza",
+      "sublabel": "PENDIENTE_PAGO",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.repositorio.ts",
+          "line": 152,
+          "end_line": 164
+        }
+      ]
+    },
+    {
+      "id": "pagar",
+      "lane": "reserva",
+      "col": 3,
+      "type": "backend",
+      "label": "Confirmar pago",
+      "sublabel": "Antes de vencer",
+      "sources": [
+        {
+          "path": "backend/migraciones/0023-inscripcionCobro.sql",
+          "line": 31,
+          "end_line": 44
+        }
+      ]
+    },
+    {
+      "id": "inscrito",
+      "lane": "acceso",
+      "col": 3,
+      "type": "database",
+      "label": "Confirmar inscripción",
+      "sublabel": "EN_CURSO",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.repositorio.ts",
+          "line": 159,
+          "end_line": 172
+        },
+        {
+          "path": "backend/migraciones/0023-inscripcionCobro.sql",
+          "line": 37,
+          "end_line": 44
+        }
+      ]
+    },
+    {
+      "id": "contenido",
+      "lane": "acceso",
+      "col": 4,
+      "type": "frontend",
+      "label": "Acceder al curso",
+      "sublabel": "Sesiones y materiales",
+      "sources": [
+        {
+          "path": "backend/migraciones/0023-inscripcionCobro.sql",
+          "line": 62,
+          "end_line": 66
+        }
+      ]
+    },
+    {
+      "id": "cancelada",
+      "lane": "vencimiento",
+      "col": 3,
+      "type": "database",
+      "label": "Cancelar reserva",
+      "sublabel": "Liberar cupo",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/inscripciones.vencimiento.ts",
+          "line": 4,
+          "end_line": 19
+        }
+      ]
+    },
+    {
+      "id": "rechazo",
+      "lane": "api",
+      "col": 0,
+      "type": "security",
+      "label": "Inscripción rechazada",
+      "sublabel": "409 / 403 / 404",
+      "sources": [
+        {
+          "path": "backend/src/modules/cursos/cursos.rutas.ts",
+          "line": 65,
+          "end_line": 77
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "elegir",
+      "to": "validar"
+    },
+    {
+      "from": "validar",
+      "to": "modalidad",
+      "label": "Válido"
+    },
+    {
+      "from": "modalidad",
+      "to": "reservar",
+      "label": "PREVIO"
+    },
+    {
+      "from": "reservar",
+      "to": "pagar",
+      "label": "Pagar"
+    },
+    {
+      "from": "pagar",
+      "to": "inscrito",
+      "label": "En plazo"
+    },
+    {
+      "from": "modalidad",
+      "to": "inscrito",
+      "label": "GRATUITO / CERTIFICADO"
+    },
+    {
+      "from": "inscrito",
+      "to": "contenido"
+    },
+    {
+      "from": "reservar",
+      "to": "cancelada",
+      "label": "Vence",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "from": "validar",
+      "to": "rechazo",
+      "label": "No válido",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "elegir",
+    "validar",
+    "modalidad",
+    "reservar",
+    "pagar",
+    "inscrito",
+    "contenido"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Tres modalidades",
+      "items": [
+        "PREVIO: reserva la plaza y crea la obligación del curso; habilita el acceso al confirmar el pago dentro del plazo.",
+        "GRATUITO: acceso directo sin obligación. CERTIFICADO: acceso directo y cobro cuando la constancia resulte elegible."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Concurrencia y vencimiento",
+      "items": [
+        "La transacción bloquea el curso para evitar vender la última plaza dos veces.",
+        "El ciclo de reservas se ejecuta cada 30 segundos; la vigencia se comprueba también al inscribir y al acceder.",
+        "Un pago tardío conserva el hecho financiero y genera una incidencia; no reactiva automáticamente la reserva."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/acceso/candidate.json",
+    "sha256": "47b9ab777b47ed48269870310fb1ecae1c105ff182fb37334c7d91553d5ff1f4",
+    "bytes": 4707
+  },
+  "artifact": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/acceso/acceso.html",
+    "sha256": "6fb5724da58ea292336120983a45f4494d51bb818b505eecbe9addc0420ea2d9",
+    "bytes": 843662
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/acceso/acceso.finalize.json",
+    "summaryReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/acceso/acceso.finalize-summary.json",
+    "browserCheckReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/acceso/acceso.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4667,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

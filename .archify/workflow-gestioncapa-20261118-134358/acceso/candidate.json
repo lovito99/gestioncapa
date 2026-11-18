@@ -1,0 +1,216 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Acceso y permisos de GestionCapa",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-gestioncapa-20261118-134358/acceso/acceso.html",
+    "repository": {
+      "url": "https://github.com/lovito99/gestioncapa.git",
+      "revision": "1e932c24ff76b49cfc4afa75b9081d67dc5a9007"
+    }
+  },
+  "lanes": [
+    {
+      "id": "persona",
+      "label": "Navegador"
+    },
+    {
+      "id": "api",
+      "label": "API y controles"
+    },
+    {
+      "id": "rechazo",
+      "label": "Acceso rechazado"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "login",
+      "lane": "persona",
+      "col": 0,
+      "type": "frontend",
+      "label": "Iniciar sesión",
+      "sublabel": "Correo y contraseña",
+      "sources": [
+        {
+          "path": "backend/src/modules/auth/auth.routes.ts",
+          "line": 40,
+          "end_line": 44
+        }
+      ]
+    },
+    {
+      "id": "validar",
+      "lane": "api",
+      "col": 1,
+      "type": "security",
+      "label": "Validar acceso",
+      "sublabel": "Redis + cuenta activa",
+      "sources": [
+        {
+          "path": "backend/src/modules/auth/auth.routes.ts",
+          "line": 40,
+          "end_line": 63
+        }
+      ]
+    },
+    {
+      "id": "jwt",
+      "lane": "api",
+      "col": 2,
+      "type": "security",
+      "label": "Emitir JWT",
+      "sublabel": "Identidad + caducidad",
+      "sources": [
+        {
+          "path": "backend/src/modules/auth/auth.routes.ts",
+          "line": 95,
+          "end_line": 101
+        }
+      ]
+    },
+    {
+      "id": "sesion",
+      "lane": "persona",
+      "col": 3,
+      "type": "frontend",
+      "label": "Guardar sesión",
+      "sublabel": "sessionStorage",
+      "sources": [
+        {
+          "path": "frontend/src/lib/sesion.ts",
+          "line": 34,
+          "end_line": 37
+        }
+      ]
+    },
+    {
+      "id": "guard",
+      "lane": "api",
+      "col": 4,
+      "type": "security",
+      "label": "Autorizar petición",
+      "sublabel": "JWT, usuario y rol",
+      "sources": [
+        {
+          "path": "backend/src/plugins/autorizacion.ts",
+          "line": 39,
+          "end_line": 82
+        }
+      ]
+    },
+    {
+      "id": "operacion",
+      "lane": "api",
+      "col": 5,
+      "type": "backend",
+      "label": "Ejecutar acción",
+      "sublabel": "Permiso declarado",
+      "sources": [
+        {
+          "path": "backend/src/plugins/autorizacion.ts",
+          "line": 92,
+          "end_line": 108
+        }
+      ]
+    },
+    {
+      "id": "loginError",
+      "lane": "rechazo",
+      "col": 1,
+      "type": "security",
+      "label": "Rechazar acceso",
+      "sublabel": "401 / 403 / 423",
+      "sources": [
+        {
+          "path": "backend/src/modules/auth/auth.routes.ts",
+          "line": 42,
+          "end_line": 63
+        }
+      ]
+    },
+    {
+      "id": "permisoError",
+      "lane": "rechazo",
+      "col": 4,
+      "type": "security",
+      "label": "Rechazar petición",
+      "sublabel": "401 / 403 / 429",
+      "sources": [
+        {
+          "path": "backend/src/plugins/autorizacion.ts",
+          "line": 44,
+          "end_line": 81
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "login",
+      "to": "validar"
+    },
+    {
+      "from": "validar",
+      "to": "jwt",
+      "label": "Válido"
+    },
+    {
+      "from": "jwt",
+      "to": "sesion"
+    },
+    {
+      "from": "sesion",
+      "to": "guard",
+      "label": "Bearer"
+    },
+    {
+      "from": "guard",
+      "to": "operacion",
+      "label": "Autorizado"
+    },
+    {
+      "from": "validar",
+      "to": "loginError",
+      "label": "Inválido",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "from": "guard",
+      "to": "permisoError",
+      "label": "Denegado",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "login",
+    "validar",
+    "jwt",
+    "sesion",
+    "guard",
+    "operacion"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Alta y destino",
+      "items": [
+        "POST /api/auth/registro también crea una sesión al registrar correctamente al participante.",
+        "ADMIN → /admin; INSTRUCTOR → /instructor/clases; AGREMIADO → /participante/clases."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Caducidad y cierre",
+      "items": [
+        "El quinto fallo de acceso bloquea la cuenta durante 15 minutos.",
+        "Cada petición protegida relee al usuario activo y su rol; logout revoca el token en Redis.",
+        "Un 401 de una petición protegida limpia la sesión del navegador y vuelve al login."
+      ]
+    }
+  ]
+}

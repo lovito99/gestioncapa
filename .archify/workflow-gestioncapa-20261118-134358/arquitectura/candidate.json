@@ -1,0 +1,277 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Arquitectura de GestionCapa",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-gestioncapa-20261118-134358/arquitectura/arquitectura.html",
+    "repository": {
+      "url": "https://github.com/lovito99/gestioncapa.git",
+      "revision": "1e932c24ff76b49cfc4afa75b9081d67dc5a9007"
+    }
+  },
+  "components": [
+    {
+      "id": "frontend",
+      "type": "frontend",
+      "label": "Aplicación React",
+      "sublabel": "ADMIN · instructor · participante",
+      "pos": [
+        40,
+        250
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "frontend/src/rutas.tsx",
+          "line": 49,
+          "end_line": 145
+        },
+        {
+          "path": "frontend/src/lib/api.ts",
+          "line": 6,
+          "end_line": 14
+        }
+      ]
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "API Fastify",
+      "sublabel": "Módulos + procesos periódicos",
+      "pos": [
+        430,
+        250
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/src/app.ts",
+          "line": 49,
+          "end_line": 71
+        },
+        {
+          "path": "backend/src/cobro.procesos.ts",
+          "line": 9,
+          "end_line": 50
+        },
+        {
+          "path": "backend/src/modules/pagos/pagos.servicio.ts",
+          "line": 10,
+          "end_line": 51
+        }
+      ]
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL",
+      "sublabel": "Datos, pagos y cola de correo",
+      "pos": [
+        820,
+        250
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/src/shared/database.ts",
+          "line": 1,
+          "end_line": 12
+        },
+        {
+          "path": "backend/src/modules/pagos/pagos.repositorio.ts",
+          "line": 81,
+          "end_line": 104
+        },
+        {
+          "path": "backend/src/modules/notificaciones/correo.envio.ts",
+          "line": 64,
+          "end_line": 90
+        }
+      ]
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis",
+      "sublabel": "Bloqueos, límites y revocación",
+      "pos": [
+        430,
+        40
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/src/modules/auth/seguridadAcceso.ts",
+          "line": 14,
+          "end_line": 46
+        }
+      ]
+    },
+    {
+      "id": "smtp",
+      "type": "external",
+      "label": "Servidor SMTP",
+      "sublabel": "Correo si está habilitado",
+      "pos": [
+        820,
+        40
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/src/modules/notificaciones/correo.envio.ts",
+          "line": 39,
+          "end_line": 46
+        },
+        {
+          "path": "backend/src/modules/notificaciones/correo.envio.ts",
+          "line": 64,
+          "end_line": 71
+        }
+      ]
+    },
+    {
+      "id": "pasarela",
+      "type": "external",
+      "label": "Izipay / Culqi",
+      "sublabel": "Solo proveedores habilitados",
+      "pos": [
+        820,
+        460
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "backend/src/modules/pagos/pagos.servicio.ts",
+          "line": 10,
+          "end_line": 51
+        },
+        {
+          "path": "backend/src/modules/pagos/pagos.notificaciones.ts",
+          "line": 19,
+          "end_line": 57
+        }
+      ]
+    },
+    {
+      "id": "jitsi",
+      "type": "external",
+      "label": "Jitsi / Prosody",
+      "sublabel": "Sala y eventos autenticados",
+      "pos": [
+        40,
+        460
+      ],
+      "size": [
+        170,
+        70
+      ],
+      "sources": [
+        {
+          "path": "frontend/src/servicios/salaJitsi.ts",
+          "line": 82,
+          "end_line": 102
+        },
+        {
+          "path": "backend/src/modules/jitsi/jitsi.eventos.ts",
+          "line": 29,
+          "end_line": 58
+        }
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "peticion",
+      "from": "frontend",
+      "to": "api",
+      "label": "HTTP /api + JWT",
+      "variant": "emphasis"
+    },
+    {
+      "id": "sql",
+      "from": "api",
+      "to": "postgres",
+      "label": "SQL"
+    },
+    {
+      "id": "controles",
+      "from": "api",
+      "to": "redis",
+      "label": "Acceso",
+      "variant": "security"
+    },
+    {
+      "id": "enviarCorreo",
+      "from": "api",
+      "to": "smtp",
+      "label": "SMTP habilitado",
+      "variant": "dashed"
+    },
+    {
+      "id": "cobrar",
+      "from": "api",
+      "to": "pasarela",
+      "label": "Proveedor habilitado"
+    },
+    {
+      "id": "notificacionPago",
+      "from": "pasarela",
+      "to": "api",
+      "label": "Notificación verificada",
+      "variant": "security"
+    },
+    {
+      "id": "sala",
+      "from": "frontend",
+      "to": "jitsi",
+      "label": "Sala autorizada"
+    },
+    {
+      "id": "eventosJitsi",
+      "from": "jitsi",
+      "to": "api",
+      "label": "Eventos autenticados",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Recorrido principal",
+      "items": [
+        "El navegador usa React y envía peticiones /api con Bearer JWT. Express en producción o Vite en desarrollo reenvía la API al backend.",
+        "Fastify aplica permisos y usa PostgreSQL para estado de cursos, inscripciones, asistencia, pagos y certificados."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Procesos dentro del backend",
+      "items": [
+        "Los ciclos de reservas, entregas de constancias y correos corren cada 30 segundos; la conciliación de pasarelas cada 60 segundos.",
+        "La cola de correo se guarda en PostgreSQL. Redis se usa para seguridad de acceso; no es una cola de trabajos.",
+        "Las integraciones dependen de configuración; el diagrama describe código y no acredita servicios activos ni una topología de despliegue."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "3aa456fa-68c6-4366-aa79-715207a7338a",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/cursos/candidate.json",
+  "output": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/cursos/cursos.html",
+  "specification": {
+    "sha256": "f038db864c76fa2dc5afeabb955387bf2ee7b922786b4973b336ec677d2d91b5",
+    "bytes": 5301
+  },
+  "artifact": {
+    "sha256": "5c6d4bea4ee3221088e01cc28882f134ffe35cb656d712b90f93f7417f88360c",
+    "bytes": 846423
+  }
+}

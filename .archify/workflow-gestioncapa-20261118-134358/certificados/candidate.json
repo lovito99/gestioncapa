@@ -1,0 +1,282 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Cierre del curso y emisión de constancias",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-gestioncapa-20261118-134358/certificados/certificados.html",
+    "repository": {
+      "url": "https://github.com/lovito99/gestioncapa.git",
+      "revision": "1e932c24ff76b49cfc4afa75b9081d67dc5a9007"
+    }
+  },
+  "lanes": [
+    {
+      "id": "gestion",
+      "label": "Administración"
+    },
+    {
+      "id": "elegibilidad",
+      "label": "Reglas de emisión"
+    },
+    {
+      "id": "entrega",
+      "label": "Cobro de constancia"
+    },
+    {
+      "id": "documento",
+      "label": "Documento y consulta"
+    },
+    {
+      "id": "rechazo",
+      "label": "Sin emisión ordinaria"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "cerrar",
+      "lane": "gestion",
+      "col": 0,
+      "type": "frontend",
+      "label": "Solicitar cierre",
+      "sublabel": "Curso publicado",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.rutas.ts",
+          "line": 20,
+          "end_line": 25
+        }
+      ]
+    },
+    {
+      "id": "periodo",
+      "lane": "elegibilidad",
+      "col": 1,
+      "type": "security",
+      "label": "Validar cierre",
+      "sublabel": "Sesiones acabadas; 7 días",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 127,
+          "end_line": 138
+        }
+      ]
+    },
+    {
+      "id": "elegible",
+      "lane": "elegibilidad",
+      "col": 2,
+      "type": "security",
+      "label": "Evaluar participante",
+      "sublabel": "80 % o excepción motivada",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 139,
+          "end_line": 151
+        },
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 33,
+          "end_line": 41
+        }
+      ]
+    },
+    {
+      "id": "modalidad",
+      "lane": "elegibilidad",
+      "col": 3,
+      "type": "backend",
+      "label": "Resolver cobro",
+      "sublabel": "Política de la inscripción",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 72,
+          "end_line": 88
+        }
+      ]
+    },
+    {
+      "id": "retener",
+      "lane": "entrega",
+      "col": 3,
+      "type": "database",
+      "label": "Retener entrega",
+      "sublabel": "Crear pago CONSTANCIA",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 79,
+          "end_line": 88
+        }
+      ]
+    },
+    {
+      "id": "pago",
+      "lane": "entrega",
+      "col": 4,
+      "type": "security",
+      "label": "Confirmar pago",
+      "sublabel": "Liberación periódica",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 90,
+          "end_line": 104
+        }
+      ]
+    },
+    {
+      "id": "emitir",
+      "lane": "documento",
+      "col": 4,
+      "type": "database",
+      "label": "Emitir constancia",
+      "sublabel": "PDF, código y aviso",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 53,
+          "end_line": 69
+        }
+      ]
+    },
+    {
+      "id": "consultar",
+      "lane": "documento",
+      "col": 5,
+      "type": "frontend",
+      "label": "Consultar documento",
+      "sublabel": "Verificar o descargar",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.rutas.ts",
+          "line": 36,
+          "end_line": 51
+        }
+      ]
+    },
+    {
+      "id": "bloqueado",
+      "lane": "rechazo",
+      "col": 1,
+      "type": "security",
+      "label": "Cierre rechazado",
+      "sublabel": "Fuera de plazo o alcance",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 24,
+          "end_line": 30
+        },
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 131,
+          "end_line": 138
+        }
+      ]
+    },
+    {
+      "id": "sinConstancia",
+      "lane": "rechazo",
+      "col": 2,
+      "type": "security",
+      "label": "Sin constancia ordinaria",
+      "sublabel": "No cumple asistencia",
+      "sources": [
+        {
+          "path": "backend/src/modules/certificados/certificados.repositorio.ts",
+          "line": 139,
+          "end_line": 151
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "cerrar",
+      "to": "periodo"
+    },
+    {
+      "from": "periodo",
+      "to": "elegible",
+      "label": "Válido"
+    },
+    {
+      "from": "elegible",
+      "to": "modalidad",
+      "label": "Elegible"
+    },
+    {
+      "from": "modalidad",
+      "to": "retener",
+      "label": "CERTIFICADO"
+    },
+    {
+      "from": "retener",
+      "to": "pago",
+      "label": "Pendiente"
+    },
+    {
+      "from": "pago",
+      "to": "emitir",
+      "label": "PAGADO"
+    },
+    {
+      "from": "modalidad",
+      "to": "emitir",
+      "label": "PREVIO / GRATUITO"
+    },
+    {
+      "from": "emitir",
+      "to": "consultar"
+    },
+    {
+      "from": "periodo",
+      "to": "bloqueado",
+      "label": "No válido",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "from": "elegible",
+      "to": "sinConstancia",
+      "label": "No cumple",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "cerrar",
+    "periodo",
+    "elegible",
+    "modalidad",
+    "retener",
+    "pago",
+    "emitir",
+    "consultar"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Alcance actual",
+      "items": [
+        "La emisión ordinaria cubre constancias de participación sin examen. Los cursos grabados están bloqueados en el backend.",
+        "Al cerrar se terminan las inscripciones activas; no todos los participantes obtienen necesariamente constancia.",
+        "Las inscripciones históricas requieren gratuidad legada registrada o regularización antes de emitir."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Entrega y validez",
+      "items": [
+        "PREVIO ya pagado o GRATUITO: emisión directa para participantes elegibles. CERTIFICADO: retención hasta pagar.",
+        "Cada 30 segundos se revisan entregas retenidas pagadas para emitir el PDF.",
+        "Verificación pública sin login. Descarga solo por titular o ADMIN y si el documento está vigente."
+      ]
+    }
+  ]
+}

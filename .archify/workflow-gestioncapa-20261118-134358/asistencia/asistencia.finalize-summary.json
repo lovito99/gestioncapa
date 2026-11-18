@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/asistencia/candidate.json",
+    "sha256": "dfa0f09c4fe185d7c980821af6ab1053c596ef97061525336012a0d5d7635cf2",
+    "bytes": 5458
+  },
+  "artifact": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/asistencia/asistencia.html",
+    "sha256": "42d72ae637db5b580cc1ec5530d8ef5cebe7740ee1c776fdb652341bd9ebb31e",
+    "bytes": 846744
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/asistencia/asistencia.finalize.json",
+    "summaryReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/asistencia/asistencia.finalize-summary.json",
+    "browserCheckReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/asistencia/asistencia.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4440,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

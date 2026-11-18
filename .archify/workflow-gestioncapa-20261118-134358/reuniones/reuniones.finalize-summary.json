@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/reuniones/candidate.json",
+    "sha256": "0cd8beefd194c0555840cd9354ffaf8c3f46f2a2057b9dce520e96c1ffc1b545",
+    "bytes": 5976
+  },
+  "artifact": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/reuniones/reuniones.html",
+    "sha256": "f64bacd11c1b1d0ab019aac34137ed8efec5556b6b798a52127f516ad6794d84",
+    "bytes": 847661
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/reuniones/reuniones.finalize.json",
+    "summaryReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/reuniones/reuniones.finalize-summary.json",
+    "browserCheckReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/reuniones/reuniones.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4096,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

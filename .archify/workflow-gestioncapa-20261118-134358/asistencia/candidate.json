@@ -1,0 +1,241 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Asistencia presencial mediante QR",
+    "locale": "es",
+    "quality_profile": "showcase",
+    "output": ".archify/workflow-gestioncapa-20261118-134358/asistencia/asistencia.html",
+    "repository": {
+      "url": "https://github.com/lovito99/gestioncapa.git",
+      "revision": "1e932c24ff76b49cfc4afa75b9081d67dc5a9007"
+    }
+  },
+  "lanes": [
+    {
+      "id": "docente",
+      "label": "Administrador o instructor asignado"
+    },
+    {
+      "id": "persona",
+      "label": "Participante inscrito"
+    },
+    {
+      "id": "api",
+      "label": "Validación y registro"
+    },
+    {
+      "id": "rechazo",
+      "label": "Rechazos"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "emitir",
+      "lane": "docente",
+      "col": 0,
+      "type": "security",
+      "label": "Mostrar QR rotativo",
+      "sublabel": "Ventanas de 30 s",
+      "sources": [
+        {
+          "path": "backend/src/modules/clases/clases.routes.ts",
+          "line": 254,
+          "end_line": 274
+        }
+      ]
+    },
+    {
+      "id": "escanear",
+      "lane": "persona",
+      "col": 1,
+      "type": "frontend",
+      "label": "Escanear QR",
+      "sublabel": "Sesión AGREMIADO",
+      "sources": [
+        {
+          "path": "backend/src/modules/asistencia/asistencia.routes.ts",
+          "line": 25,
+          "end_line": 33
+        }
+      ]
+    },
+    {
+      "id": "firma",
+      "lane": "api",
+      "col": 2,
+      "type": "security",
+      "label": "Verificar token",
+      "sublabel": "Firma, vigencia y clase",
+      "sources": [
+        {
+          "path": "backend/src/modules/asistencia/asistencia.service.ts",
+          "line": 27,
+          "end_line": 38
+        }
+      ]
+    },
+    {
+      "id": "acceso",
+      "lane": "api",
+      "col": 3,
+      "type": "security",
+      "label": "Comprobar acceso",
+      "sublabel": "Inscrito y curso abierto",
+      "sources": [
+        {
+          "path": "backend/src/modules/asistencia/asistencia.service.ts",
+          "line": 40,
+          "end_line": 52
+        }
+      ]
+    },
+    {
+      "id": "guardar",
+      "lane": "api",
+      "col": 4,
+      "type": "database",
+      "label": "Guardar asistencia",
+      "sublabel": "Sin duplicados",
+      "sources": [
+        {
+          "path": "backend/src/modules/asistencia/asistencia.service.ts",
+          "line": 54,
+          "end_line": 63
+        }
+      ]
+    },
+    {
+      "id": "lista",
+      "lane": "docente",
+      "col": 5,
+      "type": "frontend",
+      "label": "Consultar asistencia",
+      "sublabel": "ADMIN o instructor",
+      "sources": [
+        {
+          "path": "backend/src/modules/asistencia/asistencia.routes.ts",
+          "line": 36,
+          "end_line": 42
+        }
+      ]
+    },
+    {
+      "id": "qrError",
+      "lane": "rechazo",
+      "col": 2,
+      "type": "security",
+      "label": "QR rechazado",
+      "sublabel": "Inválido, vencido u otro",
+      "sources": [
+        {
+          "path": "backend/src/modules/asistencia/asistencia.service.ts",
+          "line": 20,
+          "end_line": 31
+        }
+      ]
+    },
+    {
+      "id": "accesoError",
+      "lane": "rechazo",
+      "col": 3,
+      "type": "security",
+      "label": "Acceso rechazado",
+      "sublabel": "Virtual, cancelado o ajeno",
+      "sources": [
+        {
+          "path": "backend/src/modules/asistencia/asistencia.service.ts",
+          "line": 40,
+          "end_line": 48
+        }
+      ]
+    },
+    {
+      "id": "duplicado",
+      "lane": "rechazo",
+      "col": 4,
+      "type": "security",
+      "label": "Ya estaba registrada",
+      "sublabel": "409 sin nueva marca",
+      "sources": [
+        {
+          "path": "backend/src/modules/asistencia/asistencia.service.ts",
+          "line": 54,
+          "end_line": 60
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "emitir",
+      "to": "escanear"
+    },
+    {
+      "from": "escanear",
+      "to": "firma"
+    },
+    {
+      "from": "firma",
+      "to": "acceso",
+      "label": "Válido"
+    },
+    {
+      "from": "acceso",
+      "to": "guardar",
+      "label": "Permitido"
+    },
+    {
+      "from": "guardar",
+      "to": "lista",
+      "label": "201"
+    },
+    {
+      "from": "firma",
+      "to": "qrError",
+      "label": "No válido",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "from": "acceso",
+      "to": "accesoError",
+      "label": "Denegado",
+      "role": "error",
+      "variant": "security"
+    },
+    {
+      "from": "guardar",
+      "to": "duplicado",
+      "label": "Repetido",
+      "role": "error",
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "emitir",
+    "escanear",
+    "firma",
+    "acceso",
+    "guardar",
+    "lista"
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Alcance presencial",
+      "items": [
+        "Este flujo representa el QR de clase mostrado por el instructor; admite sesiones presenciales o ambas.",
+        "El QR personal y el escaneo de puerta tienen pantallas, pero sus endpoints no están registrados en el backend actual; no se muestran como un marcado operativo."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Integridad",
+      "items": [
+        "Se vuelve a verificar la vigencia después del bloqueo y antes de guardar.",
+        "Una sesión solo virtual registra asistencia en la sala; un curso cerrado no admite nuevas marcas."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "showcase",
+  "specification": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/certificados/candidate.json",
+    "sha256": "39c8dbdea0ab3de0fc8cb03e20c96ecbde375393e60189d872d3cde6c3cde092",
+    "bytes": 6745
+  },
+  "artifact": {
+    "path": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/certificados/certificados.html",
+    "sha256": "baaf585d79559b85b949742bd16dd508dd18a10dbb7173d8a730163a44169f60",
+    "bytes": 851903
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/certificados/certificados.finalize.json",
+    "summaryReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/certificados/certificados.finalize-summary.json",
+    "browserCheckReceipt": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/certificados/certificados.browser-check.json"
+  },
+  "visualReview": "not-requested",
+  "durationMs": 4943,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

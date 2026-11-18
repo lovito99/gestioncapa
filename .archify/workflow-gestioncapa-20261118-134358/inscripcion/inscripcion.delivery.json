@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "058d00e9-dfd7-435a-8456-27b737b5c51c",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/inscripcion/candidate.json",
+  "output": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/inscripcion/inscripcion.html",
+  "specification": {
+    "sha256": "2c917e40937e607015380f2692971014d2d42483f7b54472f4b09117f994f50d",
+    "bytes": 5790
+  },
+  "artifact": {
+    "sha256": "31ab0880fa3e7d82228b431af28fd1096872841412845f406ea1cbdbbc13e5d8",
+    "bytes": 848089
+  }
+}

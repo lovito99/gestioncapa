@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "632d792c-26fb-479d-b564-fcb0e70a2968",
+  "status": "current",
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/certificados/candidate.json",
+  "output": "/home/lovito99/Documentos/GitHub/gestioncapa/.archify/workflow-gestioncapa-20261118-134358/certificados/certificados.html",
+  "specification": {
+    "sha256": "39c8dbdea0ab3de0fc8cb03e20c96ecbde375393e60189d872d3cde6c3cde092",
+    "bytes": 6745
+  },
+  "artifact": {
+    "sha256": "baaf585d79559b85b949742bd16dd508dd18a10dbb7173d8a730163a44169f60",
+    "bytes": 851903
+  }
+}

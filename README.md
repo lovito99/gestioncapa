@@ -474,6 +474,10 @@ sudo certbot --nginx
 
 ## Arquitectura
 
+Consulta los [flujos interactivos de arquitectura, acceso, cursos, inscripción,
+pagos, asistencia, reuniones y constancias](docs/flujos.md), generados con Archify
+a partir del código y con referencias a sus archivos.
+
 ### Backend
 
 Lenguaje:
