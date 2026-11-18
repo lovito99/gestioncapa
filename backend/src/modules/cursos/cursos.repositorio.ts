@@ -11,6 +11,8 @@ import { cancelarReservasVencidas } from './inscripciones.vencimiento.js';
 import { env } from '../../config/env.js';
 import { cotizarInscripcion } from './precioInscripcion.js';
 import { avisarInscripcionConfirmada } from '../notificaciones/correo.repositorio.js';
+import type { PortadaProcesada } from './portada.js';
+import { columnaPortada, conPortada, guardarPortada, type DatosPortada } from './portadas.repositorio.js';
 
 export async function actualizarCobro(id: string, datos: PoliticaCobro & { versionCobro: number }) {
   return (await pool.query(`update cursos set "modalidadCobro"=$2::varchar,costo=$3,"plazoPagoMinutos"=$4,"versionCobro"="versionCobro"+1,
@@ -27,21 +29,31 @@ export type Curso = {
   categoria: string; fechaInicio: string | null; fechaFin: string | null; cuposDisponibles: number; inscrito?: boolean;
   estadoInscripcion?: 'EN_CURSO' | 'TERMINADO' | 'PENDIENTE_PAGO' | 'CANCELADA' | null;
   cupos: number; tipoCertificado: string; notaMinima: number; estado: 'BORRADOR' | 'PUBLICADO' | 'CERRADO';
+  portadaUrl?: string | null; portadaFuentes?: { url: string; ancho: number }[];
 };
+type FilaCurso = Curso & { portadaDatos: DatosPortada };
 const columnas = `c.id::text, c.instructor_id::text as "instructorId",
   c."modalidadCobro",c."plazoPagoMinutos",c."versionCobro",c."precioGeneral"::float8,
   u.name as "instructorNombre", c.titulo, c.descripcion, c.horas_lectivas as "horasLectivas",
   c.modalidad, c.costo::float8, c.cupos, c.tipo_certificado as "tipoCertificado", c.nota_minima as "notaMinima", c.estado,
   c.categoria,to_char(c.fecha_inicio,'YYYY-MM-DD') as "fechaInicio",to_char(c.fecha_fin,'YYYY-MM-DD') as "fechaFin",
   greatest(c.cupos-(select count(*) from inscripciones_curso ins left join "intentosInscripcion" t on t.id=ins."intentoId"
-    where ins.curso_id=c.id and ins.estado<>'CANCELADA' and (ins.estado<>'PENDIENTE_PAGO' or ins."intentoId" is null or t."venceEn">clock_timestamp())),0)::int as "cuposDisponibles"`;
+    where ins.curso_id=c.id and ins.estado<>'CANCELADA' and (ins.estado<>'PENDIENTE_PAGO' or ins."intentoId" is null or t."venceEn">clock_timestamp())),0)::int as "cuposDisponibles",
+  ${columnaPortada}`;
+/** Curso publicado por ID, aunque haya vencido; el catálogo público solo lista los vigentes. */
+export async function obtenerCursoPublicado(id: string) {
+  const { rows: [curso] } = await pool.query<FilaCurso & { vigente: boolean }>(`
+    select ${columnas},(c.fecha_fin is null or c.fecha_fin >= (now() at time zone 'America/Lima')::date) as vigente
+    from cursos c join users u on u.id=c.instructor_id where c.id=$1 and c.estado='PUBLICADO'`, [id]);
+  return curso ? conPortada(curso) : null;
+}
 export async function listarCursos(instructorId?: number, catalogo = false) {
-  return (await pool.query<Curso>(`select ${columnas} from cursos c join users u on u.id=c.instructor_id
+  return (await pool.query<FilaCurso>(`select ${columnas} from cursos c join users u on u.id=c.instructor_id
     where ($1::bigint is null or c.instructor_id=$1)
-    and (not $2::boolean or c.estado='PUBLICADO') order by c.id desc`, [instructorId ?? null, catalogo])).rows;
+    and (not $2::boolean or c.estado='PUBLICADO') order by c.id desc`, [instructorId ?? null, catalogo])).rows.map(conPortada);
 }
 export async function obtenerCurso(id: string, usuarioId?: number) {
-  const curso = (await pool.query<Curso>(`select ${columnas},exists(select 1 from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as inscrito,(select ins.estado from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as "estadoInscripcion" from cursos c join users u on u.id=c.instructor_id where c.id=$1`, [id, usuarioId ?? null])).rows[0];
+  const curso = (await pool.query<FilaCurso>(`select ${columnas},exists(select 1 from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as inscrito,(select ins.estado from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as "estadoInscripcion" from cursos c join users u on u.id=c.instructor_id where c.id=$1`, [id, usuarioId ?? null])).rows[0];
   if (!curso) return null;
   const modulos = (await pool.query<{ id: string; titulo: string; orden: number }>('select id::text,titulo,orden from modulos_curso where curso_id=$1 order by orden', [id])).rows;
   const materiales = (await pool.query<{ id: string; moduloId: string; titulo: string; tipo: string; url: string | null }>(`
@@ -49,7 +61,7 @@ export async function obtenerCurso(id: string, usuarioId?: number) {
     join modulos_curso m on m.id=a.modulo_id where m.curso_id=$1 order by a.id`, [id])).rows;
   const miInscripcion=usuarioId===undefined ? null : await obtenerMiInscripcion(id,usuarioId);
   const estadoInscripcion=miInscripcion?.estado ?? curso.estadoInscripcion;
-  return { ...curso,estadoInscripcion,inscrito:!!curso.inscrito && estadoInscripcion!=='CANCELADA',miInscripcion,
+  return { ...conPortada(curso),estadoInscripcion,inscrito:!!curso.inscrito && estadoInscripcion!=='CANCELADA',miInscripcion,
     sesiones: await listarSesiones(id, usuarioId), modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
 }
 export async function obtenerMiInscripcion(cursoId:string,usuarioId:number) {
@@ -68,7 +80,7 @@ export async function transaccion<T>(operacion: (cliente: PoolClient) => Promise
   catch (error) { await cliente.query('rollback'); throw error; }
   finally { cliente.release(); }
 }
-export async function crearCurso(datos: DatosCurso, usuarioId: number) {
+export async function crearCurso(datos: Omit<DatosCurso, 'portada'>, usuarioId: number, portada?: PortadaProcesada) {
   return transaccion(async cliente => {
     // Mantiene al instructor activo mientras se crea el curso.
     const instructor = await cliente.query(`select id from users where id=$1 and role='instructor' and active for share`, [datos.instructorId]);
@@ -79,6 +91,7 @@ export async function crearCurso(datos: DatosCurso, usuarioId: number) {
     [usuarioId, datos.instructorId, datos.titulo, datos.descripcion, datos.horasLectivas, datos.modalidad, datos.costo, datos.cupos, datos.tipoCertificado, datos.notaMinima, datos.categoria, datos.fechaInicio, datos.fechaFin,
       datos.modalidadCobro ?? (datos.costo === 0 ? 'GRATUITO' : null), datos.plazoPagoMinutos, datos.precioGeneral ?? (datos.costo === 0 ? 0 : null)])).rows[0]!.id;
     for (const [indice, modulo] of datos.modulos.entries()) await cliente.query('insert into modulos_curso(curso_id,titulo,orden) values($1,$2,$3)', [id, modulo.titulo, indice + 1]);
+    if (portada) await guardarPortada(id, portada, cliente);
     return id;
   });
 }
@@ -103,7 +116,7 @@ export async function obtenerArchivo(cursoId: string, moduloId: string, material
 
 export async function paginaCatalogo(usuarioId: number, consulta: ConsultaCatalogo, soloVigentes = false) {
   // Un solo snapshot para resultados y total; categorías fijas del Sprint 2.
-  const datos = (await pool.query<{ items: Curso[]; total: number }>(`with publicados as (
+  const datos = (await pool.query<{ items: FilaCurso[]; total: number }>(`with publicados as (
       select ${columnas},exists(select 1 from inscripciones_curso ins
         left join "intentosInscripcion" intento on intento.id=ins."intentoId"
         where ins.curso_id=c.id and ins.usuario_id=$6 and ins.estado<>'CANCELADA'
@@ -119,7 +132,7 @@ export async function paginaCatalogo(usuarioId: number, consulta: ConsultaCatalo
       (select count(*)::int from filtrados) as total`,
     [consulta.buscar, consulta.modalidad ?? null, consulta.categoria ?? null, consulta.tamanoPagina,
       (consulta.pagina - 1) * consulta.tamanoPagina, usuarioId, soloVigentes])).rows[0]!;
-  return { ...datos, categorias: [...categoriasCatalogo], pagina: consulta.pagina, tamanoPagina: consulta.tamanoPagina, totalPaginas: Math.ceil(datos.total / consulta.tamanoPagina) };
+  return { ...datos, items: datos.items.map(conPortada), categorias: [...categoriasCatalogo], pagina: consulta.pagina, tamanoPagina: consulta.tamanoPagina, totalPaginas: Math.ceil(datos.total / consulta.tamanoPagina) };
 }
 
 export async function inscribirseEnCurso(cursoId: string, usuarioId: number, versionCobro?: number, tipoPrecio?: TipoPrecio) {

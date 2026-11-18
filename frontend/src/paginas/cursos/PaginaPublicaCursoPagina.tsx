@@ -93,8 +93,10 @@ function TarjetaPrecio({ curso }: { curso: CursoPublicoDetalle }) {
       {cobro === 'PREVIO' && <Aviso tipo="advertencia" titulo="Pago antes de llevar el curso">Al inscribirte tendrás {plazo} para pagar. Mientras tanto no podrás ver el contenido ni registrar asistencia.</Aviso>}
       {cobro === 'CERTIFICADO' && <Aviso titulo="Pagas solo el certificado">Llevas el curso gratis. Pagas la constancia al terminar, si cumples los requisitos.</Aviso>}
       {cobro === 'GRATUITO' && <Aviso tipo="exito" titulo="Curso gratuito">Ni la inscripción ni la constancia requieren pago.</Aviso>}
-      <Boton onClick={inscribirme} disabled={sinCupos} className="h-12 w-full text-base sm:h-10 sm:text-sm">{sinCupos ? 'Sin cupos' : 'Inscribirme'}</Boton>
-      {!usuario && <p className="text-center text-xs leading-4 text-muted">Te pediremos iniciar sesión o crear tu cuenta y volverás a este curso.</p>}
+      {curso.vigente === false
+        ? <Aviso titulo="Curso finalizado">La fecha de fin ya pasó. Revisa los cursos vigentes del CPPP.</Aviso>
+        : <Boton onClick={inscribirme} disabled={sinCupos} className="h-12 w-full text-base sm:h-10 sm:text-sm">{sinCupos ? 'Sin cupos' : 'Inscribirme'}</Boton>}
+      {!usuario && curso.vigente !== false && !sinCupos && <p className="text-center text-xs leading-4 text-muted">Te pediremos iniciar sesión o crear tu cuenta y volverás a este curso.</p>}
       {cobro !== 'GRATUITO' && <p className="text-xs leading-4 text-muted">Formas de pago: tarjeta o Yape (en línea), transferencia BCP o efectivo en la sede.</p>}
     </section>
   )

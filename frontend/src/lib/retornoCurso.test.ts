@@ -30,6 +30,8 @@ describe('HU-22: selección de curso al autenticar',()=>{
   it('un401 solo conserva la ruta exacta del curso y no acepta destinos ajenos',()=>{
     expect(loginDelCursoActual('/cursos/42')).toBe('/login?curso=42')
     expect(loginDelCursoActual('/capacitaciones/42')).toBe('/login?curso=42')
+    expect(loginDelCursoActual('/c/42')).toBe('/login?curso=42')
+    expect(loginDelCursoActual('/c/042')).toBe('/login')
     for(const ruta of ['/admin','/login','/cursos/0','/cursos/42/editar','https://externo.example','/cursos/%2fexterno']) expect(loginDelCursoActual(ruta)).toBe('/login')
     expect(accesoConCurso('/login','//externo.example')).toBe('/login')
   })

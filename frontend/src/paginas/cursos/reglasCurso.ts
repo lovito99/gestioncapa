@@ -88,12 +88,13 @@ export async function prepararPortada(archivo: File): Promise<CambioPortada & { 
   if (!tipo) throw new Error(`«${archivo.name}» no es JPG, PNG ni WebP. Elige una imagen en uno de esos formatos.`)
   if (archivo.size > MAXIMO_PORTADA) throw new Error(`«${archivo.name}» pesa ${megas(archivo.size)} MB. Reduce su tamaño a 1 MB o menos e inténtalo otra vez.`)
   const { dataUrl, ancho, alto } = await leer(archivo)
-  const proporcion = Math.abs(ancho / alto - 16 / 9) < 0.02 ? '(16:9)' : '(se recortará a 16:9)'
+  if (ancho * alto > 16_000_000) throw new Error('Elige una portada de hasta 16 megapíxeles.')
+  if (ancho * 9 !== alto * 16) throw new Error('Usa una imagen en proporción 16:9, por ejemplo 1280 × 720.')
   return {
     tipo: 'nueva',
     entrada: { nombre: archivo.name, tipo: tipo.tipo, contenidoBase64: dataUrl.split(',')[1] ?? '' },
     vistaPrevia: dataUrl,
-    detalle: `${tipo.nombre} · ${kilos(archivo.size)} · ${ancho} × ${alto} px ${proporcion}`,
+    detalle: `${tipo.nombre} · ${kilos(archivo.size)} · ${ancho} × ${alto} px (16:9)`,
   }
 }
 

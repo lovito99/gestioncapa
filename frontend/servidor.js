@@ -2,6 +2,7 @@ import express from 'express'
 import { request as solicitarHttp } from 'node:http'
 import { request as solicitarHttps } from 'node:https'
 import path from 'node:path'
+import { servirVistaCurso } from './vistaCurso.js'
 
 export function crearServidorFrontend({ carpetaDist, backendUrl }) {
   const app = express()
@@ -44,9 +45,11 @@ export function crearServidorFrontend({ carpetaDist, backendUrl }) {
     request.pipe(solicitud)
   })
 
+  const indice = path.join(carpetaDist, 'index.html')
+  app.get(/^\/(?:c|capacitaciones)\/[^/]+\/?$/, servirVistaCurso(indice, destino))
   app.use(express.static(carpetaDist))
   app.get(/.*/, (request, response) => {
-    response.sendFile(path.join(carpetaDist, 'index.html'))
+    response.sendFile(indice)
   })
 
   return app

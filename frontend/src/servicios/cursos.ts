@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api, ApiError } from '@/lib/api'
+import { api } from '@/lib/api'
 import type { EstadoCertificado } from './certificados'
 import type { ModalidadCurso, ModalidadSesion } from './modalidadCurso'
 
@@ -17,6 +17,8 @@ export type Curso = {
   admiteExternos?: boolean;
   /** URL de la portada 16:9; `null` usa la imagen por defecto de la categoría (SCRUM-182). */
   portadaUrl?: string | null;
+  /** Variantes livianas de una portada publicada, con su ancho real en píxeles (HU-51). */
+  portadaFuentes?: { url: string; ancho: number }[];
   miPrecio?: MiPrecio | null;
   impedimentoInscripcion?: { codigo: string; mensaje: string };
   id: string; titulo: string; descripcion: string; instructorId: string; instructorNombre: string;
@@ -75,15 +77,18 @@ export type FiltrosCatalogo = { buscar?: string; modalidad?: string; categoria?:
 /** Portada que se sube con el curso: JPG, PNG o WebP de hasta 1 MB (SCRUM-182). */
 export type PortadaEntrada = { nombre: string; tipo: 'image/jpeg' | 'image/png' | 'image/webp'; contenidoBase64: string }
 /** Enlace para compartir que abre la ficha pública del curso. */
-export type EnlaceCompartir = { url: string; enlaceCorto: string }
+export type EnlaceCompartir = { url: string; enlaceCorto: string
+  vistaPrevia?: { titulo: string; descripcion: string; categoria: string; imagen: { url: string; ancho: number; alto: number; tipo: string } | null } }
 export type CursoPublico = Pick<Curso, 'id' | 'titulo' | 'descripcion' | 'instructorNombre' | 'horasLectivas' | 'modalidad'
   | 'costo' | 'cupos' | 'cuposDisponibles' | 'categoria' | 'fechaInicio' | 'fechaFin' | 'modalidadCobro' | 'plazoPagoMinutos'
-  | 'versionCobro' | 'precioGeneral' | 'admiteExternos' | 'portadaUrl'>
+  | 'versionCobro' | 'precioGeneral' | 'admiteExternos' | 'portadaUrl' | 'portadaFuentes'>
 /**
  * SCRUM-187 · Detalle público del curso (sin sesión). Las sesiones no traen la sala virtual,
  * el encargado ni datos de inscritos.
  */
 export type CursoPublicoDetalle = CursoPublico & Pick<Curso, 'tipoCertificado' | 'notaMinima'> & { requisitoAsistencia: number
+  /** `false` cuando ya pasó la fecha de fin: la ficha se consulta, pero no admite inscripciones (HU-40). */
+  vigente?: boolean
   sesiones: Pick<SesionCurso, 'id' | 'nombre' | 'fecha' | 'horaInicio' | 'horaFin' | 'lugar' | 'modalidad'>[] }
 export type PaginaCatalogo<T = Curso> = { items: T[]; total: number; pagina: number; tamanoPagina: number; totalPaginas: number; categorias: string[] }
 /** Porcentaje de asistencia que pide el Figma cuando el curso no indica otro */
@@ -104,24 +109,14 @@ function conValoresNuevos<T extends Curso>(curso: T): T & { sesiones: SesionCurs
  * desde el catálogo público con valores por defecto y sin sesiones. Si tampoco está ahí, propaga el 404.
  */
 async function publicoDetalle(id: string): Promise<CursoPublicoDetalle> {
-  try {
-    return (await api.get<CursoPublicoDetalle>(`/publico/cursos/${id}`)).data
-  } catch (error) {
-    if (!(error instanceof ApiError) || error.status !== 404) throw error
-    for (let pagina = 1; pagina <= 10; pagina++) {
-      const lista = (await api.get<PaginaCatalogo<CursoPublico>>('/publico/cursos', { params: { pagina, tamanoPagina: 50 } })).data
-      const curso = lista.items.find(item => String(item.id) === id)
-      if (curso) return { tipoCertificado: 'PARTICIPACION', notaMinima: 0, requisitoAsistencia: REQUISITO_ASISTENCIA_POR_DEFECTO, sesiones: [], ...curso }
-      if (pagina >= lista.totalPaginas) break
-    }
-    throw error
-  }
+  return (await api.get<CursoPublicoDetalle>(`/publico/cursos/${id}`)).data
 }
 
 export const cursos = {
   actualizarCobro: async (id: string, entrada: Omit<PoliticaCobro, 'precioGeneral'> & { precioGeneral?: number; versionCobro: number }) =>
     conValoresNuevos((await api.patch<DetalleCurso>(`/cursos/${id}/cobro`, entrada)).data),
   subirPortada: async (id: string, entrada: PortadaEntrada) => (await api.put<{ portadaUrl: string }>(`/cursos/${id}/portada`, entrada)).data,
+  descargarPortada: async (ruta: string, signal: AbortSignal) => (await api.get<Blob>(ruta.slice('/api'.length), { responseType: 'blob', signal })).data,
   quitarPortada: async (id: string) => { await api.delete(`/cursos/${id}/portada`) },
   publicoDetalle: (id: string) => publicoDetalle(id),
   enlaceCompartir: async (id: string) => (await api.get<EnlaceCompartir>(`/publico/cursos/${id}/compartir`)).data,
@@ -137,7 +132,7 @@ export const cursos = {
   listar: async (catalogo = false) => (await api.get<Curso[]>(catalogo ? '/catalogo/cursos' : '/cursos')).data,
   obtener: async (id: string) => conValoresNuevos((await api.get<DetalleCurso>(`/cursos/${id}`)).data),
   instructores: async () => (await api.get<{ id: string; nombre: string }[]>('/cursos/instructores')).data,
-  crear: async (entrada: CursoEntrada) => conValoresNuevos((await api.post<DetalleCurso>('/cursos', entrada)).data),
+  crear: async (entrada: CursoEntrada & { portada?: PortadaEntrada }) => conValoresNuevos((await api.post<DetalleCurso>('/cursos', entrada)).data),
   actualizar: async (id: string, entrada: CursoEntrada) => conValoresNuevos((await api.put<DetalleCurso>(`/cursos/${id}`, entrada)).data),
   quitarMaterial: async (id: string, moduloId: string, materialId: string) => { await api.delete(`/cursos/${id}/modulos/${moduloId}/materiales/${materialId}`) },
   publicar: async (id: string) => conValoresNuevos((await api.post<DetalleCurso>(`/cursos/${id}/publicar`)).data),

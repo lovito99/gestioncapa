@@ -9,6 +9,7 @@ const fechaCurso = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Usa una fecha válid
   return valor.slice(0, 4) !== '0000' && Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
 }, 'Usa una fecha válida.').nullable().default(null);
 export const esquemaCurso = z.object({
+  portada: z.unknown().optional(),
   modalidadCobro: camposCobro.modalidadCobro.nullable().default(null),
   precioGeneral: camposCobro.precioGeneral,
   plazoPagoMinutos: camposCobro.plazoPagoMinutos,

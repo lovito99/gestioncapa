@@ -1,6 +1,7 @@
 import { ImageUp, RefreshCw, Trash2, TriangleAlert } from 'lucide-react'
 import { useId, useRef, useState, type DragEvent } from 'react'
 import { cn } from '@/lib/cn'
+import { Boton } from '@/components/ui/Boton'
 import type { Curso } from '@/servicios/cursos'
 import { prepararPortada, type CambioPortada } from './reglasCurso'
 import { PortadaCurso } from './piezasCurso'
@@ -12,26 +13,45 @@ export function CampoPortada({
   alCambiar,
   error,
   alError,
+  alPreparar,
+  alGuardar,
+  guardando,
+  errorGuardado,
 }: {
   curso: Pick<Curso, 'titulo' | 'categoria' | 'portadaUrl'>
   cambio: CambioPortada
   alCambiar: (cambio: CambioPortada) => void
   error?: string
   alError: (mensaje: string | undefined) => void
+  alPreparar: (preparando: boolean) => void
+  alGuardar?: () => void
+  guardando: boolean
+  errorGuardado?: string
 }) {
   const id = useId()
   const entrada = useRef<HTMLInputElement>(null)
+  const seleccion = useRef(0)
+  const [preparando, cambiarPreparando] = useState(false)
   const [arrastrando, setArrastrando] = useState(false)
 
   const elegir = async (archivo: File | undefined) => {
     if (!archivo) return
+    const turno = ++seleccion.current
+    if (entrada.current) entrada.current.value = ''
+    cambiarPreparando(true)
+    alPreparar(true)
     try {
-      alCambiar(await prepararPortada(archivo))
+      const preparada = await prepararPortada(archivo)
+      if (turno !== seleccion.current) return
+      alCambiar(preparada)
       alError(undefined)
     } catch (e) {
-      alError(e instanceof Error ? e.message : 'No pudimos usar esa imagen.')
+      if (turno === seleccion.current) alError(e instanceof Error ? e.message : 'No pudimos usar esa imagen.')
     } finally {
-      if (entrada.current) entrada.current.value = ''
+      if (turno === seleccion.current) {
+        cambiarPreparando(false)
+        alPreparar(false)
+      }
     }
   }
   const soltar = (e: DragEvent) => {
@@ -55,7 +75,7 @@ export function CampoPortada({
         type="file"
         accept="image/jpeg,image/png,image/webp"
         className="sr-only"
-        aria-invalid={error ? true : undefined}
+        aria-invalid={error || errorGuardado ? true : undefined}
         aria-describedby={`${id}-ayuda`}
         onChange={(e) => void elegir(e.target.files?.[0])}
       />
@@ -74,6 +94,9 @@ export function CampoPortada({
               <button
                 type="button"
                 onClick={() => {
+                  seleccion.current++
+                  cambiarPreparando(false)
+                  alPreparar(false)
                   alCambiar(curso.portadaUrl ? { tipo: 'quitar' } : { tipo: 'sin-cambios' })
                   alError(undefined)
                 }}
@@ -110,6 +133,20 @@ export function CampoPortada({
           <span className="text-xs leading-4 text-muted">JPG, PNG o WebP · hasta 1 MB · proporción 16:9 (ej. 1280 × 720)</span>
         </button>
       )}
+
+      {alGuardar && cambio.tipo !== 'sin-cambios' && (
+        <div className="flex flex-wrap gap-2">
+          <Boton onClick={alGuardar} cargando={guardando} disabled={preparando || !!error}>Guardar portada</Boton>
+          <Boton variante="secundario" onClick={() => {
+            seleccion.current++
+            cambiarPreparando(false)
+            alPreparar(false)
+            alCambiar({ tipo: 'sin-cambios' })
+            alError(undefined)
+          }}>Deshacer cambio de portada</Boton>
+        </div>
+      )}
+      {errorGuardado && <p role="alert" className="text-sm text-danger">{errorGuardado}</p>}
 
       {error ? (
         <p id={`${id}-ayuda`} role="alert" className="flex items-start gap-1.5 text-sm leading-5 text-danger">

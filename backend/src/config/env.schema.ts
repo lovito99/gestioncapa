@@ -76,6 +76,8 @@ const envSchema = z.object({
   correoClave: z.string().min(1).max(1024).optional(),
   correoRemitente: z.email().max(180).optional(),
   correoOrigenPublico: z.string().optional(),
+  /** Origen HTTPS del catálogo para enlaces e imágenes compartidas (HU-40/HU-51); si se omite, FRONTEND_URL. */
+  catalogoOrigenPublico: z.string().optional(),
   correoSinTlsParaPruebas: booleanFromEnv.default(false),
   izipayHabilitado: booleanFromEnv.default(false),
   izipayCodigoComercio: z.string().min(1).max(15).optional(),
@@ -124,6 +126,10 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     if ((configuracion.correoHabilitado || configuracion.correoOrigenPublico !== undefined)
       && !origenCorreoValido(configuracion.correoOrigenPublico ?? configuracion.FRONTEND_URL, configuracion.NODE_ENV !== 'production')) {
       contexto.addIssue({ code: 'custom', path: ['correoOrigenPublico'], message: 'usa el origen HTTPS de la aplicación, sin ruta ni credenciales' });
+    }
+    if (configuracion.catalogoOrigenPublico !== undefined
+      && !origenCorreoValido(configuracion.catalogoOrigenPublico, configuracion.NODE_ENV !== 'production')) {
+      contexto.addIssue({ code: 'custom', path: ['catalogoOrigenPublico'], message: 'usa el origen HTTPS del catálogo, sin ruta ni credenciales' });
     }
     if (configuracion.transferenciaHabilitada) {
       for (const nombre of ['transferenciaBanco','transferenciaTitular','transferenciaCuenta','transferenciaCci'] as const) {

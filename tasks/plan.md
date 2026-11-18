@@ -612,3 +612,112 @@ mantiene el incremento **Función** de esa entrega sobre la base efectiva.
 
 P02 usa el acceso de P01 y P03 usa el progreso de P02. Preparar el commit
 manual y dejar el build para el usuario según `AGENTS.md`.
+
+# HU-51 · Plan de implementación
+
+**SCRUM-177 · Aprobado e implementado · 18/11/2026**
+
+## Recorrido y dependencias
+
+Una portada elegida en administración pasa por validación y persistencia
+antes de que el catálogo, el detalle y el HTML de WhatsApp puedan mostrarla.
+La [especificación](../SPEC.md#hu-51--imagen-de-portada-del-curso-en-el-catálogo)
+define los criterios HU51-01 a HU51-07. Se conserva el historial de planificación
+y seguimiento de las demás historias.
+
+| Tarea | Entrega | Depende de |
+| --- | --- | --- |
+| T51-01 | Validar y generar las variantes de una portada a partir del archivo real. | Aprobación de la especificación |
+| T51-02 | Cambiar, leer en privado y quitar una portada mediante la API. | T51-01 |
+| T51-03 | Crear un borrador y su portada en una operación. | T51-02 |
+| T51-04 | Usar la portada desde el formulario real de creación y de edición. | T51-02 y T51-03 |
+| T51-05 | Alinear el contrato de portada en demo y verificar el formulario. | T51-04 |
+| T51-06 | Entregar URLs y archivos de portada a catálogos y detalles. | T51-02 |
+| T51-07 | Mostrar portada responsiva, respaldo accesible y respuesta de la tarjeta. | T51-05 y T51-06 |
+| T51-08 | Consultar la ficha y obtener el enlace público de HU-40 en real. | T51-06 |
+| T51-09 | Servir la portada en el HTML inicial que consulta WhatsApp. | T51-07 y T51-08 |
+
+Los incrementos se ejecutan en el orden de la tabla. Cada uno deja
+utilizables los contratos anteriores. T51-06 y T51-08 reutilizan la proyección
+pública del catálogo. T51-07 y T51-09 usan una sola asignación de respaldo
+por categoría para la web y el HTML social.
+
+## Decisiones de implementación
+
+- Centralizar procesamiento y límites del archivo en el backend y guardar las
+  variantes vigentes juntas en una tabla opcional por curso. La migración
+  aditiva deja disponibles los cursos actuales y no requiere rellenar imágenes.
+- Mantener las escrituras de portada en la matriz de roles y reutilizar el
+  control de acceso al detalle para el recurso privado. La ruta pública valida
+  estado, versión y variante. Se sirven tipos determinados por el procesador
+  y consultas SQL parametrizadas.
+- Conservar el componente de portada compartido, el enlace expandido de la
+  tarjeta y el botón de compartir. Usar en cada contexto el tamaño adecuado,
+  mantener su proporción y reutilizar los recursos del Sprint 3. La vista
+  social usa una versión raster del respaldo si falta la imagen del curso.
+- Recuperar de HU-40 el patrón de HTML inicial, enlace e identificación pública
+  por ID. Revisar el historial para adaptar solo las partes compatibles con
+  el flujo actual de HU-22, la ficha existente y la regla vigente de precios.
+  Express conserva el proxy y su fallback para las demás rutas.
+
+## Ejecución tras aprobar
+
+Cada tarea funcional comienza con la prueba mínima reproducible y registra el
+fallo por la conducta esperada. Luego se implementa, se verifica en verde y se
+revisa el diff. Ante un fallo inesperado se identifica la causa raíz antes
+de cambiar código. Tras la última tarea se simplifican los cambios que lo
+necesiten, se repiten las pruebas afectadas y se realiza la revisión de
+calidad y seguridad.
+
+- **Tras T51-03** · Verificar en integración formatos, permisos, consistencia
+  de creación y actualización, y compatibilidad con cursos existentes.
+- **Tras T51-06** · Verificar carga y reintento en administración, paridad
+  funcional del demo y visibilidad del archivo público e interno.
+- **Tras T51-09** · Verificar catálogo, detalle, móvil, teclado y HTML sin
+  JavaScript. Aplicar Definition of Done y Security Checklist antes de la
+  revisión humana de entrega.
+
+Los comandos completos y el entorno requerido figuran en el
+[seguimiento](todo.md#hu-51--tareas-de-implementación) y en la
+[especificación](../SPEC.md#hu-51--imagen-de-portada-del-curso-en-el-catálogo).
+Por cada incremento se prepara un mensaje de commit para ejecución manual.
+El usuario ejecuta Git y el build según `AGENTS.md`.
+
+## Riesgos y mitigaciones
+
+| Riesgo | Verificación prevista |
+| --- | --- |
+| Tipo falsificado, archivo truncado o consumo excesivo de memoria | Validar base64 y tipo detectado, acotar cuerpo, bytes y píxeles, decodificar con error ante corrupción, recodificar y eliminar metadatos. Probar límites con imágenes válidas y errores de formato. Verificar Sharp con Node 24 y su dependencia nativa, conforme a la política de instalación de la lista de seguridad. [Instalación de Sharp](https://sharp.pixelplumbing.com/install/) |
+| Dos guardados concurrentes o fallo a mitad del cambio | Preparar las variantes antes de actualizar, escribir una sola versión completa con la operación de base de datos y verificar que la versión anterior siga usable si falla el cambio. Probar que el reintento vuelva a dejar el estado esperado. |
+| Portada de borrador, cerrada o retirada accesible por una URL anterior | Comprobar estado y versión en la consulta pública, revalidar caché, devolver un error común y evitar datos privados en las proyecciones. Probar URL directa y permiso por objeto. |
+| Portada antigua en WhatsApp o ruta que devuelve solo el HTML general | Verificar HTTP anónimo contra Express y comprobar el contenido y el tipo del archivo a partir de Open Graph. Hacer la prueba de cliente con un enlace nuevo en HTTPS y registrar lo observado tras cambiar la portada, incluida la caché del tercero si interviene. |
+| Regresión al abrir una tarjeta o usar «Compartir» desde móvil | Verificar clic desde varias áreas, toque, foco, Enter y diálogo, incluidos estados sin cupos y con un fallo de imagen. Revisar red y consola. |
+
+## Preparación de entrega
+
+1. Revisar en local la migración con datos anteriores y seguir el arranque
+   normal del backend y del proxy. Documentar el contrato y cómo volver a la
+   versión de aplicación anterior conservando la tabla aditiva y sus datos.
+2. Registrar pruebas rojas y verdes, suites repetidas después de simplificar,
+   revisión de los cambios y comprobación de las referencias de calidad y
+   seguridad. Registrar los controles sin evidencia como pendientes.
+3. Antes de publicar, confirmar el origen HTTPS del catálogo, que el proxy
+   preserve el cuerpo del archivo límite y sirva las rutas públicas, el build
+   manual y la imagen que recibe un cliente de WhatsApp. Observar rechazos y
+   fallos de subida y de vista previa a partir de códigos y logs sin archivos.
+4. Preparar los commits para ejecución manual y anotar los SHAs cuando el
+   usuario los aporte. El cierre identifica lo que falta para publicar.
+
+## Versión prevista
+
+La base local comprobada en la línea de publicación y en esta rama es
+`v3.1.0.0.0`. Esta fase documental, si se entrega por separado sobre esa
+base, corresponde a **Interno** y a la propuesta `v3.1.0.0.1`. La función
+completa incorpora carga y publicación real de una portada, por lo que
+corresponde a **Función** y a la propuesta `v3.2.0.0.0` si la base efectiva
+sigue siendo la misma. GestionCapa calcula la versión una vez por entrega.
+
+La aprobación del plan confirma la proporción estricta, el límite de
+píxeles, PostgreSQL y Sharp, el guardado independiente en edición y la
+recuperación acotada de HU-40. El origen público y el entorno para la prueba
+externa se confirman antes de acreditar la salida.
