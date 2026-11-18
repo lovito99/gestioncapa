@@ -30,7 +30,7 @@ export function DetalleCursoPagina() {
   const [confirmando, cambiarConfirmando] = useState(false)
   const consulta = useQuery({ queryKey: ['curso', id], queryFn: () => cursos.obtener(id),
     refetchInterval:query=>query.state.data?.miInscripcion?.estadoEntrega==='RETENIDA' && query.state.data.miInscripcion.estadoFinanciero==='PAGADO'?3000:false })
-  const inscripcion = useMutation({ mutationFn: () => cursos.inscribirme(id,consulta.data?.versionCobro), onSuccess: async (resultado) => {
+  const inscripcion = useMutation({ mutationFn: () => cursos.inscribirme(id, consulta.data?.versionCobro, consulta.data?.miPrecio?.tipo), onSuccess: async (resultado) => {
     await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] }), cache.invalidateQueries({ queryKey: ['historial'] }), cache.invalidateQueries({ queryKey: ['participante', 'clases'] })])
     cambiarConfirmando(false)
     if (resultado.estado === 'PENDIENTE_PAGO') navegar(`/cursos/${id}/pagar`)
@@ -88,7 +88,8 @@ export function DetalleCursoPagina() {
       </aside>
     </div>
 
-    <ConfirmarInscripcion curso={curso} abierto={confirmando} onCerrar={() => cambiarConfirmando(false)} onConfirmar={() => inscripcion.mutate()}
+    <ConfirmarInscripcion key={`${curso.versionCobro}:${curso.miPrecio?.tipo}:${curso.miPrecio?.importe}`}
+      curso={curso} abierto={confirmando} onCerrar={() => cambiarConfirmando(false)} onConfirmar={() => inscripcion.mutate()}
       confirmando={inscripcion.isPending} error={inscripcion.isError ? mensajeDeError(inscripcion.error, 'No pudimos registrar tu inscripción.') : undefined} />
 
     {curso.miInscripcion && agremiado && curso.miInscripcion.estadoEntrega === 'RETENIDA' && <Aviso tipo="advertencia" titulo={curso.miInscripcion.estadoFinanciero === 'PAGADO' ? 'Pago confirmado' : 'Constancia retenida'}>
@@ -106,6 +107,9 @@ export function DetalleCursoPagina() {
 
 /** S3 4.1 · Tarjeta «Tu precio» con el aviso del cobro y el botón «Inscribirme». */
 function TarjetaInscripcion({ curso, alInscribirme }: { curso: DetalleCurso; alInscribirme: () => void }) {
+  if (curso.impedimentoInscripcion && !curso.inscrito) return <section aria-label="Inscripción">
+    <Aviso tipo="advertencia" titulo="Inscripción no disponible">{curso.impedimentoInscripcion.mensaje}</Aviso>
+  </section>
   const cobro = modalidadCobroDe(curso)
   const precio = precioPara(curso)
   const pendiente = curso.estadoInscripcion === 'PENDIENTE_PAGO'
@@ -119,7 +123,7 @@ function TarjetaInscripcion({ curso, alInscribirme }: { curso: DetalleCurso; alI
       <p className="text-xs leading-4 font-semibold text-brand">{cobro === 'CERTIFICADO' ? 'Tu constancia' : 'Tu precio'}</p>
       <p className="flex flex-wrap items-end gap-x-2">
         <span className="font-serif text-[28px] leading-9 font-bold text-ink">{soles(precio.importe)}</span>
-        <span className="text-sm leading-5 text-muted">{precio.tipo === 'COLEGIADO' ? 'precio de colegiado' : 'precio general'}</span>
+        {precio.tipo && <span className="text-sm leading-5 text-muted">{precio.tipo === 'COLEGIADO' ? 'precio de colegiado' : 'precio general'}</span>}
       </p>
       {precio.otro !== precio.importe && <p className="text-xs leading-4 text-muted">{precio.tipo === 'COLEGIADO' ? 'Precio general' : 'Precio de colegiado'}: {soles(precio.otro)}</p>}
     </>}

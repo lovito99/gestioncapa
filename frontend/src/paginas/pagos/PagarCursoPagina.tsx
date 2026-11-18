@@ -119,7 +119,8 @@ function Fila({ etiqueta, children, fuerte = false }: { etiqueta: string; childr
 function ResumenPago({ pago, curso, conComision }: { pago: Pago; curso: DetalleCurso; conComision: boolean }) {
   const comision = comisionDe(pago)
   const total = pago.importeCentimos + (conComision ? comision.importeCentimos : 0)
-  const concepto = pago.concepto === 'CONSTANCIA' ? 'Constancia' : curso.miPrecio?.tipo === 'GENERAL' ? 'Precio general' : 'Precio de colegiado'
+  const etiquetaPrecio = { GENERAL: 'Precio general', COLEGIADO: 'Precio de colegiado' }
+  const concepto = pago.concepto === 'CONSTANCIA' ? 'Constancia' : curso.miPrecio ? etiquetaPrecio[curso.miPrecio.tipo] : 'Precio del curso'
   return (
     <section aria-label="Resumen del pago" className={tarjeta}>
       <div className="flex items-center gap-3">

@@ -2,15 +2,24 @@ import { asistenciaCurso, programarSesion } from './sesiones.repositorio.js';
 import { validarClase } from '../clases/clases.validacion.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { pool } from '../../shared/database.js';
-import { crearCurso, guardarMaterial, inscribirseEnCurso, paginaCatalogo, listarCursos, obtenerArchivo, obtenerCurso, publicarCurso } from './cursos.repositorio.js';
+import { actualizarCobro, crearCurso, guardarMaterial, inscribirseEnCurso, listarCursos, obtenerArchivo,
+  obtenerCurso, obtenerMiInscripcion, paginaCatalogo, publicarCurso, type Curso } from './cursos.repositorio.js';
 import { esquemaCurso, esquemaMaterial, esquemaConsultaCatalogo, idCurso } from './cursos.validacion.js';
 import { esquemaCambioCobro } from './cursos.cobro.js';
-import { actualizarCobro, obtenerMiInscripcion } from './cursos.repositorio.js';
 import { entradaInscripcion } from './cursos.cobro.js';
 import { puedeAccederContenido } from './cursos.acceso.js';
+import { env } from '../../config/env.js';
+import { admiteInscripcionExterna, cotizarInscripcion, precioDelTitular } from './precioInscripcion.js';
 
 type ConId = FastifyRequest<{ Params: { id: string; moduloId?: string; materialId?: string } }>;
 const error = (reply: FastifyReply, status: number, code: string, message: string) => reply.code(status).send({ code, message });
+function resumenPublico({ id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, precioGeneral, cupos,
+  cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro, plazoPagoMinutos, versionCobro }: Curso, padronDisponible: boolean) {
+  const admiteExternos = padronDisponible && (costo === 0 || (precioGeneral !== null && modalidadCobro !== null));
+  return { id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, precioGeneral, cupos,
+    cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro, plazoPagoMinutos, versionCobro,
+    ...(admiteExternos && { admiteExternos }) };
+}
 
 async function cursoAutorizado(request: ConId, reply: FastifyReply) {
   if (!idCurso.safeParse(request.params.id).success) {
@@ -36,12 +45,9 @@ export async function registrarCursos(app: FastifyInstance) {
   app.get('/api/publico/cursos', async (request, reply) => {
     reply.header('Cache-Control', 'no-store');
     const consulta = esquemaConsultaCatalogo.parse(request.query);
-    const pagina = await paginaCatalogo(0, consulta, true);
+    const [pagina, padronDisponible] = await Promise.all([paginaCatalogo(0, consulta, true), admiteInscripcionExterna()]);
     // Lista explícita: nunca publicar inscritos ni materiales.
-    return { ...pagina, items: pagina.items.map(({ id, titulo, descripcion, instructorNombre,
-      horasLectivas, modalidad, costo, cupos, cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro, plazoPagoMinutos, versionCobro }) =>
-      ({ id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, cupos,
-        cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro, plazoPagoMinutos, versionCobro })) };
+    return { ...pagina, items: pagina.items.map(curso => resumenPublico(curso, padronDisponible)) };
   });
   app.get('/api/cursos/instructores', async request => {
     return (await pool.query(`select id::text,name as nombre from users where role='instructor' and active order by name`)).rows;
@@ -58,8 +64,9 @@ export async function registrarCursos(app: FastifyInstance) {
   });
   app.post('/api/cursos/:id/inscribirme', async (request: ConId, reply) => {
     if (!idCurso.safeParse(request.params.id).success) return error(reply, 404, 'CURSO_NO_EXISTE', 'El curso no existe.');
-    const {versionCobro}=entradaInscripcion.parse(request.body ?? {});
-    const resultado = await inscribirseEnCurso(request.params.id, request.usuario!.id,versionCobro);
+    const { versionCobro, tipoPrecio } = entradaInscripcion.parse(request.body ?? {});
+    const resultado = await inscribirseEnCurso(request.params.id, request.usuario!.id, versionCobro, tipoPrecio);
+    if (typeof resultado === 'object') return error(reply.header('Cache-Control', 'private, no-store'), resultado.estado, resultado.codigo, resultado.mensaje);
     if (resultado==='COBRO_NO_CONFIGURADO') return error(reply,409,resultado,'El administrador debe configurar las condiciones de cobro antes de nuevas inscripciones.');
     if (resultado==='COBRO_MODIFICADO') return error(reply,409,resultado,'Las condiciones cambiaron. Recarga el curso y confírmalas antes de inscribirte.');
     if (resultado === 'NO_EXISTE') return error(reply, 404, 'CURSO_NO_EXISTE', 'El curso no existe.');
@@ -82,8 +89,19 @@ export async function registrarCursos(app: FastifyInstance) {
     const curso=await cursoAutorizado(request,reply);
     if (!curso) return reply;
     const accesoContenido=await puedeAccederContenido(curso.id,request.usuario!);
+    const usuario = request.usuario!;
+    const intento = curso.inscrito ? curso.miInscripcion : null;
+    const faltaCotizar = env.inscripcionExternaHabilitada && curso.estado === 'PUBLICADO' && !curso.inscrito;
+    let cotizacion = {};
+    if (usuario.role === 'agremiado' && (faltaCotizar || intento?.tipoPrecio)) {
+      const { rows: [persona] } = await pool.query<{ dni: string | null }>('select dni from users where id=$1', [usuario.id]);
+      const dni = persona?.dni ?? null;
+      cotizacion = intento?.tipoPrecio
+        ? { miPrecio: precioDelTitular(intento.tipoPrecio, intento.importeCentimos / 100, dni) }
+        : await cotizarInscripcion(pool, curso, usuario.id, dni);
+    }
     return reply.header('Cache-Control','private, no-store').send({...curso,accesoContenido,
-      modulos:accesoContenido?curso.modulos:[]});
+      ...cotizacion, modulos:accesoContenido?curso.modulos:[]});
   });
   app.get('/api/cursos/:id/mi-asistencia', async (request: ConId, reply) => {
     const curso = await cursoAutorizado(request, reply);

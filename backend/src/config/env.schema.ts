@@ -56,6 +56,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default("1d"),
   // Firma los tokens del QR de asistencia; distinto de JWT_SECRET.
   QR_SECRET: requerida((s) => s.min(32, "debe tener al menos 32 caracteres")),
+  inscripcionExternaHabilitada: booleanFromEnv.default(false),
   jitsiHabilitado: booleanFromEnv.default(false),
   pagosEntorno: z.enum(['sandbox','produccion']).default('sandbox'),
   pagosUrlPublica: z.string().url().optional(),

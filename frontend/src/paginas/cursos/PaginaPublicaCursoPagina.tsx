@@ -13,7 +13,7 @@ import { cursos, type CursoPublicoDetalle } from '@/servicios/cursos'
 import { BotonCompartir } from './CompartirCurso'
 import { cuposCurso, fechasCurso } from './formatoCurso'
 import { EtiquetaCategoria, EtiquetaCobro, EtiquetaModalidad, FilaDato, PortadaCurso } from './piezasCurso'
-import { modalidadCobroDe, precioGeneralDe, soles, textoPlazo } from './reglasCurso'
+import { modalidadCobroDe, soles, textoPlazo } from './reglasCurso'
 import { SesionesDetalle } from './SesionesDetalle'
 
 /**
@@ -73,6 +73,7 @@ function TarjetaPrecio({ curso }: { curso: CursoPublicoDetalle }) {
   const navegar = useNavigate()
   const cobro = modalidadCobroDe(curso)
   const sinCupos = curso.cuposDisponibles === 0
+  const general = curso.admiteExternos ? curso.precioGeneral : null
   const plazo = curso.plazoPagoMinutos ? textoPlazo(curso.plazoPagoMinutos) : 'unos días'
   const inscribirme = () => navegar(usuario ? `/cursos/${curso.id}` : accesoConCurso('/login', curso.id))
   return (
@@ -81,9 +82,10 @@ function TarjetaPrecio({ curso }: { curso: CursoPublicoDetalle }) {
       {cobro === 'GRATUITO'
         ? <p className="font-serif text-[28px] leading-9 font-bold text-success">Gratuito</p>
         : <div className="flex flex-col gap-2">
-          <FilaPrecio titulo="Colegiados del CPPP" detalle="Con DNI habilitado en el padrón" importe={curso.costo} />
-          <FilaPrecio titulo="Público general" detalle="Docentes externos o no colegiados" importe={precioGeneralDe(curso)} />
+          <FilaPrecio titulo={general == null ? 'Tarifa del curso' : 'Colegiados del CPPP'} detalle={general == null ? undefined : 'Con afiliación habilitada y verificada'} importe={curso.costo} />
+          {general != null && <FilaPrecio titulo="Público general" detalle="Docentes externos o no colegiados" importe={general} />}
         </div>}
+      {!curso.admiteExternos && curso.precioGeneral != null && <p className="text-xs text-muted">La inscripción con tarifa general todavía no está disponible.</p>}
       {cobro === 'PREVIO' && <Aviso tipo="advertencia" titulo="Pago antes de llevar el curso">Al inscribirte tendrás {plazo} para pagar. Mientras tanto no podrás ver el contenido ni registrar asistencia.</Aviso>}
       {cobro === 'CERTIFICADO' && <Aviso titulo="Pagas solo el certificado">Llevas el curso gratis. Pagas la constancia al terminar, si cumples los requisitos.</Aviso>}
       {cobro === 'GRATUITO' && <Aviso tipo="exito" titulo="Curso gratuito">Ni la inscripción ni la constancia requieren pago.</Aviso>}
@@ -94,12 +96,12 @@ function TarjetaPrecio({ curso }: { curso: CursoPublicoDetalle }) {
   )
 }
 
-function FilaPrecio({ titulo, detalle, importe }: { titulo: string; detalle: string; importe: number }) {
+function FilaPrecio({ titulo, detalle, importe }: { titulo: string; detalle?: string; importe: number }) {
   return (
     <div className="flex items-center gap-2 rounded-lg bg-page p-3">
       <div className="flex min-w-0 flex-1 flex-col">
         <p className="text-sm leading-5 font-semibold text-ink">{titulo}</p>
-        <p className="text-xs leading-4 text-muted">{detalle}</p>
+        {detalle && <p className="text-xs leading-4 text-muted">{detalle}</p>}
       </div>
       <p className="font-serif text-xl leading-7 font-bold whitespace-nowrap text-ink">{soles(importe)}</p>
     </div>

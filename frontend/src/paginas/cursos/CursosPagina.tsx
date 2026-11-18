@@ -163,7 +163,7 @@ function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?
         <FilaDato icono={Users} etiqueta="Cupos" alerta={sinCupos}>{cuposCurso(curso)}</FilaDato>
       </dl>
       <div className="mt-auto border-t border-line pt-2.5">
-        <PreciosCurso curso={curso} />
+        <PreciosCurso curso={curso} mostrarGeneral={!publico || curso.admiteExternos === true} />
       </div>
     </div>
   </article>

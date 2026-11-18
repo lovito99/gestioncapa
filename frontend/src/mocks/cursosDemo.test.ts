@@ -69,7 +69,7 @@ it('RF-07: el catálogo público no pide token ni publica materiales o identific
   const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
   for (const curso of pagina.items) {
     expect(curso.fechaFin === null || curso.fechaFin >= hoy).toBe(true)
-    expect(Object.keys(curso).sort()).toEqual(['id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'cupos', 'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin', 'modalidadCobro', 'plazoPagoMinutos', 'versionCobro', 'precioGeneral', 'portadaUrl'].sort())
+    expect(Object.keys(curso).sort()).toEqual(['id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'cupos', 'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin', 'modalidadCobro', 'plazoPagoMinutos', 'versionCobro', 'precioGeneral', 'portadaUrl', 'admiteExternos'].sort())
   }
   expect((await fetch('http://localhost/api/publico/cursos?tamanoPagina=51')).status).toBe(422)
 })

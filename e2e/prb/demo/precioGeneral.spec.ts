@@ -1,0 +1,41 @@
+import { randomInt, randomUUID } from 'node:crypto'
+import { test, expect } from '../../ayud/prueba'
+
+test('HU43: un docente externo revisa y confirma el precio general', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 })
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Cursos vigentes del CPPP' })).toBeVisible()
+  const curso = await page.evaluate(async () => {
+    const respuesta = await fetch('/api/publico/cursos?buscar=Evaluaci%C3%B3n%20formativa')
+    return (await respuesta.json()).items[0] as { id: string; titulo: string }
+  })
+  await page.goto(`/capacitaciones/${curso.id}`)
+  await expect(page.getByText('Público general', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Inscribirme', exact: true }).click()
+  await expect(page).toHaveURL(`/login?curso=${curso.id}`)
+  await page.getByRole('link', { name: 'Crear cuenta', exact: true }).first().click()
+  await page.getByRole('textbox', { name: 'DNI', exact: true }).fill(String(randomInt(10000000, 100000000)))
+  await page.getByRole('textbox', { name: 'Nombres', exact: true }).fill('Docente')
+  await page.getByRole('textbox', { name: 'Apellidos', exact: true }).fill('Externo')
+  await page.getByRole('textbox', { name: 'Correo electrónico', exact: true }).fill(`hu43-${randomUUID()}@prueba.local`)
+  await page.getByRole('textbox', { name: 'Celular', exact: true }).fill('987654321')
+  await page.getByLabel(/^Contraseña/).fill('abcdefgh')
+  await page.getByRole('checkbox').check()
+  await page.getByRole('button', { name: 'Crear cuenta', exact: true }).click()
+  await expect(page).toHaveURL(`/cursos/${curso.id}`)
+  await page.getByRole('button', { name: 'Inscribirme', exact: true }).click()
+  const confirmacion = page.getByRole('dialog', { name: 'Confirma tu inscripción' })
+  await expect(confirmacion).toContainText('Docente externo')
+  await expect(confirmacion).toContainText('S/ 90.00')
+  await confirmacion.getByRole('checkbox').check()
+  const alta = page.waitForResponse(respuesta => respuesta.url().endsWith(`/cursos/${curso.id}/inscribirme`)
+    && respuesta.request().method() === 'POST')
+  await confirmacion.getByRole('button', { name: 'Confirmar e ir a pagar' }).click()
+  const respuesta = await alta
+  expect(respuesta.status()).toBe(201)
+  expect(respuesta.request().postDataJSON()).toEqual({ versionCobro: expect.any(Number), tipoPrecio: 'GENERAL' })
+  await expect(page).toHaveURL(`/cursos/${curso.id}/pagar`)
+  const resumen = page.getByRole('region', { name: 'Resumen del pago' })
+  await expect(resumen).toContainText('Precio general')
+  await expect(resumen).toContainText('S/ 90.00')
+})

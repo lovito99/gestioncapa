@@ -8,12 +8,15 @@ Especificación: [docs/esp/calidad.md](esp/calidad.md) (criterios CAL, CFG y AMB
 |---|---|---|
 | `npm run verificar` | typecheck → build → pruebas unitarias (se detiene en el primer fallo) | No |
 | `npm test` | Pruebas unitarias de backend (`node:test`) y frontend (Vitest) | No |
-| `npm run test:integracion` | Roles, clases, inscripciones, asistencia y migraciones contra Postgres y Redis reales | Sí |
+| `NODE_ENV=test npm run test:integracion` | Roles, clases, inscripciones, asistencia y migraciones contra Postgres y Redis reales | Sí |
 | `npm run test:cobertura` | Cobertura de asistencia: mínimo 60 % de líneas, ramas y funciones | Sí |
 | `npm run e2e` / `npm run e2e:real` | Recorridos en navegador ([guía](e2e.md)) | Real: sí |
 
 Las pruebas del backend están en `backend/test/`. Las de `backend/test/integracion/`
-necesitan `docker compose up -d --wait` y un `backend/.env` válido.
+necesitan PostgreSQL y Redis de pruebas (por ejemplo, con `docker compose up -d --wait`)
+y un `backend/.env` que apunte a esos servicios. `NODE_ENV=test` habilita las
+pruebas de HU-43 con un padrón sintético. La variable solo selecciona el modo
+de ejecución. La suite escribe en la base indicada por la configuración.
 
 La compilación local se ejecuta manualmente. Las comprobaciones de tipos y
 pruebas pueden ejecutarse por separado; `npm run verificar` también compila,
@@ -26,7 +29,8 @@ por lo que no debe usarse cuando se desea dejar ese paso manual.
 - **Tipos, build y pruebas** (CAL-01): `npm run typecheck`, `npm run build` y `npm test`.
 - **Entorno con Docker Compose** (AMB-01…03): repite los pasos del README de un
   integrante nuevo: `docker compose up -d --wait`, `npm run env:init`, `migrate`,
-  `seed` dos veces, `npm run test:integracion` y `npm run test:cobertura`.
+  `seed` dos veces, `npm run test:integracion` con `NODE_ENV=test` y
+  `npm run test:cobertura`.
 
 `e2e.yml` ejecuta las suites de Playwright en el job **E2E demo y real**.
 

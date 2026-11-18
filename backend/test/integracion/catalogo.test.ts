@@ -149,7 +149,7 @@ test('RF-07: catálogo público vigente, paginado y sin datos internos', async (
     assert.ok(!datos.items.some((curso: { id: string }) => [borrador, vencido.id].includes(curso.id)));
     for (const curso of datos.items) {
       assert.ok(curso.titulo);
-      assert.deepEqual(Object.keys(curso).sort(), ['id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'cupos', 'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin','modalidadCobro','plazoPagoMinutos','versionCobro'].sort());
+      assert.deepEqual(Object.keys(curso).sort(), ['id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'precioGeneral', 'cupos', 'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin','modalidadCobro','plazoPagoMinutos','versionCobro'].sort());
     }
     const filtro = await pedir(null, 'GET', '/api/publico/cursos?buscar=CAPACITACION&modalidad=VIRTUAL&tamanoPagina=2');
     assert.equal(filtro.json().total, 4); assert.equal(filtro.json().items.length, 2);

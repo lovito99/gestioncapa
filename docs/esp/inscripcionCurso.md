@@ -81,3 +81,33 @@ Se comprobó mediante una mutación que confirmar un curso con costo rompe la
 prueba de HU-16; se restauró el código original. `git diff --check` sin errores.
 Para la entrega, el usuario aplica `npm run migrate` en su entorno y ejecuta
 `npm run build` manualmente. No se ejecutaron builds ni escrituras de Git.
+# HU-43 · Tarifas de colegiados y docentes externos
+
+El administrador guarda en la creación o en la sección de cobro los importes
+para colegiados y externos. Una tarifa general nula indica que falta
+configurarla. El detalle de un curso activo muestra la cotización privada
+del titular cuando se habilita la política. Al confirmar, Fastify vuelve a
+consultar el padrón y comprueba el tipo y la versión de cobro. El intento
+congela el importe, que se usa para la reserva o para la constancia.
+
+`inscripcionExternaHabilitada=false` conserva la inscripción anterior por
+precio único. Activar la política requiere la decisión del CPPP sobre la
+admisión y las tarifas, un procedimiento para verificar identidad y una
+fuente oficial con fecha de vigencia. El DNI declarado en el registro solo
+identifica la cuenta. El descuento requiere una asociación verificada.
+
+Para preparar la política, el operador autorizado aplica las migraciones
+0034 a 0036. Importa la proyección completa en una transacción a
+`"padronCppp"` y registra su vigencia en `"controlPadronCppp"` con `id=1`.
+Cada fila lleva `dni`, `habilitado` y opcionalmente `"usuarioIdVerificado"`.
+La vinculación corresponde al usuario cuya identidad verificó el operador.
+Registrar `"validadoEn"` y `"vigenteHasta"` a partir de la fuente de entrega.
+Los registros de DNI se mantienen en la base con acceso restringido. La
+interfaz devuelve solo el DNI enmascarado de la cuenta autenticada.
+
+Antes de habilitar, comprobar una tarifa verificada, una general, un DNI
+inhabilitado y un padrón vencido en un entorno aislado. Preparar los cursos
+con ambas tarifas y revisar cuentas históricas sin DNI. Ejecutar el build
+manual, confirmar el respaldo y revisar las alertas de pagos y reservas.
+Ante una incidencia, desactivar la política y reiniciar el backend para
+volver al flujo anterior. Mantener los intentos y las deudas existentes.

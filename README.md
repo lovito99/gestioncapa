@@ -262,7 +262,7 @@ docker compose up -d --wait
 
 ```bash
 npm run verificar          # typecheck + build + pruebas unitarias
-npm run test:integracion   # seed y login de cada rol (requiere docker compose)
+NODE_ENV=test npm run test:integracion   # usar PostgreSQL y Redis de pruebas
 ```
 
 GitHub Actions repite ambos en cada Pull Request, y la integración a `main` requiere
@@ -320,7 +320,7 @@ npm run typecheck
 npm run build
 npm test
 npm run verificar
-npm run test:integracion
+NODE_ENV=test npm run test:integracion
 npm run start
 ```
 

@@ -83,7 +83,9 @@ jobs:
           npm run migrate
           npm run seed
           npm run seed
-      - name: Pruebas de integración del seed
+      - name: Pruebas de integración
+        env:
+          NODE_ENV: test
         run: npm run test:integracion
       - name: Cobertura de asistencia (mínimo 60 %)
         run: npm run test:cobertura

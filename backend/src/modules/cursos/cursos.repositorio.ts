@@ -3,24 +3,24 @@ import { listarSesiones } from './sesiones.repositorio.js';
 import type { PoolClient } from 'pg';
 import { pool } from '../../shared/database.js';
 import type { ConsultaCatalogo, DatosCurso, DatosMaterial } from './cursos.validacion.js';
-import type { PoliticaCobro } from './cursos.cobro.js';
+import type { PoliticaCobro, TipoPrecio } from './cursos.cobro.js';
 import { aCentimos } from './cursos.cobro.js';
 import { randomUUID } from 'node:crypto';
 import { crearObligacion } from '../pagos/pagos.repositorio.js';
 import { cancelarReservasVencidas } from './inscripciones.vencimiento.js';
+import { env } from '../../config/env.js';
+import { cotizarInscripcion } from './precioInscripcion.js';
 
 export async function actualizarCobro(id: string, datos: PoliticaCobro & { versionCobro: number }) {
-  return transaccion(async cliente=>{
-    const anterior=(await cliente.query<{costo:number}>(`select costo::float8 from cursos where id=$1 and estado<>'CERRADO' and "versionCobro"=$2 for update`,[id,datos.versionCobro])).rows[0];
-    if (!anterior) return 0;
-    return (await cliente.query(`update cursos set "modalidadCobro"=$2,costo=$3,"plazoPagoMinutos"=$4,"versionCobro"="versionCobro"+1
-    where id=$1 and estado<>'CERRADO' and "versionCobro"=$5 returning id`,
-  [id, datos.modalidadCobro, datos.costo, datos.plazoPagoMinutos, datos.versionCobro])).rowCount;
-  });
+  return (await pool.query(`update cursos set "modalidadCobro"=$2::varchar,costo=$3,"plazoPagoMinutos"=$4,"versionCobro"="versionCobro"+1,
+    "precioGeneral"=case when $2::varchar='GRATUITO' then 0 else coalesce($6, nullif("precioGeneral",0)) end
+    where id=$1 and estado<>'CERRADO' and "versionCobro"=$5`,
+  [id, datos.modalidadCobro, datos.costo, datos.plazoPagoMinutos, datos.versionCobro, datos.precioGeneral ?? null])).rowCount;
 }
 
 export type Curso = {
   modalidadCobro: 'PREVIO' | 'CERTIFICADO' | 'GRATUITO' | null; plazoPagoMinutos: number | null; versionCobro: number;
+  precioGeneral: number | null;
   id: string; instructorId: string; instructorNombre: string;
   titulo: string; descripcion: string; horasLectivas: number; modalidad: string; costo: number;
   categoria: string; fechaInicio: string | null; fechaFin: string | null; cuposDisponibles: number; inscrito?: boolean;
@@ -28,7 +28,7 @@ export type Curso = {
   cupos: number; tipoCertificado: string; notaMinima: number; estado: 'BORRADOR' | 'PUBLICADO' | 'CERRADO';
 };
 const columnas = `c.id::text, c.instructor_id::text as "instructorId",
-  c."modalidadCobro",c."plazoPagoMinutos",c."versionCobro",
+  c."modalidadCobro",c."plazoPagoMinutos",c."versionCobro",c."precioGeneral"::float8,
   u.name as "instructorNombre", c.titulo, c.descripcion, c.horas_lectivas as "horasLectivas",
   c.modalidad, c.costo::float8, c.cupos, c.tipo_certificado as "tipoCertificado", c.nota_minima as "notaMinima", c.estado,
   c.categoria,to_char(c.fecha_inicio,'YYYY-MM-DD') as "fechaInicio",to_char(c.fecha_fin,'YYYY-MM-DD') as "fechaFin",
@@ -52,7 +52,7 @@ export async function obtenerCurso(id: string, usuarioId?: number) {
     sesiones: await listarSesiones(id, usuarioId), modulos: modulos.map(modulo => ({ ...modulo, materiales: materiales.filter(a => a.moduloId === modulo.id) })) };
 }
 export async function obtenerMiInscripcion(cursoId:string,usuarioId:number) {
-  return (await pool.query(`select t.id as "intentoId",t."modalidadCobro",t."importeCentimos"::float8,t.moneda,t."versionCobro",t."plazoPagoMinutos",
+  return (await pool.query(`select t.id as "intentoId",t."modalidadCobro",t."importeCentimos"::float8,t.moneda,t."versionCobro",t."plazoPagoMinutos",t."tipoPrecio",
     t."inscritoEn",t."venceEn",t."pagoId"::text,e.estado as "estadoEntrega",
     case when i.estado='PENDIENTE_PAGO' and t."venceEn"<=clock_timestamp() then 'CANCELADA' else i.estado end as estado,
     case when p.estado='PAGADO' then 'PAGADO' when i.estado='CANCELADA' or (i.estado='PENDIENTE_PAGO' and t."venceEn"<=clock_timestamp()) then 'VENCIDO' when t."modalidadCobro"='GRATUITO' then 'EXENTO'
@@ -73,10 +73,10 @@ export async function crearCurso(datos: DatosCurso, usuarioId: number) {
     const instructor = await cliente.query(`select id from users where id=$1 and role='instructor' and active for share`, [datos.instructorId]);
     if (!instructor.rowCount) return null;
     const id = (await cliente.query<{ id: string }>(`insert into cursos
-      (creador_id,instructor_id,titulo,descripcion,horas_lectivas,modalidad,costo,cupos,tipo_certificado,nota_minima,categoria,fecha_inicio,fecha_fin,"modalidadCobro","plazoPagoMinutos")
-      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) returning id::text`,
+      (creador_id,instructor_id,titulo,descripcion,horas_lectivas,modalidad,costo,cupos,tipo_certificado,nota_minima,categoria,fecha_inicio,fecha_fin,"modalidadCobro","plazoPagoMinutos","precioGeneral")
+      values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) returning id::text`,
     [usuarioId, datos.instructorId, datos.titulo, datos.descripcion, datos.horasLectivas, datos.modalidad, datos.costo, datos.cupos, datos.tipoCertificado, datos.notaMinima, datos.categoria, datos.fechaInicio, datos.fechaFin,
-      datos.modalidadCobro ?? (datos.costo === 0 ? 'GRATUITO' : null), datos.plazoPagoMinutos])).rows[0]!.id;
+      datos.modalidadCobro ?? (datos.costo === 0 ? 'GRATUITO' : null), datos.plazoPagoMinutos, datos.precioGeneral ?? (datos.costo === 0 ? 0 : null)])).rows[0]!.id;
     for (const [indice, modulo] of datos.modulos.entries()) await cliente.query('insert into modulos_curso(curso_id,titulo,orden) values($1,$2,$3)', [id, modulo.titulo, indice + 1]);
     return id;
   });
@@ -121,12 +121,12 @@ export async function paginaCatalogo(usuarioId: number, consulta: ConsultaCatalo
   return { ...datos, categorias: [...categoriasCatalogo], pagina: consulta.pagina, tamanoPagina: consulta.tamanoPagina, totalPaginas: Math.ceil(datos.total / consulta.tamanoPagina) };
 }
 
-export async function inscribirseEnCurso(cursoId: string, usuarioId: number, versionCobro?:number) {
+export async function inscribirseEnCurso(cursoId: string, usuarioId: number, versionCobro?: number, tipoPrecio?: TipoPrecio) {
   return transaccion(async cliente => {
     // El bloqueo del curso serializa todas las solicitudes a la última plaza.
-    const curso = (await cliente.query<Curso>('select estado,cupos,costo::float8 as costo,"modalidadCobro","plazoPagoMinutos","versionCobro" from cursos where id=$1 for update', [cursoId])).rows[0];
+    const curso = (await cliente.query<Curso>('select estado,cupos,costo::float8 as costo,"precioGeneral"::float8,"modalidadCobro","plazoPagoMinutos","versionCobro" from cursos where id=$1 for update', [cursoId])).rows[0];
     if (!curso) return 'NO_EXISTE' as const;
-    const persona = (await cliente.query<{ id: string }>(`select id from users where id=$1 and active and role='agremiado' for share`, [usuarioId])).rows[0];
+    const persona = (await cliente.query<{ dni: string | null }>(`select dni from users where id=$1 and active and role='agremiado' for share`, [usuarioId])).rows[0];
     if (!persona) return 'SIN_PERMISO' as const;
     if (curso.estado !== 'PUBLICADO') return 'NO_PUBLICADO' as const;
     await cancelarReservasVencidas(cliente,cursoId);
@@ -135,19 +135,31 @@ export async function inscribirseEnCurso(cursoId: string, usuarioId: number, ver
     if (!curso.modalidadCobro && curso.costo===0) curso.modalidadCobro='GRATUITO';
     if (!curso.modalidadCobro) return 'COBRO_NO_CONFIGURADO' as const;
     if ((versionCobro!==undefined && versionCobro!==curso.versionCobro) || (curso.modalidadCobro!=='GRATUITO' && versionCobro===undefined)) return 'COBRO_MODIFICADO' as const;
+    let importe = curso.costo;
+    let tarifa: TipoPrecio | null = null;
+    if (env.inscripcionExternaHabilitada) {
+      const cotizacion = await cotizarInscripcion(cliente, curso, usuarioId, persona.dni);
+      if ('impedimentoInscripcion' in cotizacion) return cotizacion.impedimentoInscripcion;
+      if (tipoPrecio !== cotizacion.miPrecio.tipo || versionCobro === undefined) return 'COBRO_MODIFICADO' as const;
+      importe = cotizacion.miPrecio.importe;
+      tarifa = cotizacion.miPrecio.tipo;
+    } else if (tipoPrecio !== undefined) {
+      return 'COBRO_MODIFICADO' as const;
+    }
     const inscritos = (await cliente.query<{ total: number }>(`select count(*)::int as total from inscripciones_curso where curso_id=$1 and estado<>'CANCELADA'`, [cursoId])).rows[0]!.total;
     if (inscritos >= curso.cupos) return 'SIN_CUPOS' as const;
     const pendiente = curso.modalidadCobro === 'PREVIO';
     const intentoId=randomUUID();
+    const importeCentimos = aCentimos(importe);
     await cliente.query(`with instante as(select clock_timestamp() as ahora)
-      insert into "intentosInscripcion"(id,"cursoId","usuarioId","modalidadCobro","importeCentimos","versionCobro","plazoPagoMinutos","inscritoEn","venceEn",estado)
-      select $1,$2,$3,$4,$5,$6,$7,ahora,case when $7::int is not null then ahora+make_interval(mins=>$7) else null end,$8 from instante`,
-    [intentoId,cursoId,usuarioId,curso.modalidadCobro,aCentimos(curso.costo),curso.versionCobro,curso.plazoPagoMinutos,pendiente?'PENDIENTE_PAGO':'EN_CURSO']);
+      insert into "intentosInscripcion"(id,"cursoId","usuarioId","modalidadCobro","importeCentimos","versionCobro","plazoPagoMinutos","inscritoEn","venceEn",estado,"tipoPrecio")
+      select $1,$2,$3,$4,$5,$6,$7,ahora,case when $7::int is not null then ahora+make_interval(mins=>$7) else null end,$8,$9 from instante`,
+    [intentoId,cursoId,usuarioId,curso.modalidadCobro,importeCentimos,curso.versionCobro,curso.plazoPagoMinutos,pendiente?'PENDIENTE_PAGO':'EN_CURSO',tarifa]);
     await cliente.query(`insert into inscripciones_curso(curso_id,usuario_id,estado,"intentoId") values($1,$2,$3,$4)
       on conflict(curso_id,usuario_id) do update set estado=excluded.estado,"intentoId"=excluded."intentoId",inscrito_en=clock_timestamp(),terminado_en=null`,
     [cursoId,usuarioId,pendiente?'PENDIENTE_PAGO':'EN_CURSO',intentoId]);
     if (pendiente) {
-      const pago=await crearObligacion(cliente,{cursoId,usuarioId,intentoId,concepto:'CURSO',importeCentimos:aCentimos(curso.costo),moneda:'PEN'});
+      const pago=await crearObligacion(cliente,{cursoId,usuarioId,intentoId,concepto:'CURSO',importeCentimos,moneda:'PEN'});
       await cliente.query('update "intentosInscripcion" set "pagoId"=$2 where id=$1',[intentoId,pago.id]);
     }
     if (!pendiente) await cliente.query(`insert into enrollments(class_id,user_id)

@@ -10,7 +10,7 @@ Criterios: <!-- p. ej. CFG-01, AMB-02 -->
 
 - [ ] `npm run typecheck` y `npm test` pasan en local
 - [ ] Build ejecutado manualmente por el autor: `npm run build`
-- [ ] Si toca la base de datos o el seed: `npm run test:integracion` con `docker compose up -d --wait`
+- [ ] Si toca la base de datos o el seed: `NODE_ENV=test npm run test:integracion` con PostgreSQL y Redis de pruebas
 - [ ] Si toca pantallas o la API: `npm run e2e` / `npm run e2e:real`
 
 ## SDD / BDD / TDD
