@@ -16,7 +16,7 @@ if (!existsSync(distPath)) {
   process.exit(1);
 }
 
-const app = crearServidorFrontend({ carpetaDist: distPath, backendUrl });
+const app = crearServidorFrontend({ carpetaDist: distPath, backendUrl, origenPublico: process.env.VITE_ORIGEN_PUBLICO });
 
 app.listen(port, () => {
   console.log(`Frontend listo en http://localhost:${port}`);

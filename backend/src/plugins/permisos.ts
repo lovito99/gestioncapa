@@ -37,6 +37,7 @@ export const permisos: Permiso[] = [
   ...['cerrar','excepciones'].map(accion => ({ metodo: 'POST' as const, ruta: `/api/cursos/:id/${accion}`, acceso: ['ADMIN'] as Rol[], critica: true })),
   { metodo: "POST", ruta: "/api/auth/registro", acceso: "publico" },
   { metodo: "GET", ruta: "/api/publico/cursos", acceso: "publico" },
+  { metodo: "GET", ruta: "/api/publico/cursos/:id", acceso: "publico" },
   { metodo: "GET", ruta: "/api/catalogo/cursos/pagina", acceso: "autenticado" },
   { metodo: "POST", ruta: "/api/cursos/:id/inscribirme", acceso: ["AGREMIADO"], critica: true },
   { metodo: "POST", ruta: "/api/cursos/:id/sesiones", acceso: ["ADMIN"], critica: true },

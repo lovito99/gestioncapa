@@ -42,6 +42,7 @@ export const router = createBrowserRouter([
   { path: '/', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
   { path: '/capacitaciones', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
   { path: '/capacitaciones/:id', element: <PaginaPublica><PaginaPublicaCursoPagina /></PaginaPublica> },
+  { path: '/c/:id', element: <PaginaPublica><PaginaPublicaCursoPagina /></PaginaPublica> },
   { path: '/login', element: <LoginPagina /> },
   { path: '/registro', element: <RegistroPagina /> },
   { path: '/recuperar', element: <RecuperarPagina /> },
