@@ -572,3 +572,43 @@ La rama alcanza la etiqueta local `v3.1.0.0.0`. Si esa es la base de la próxima
 entrega que incluya HU-29, se propone `v3.2.0.0.0` por nueva función. Recalcular
 desde la etiqueta efectiva si la base cambia. La planificación no crea un
 commit ni una versión.
+
+# T-24 · Plan del referente de diseño
+
+La [especificación](../SPEC.md#t-24--referencias-de-diseño-para-cursos-grabados)
+define un entregable documental para el equipo que mantiene el Figma del CPPP.
+Se parte de las fuentes públicas y de las pantallas locales de la aplicación.
+
+| Tarea | Entrega | Depende de | Verificación |
+| --- | --- | --- | --- |
+| T24-01 | Levantar evidencia de SIFODS y PerúEduca y contrastarla con el recorrido actual. | Especificación | Cubrir los cinco patrones, situar cada guía en su contexto y reconocer las pantallas autenticadas sin acceso. |
+| T24-02 | Registrar decisiones de diseño y anotaciones para Figma. | T24-01 | Vincular cada patrón con al menos una historia, comprobar que aparecen HU-17, HU-37, HU-38 y HU-44 y marcar vínculos provisionales. |
+| T24-03 | Integrar el informe en la documentación de Figma y revisar su entrega. | T24-02 | Abrir fuentes, verificar anclas, controlar el alcance del diff y documentar lo que resta en Figma, Jira y con el CPPP. |
+
+Tras T24-01 verificar que una práctica de un curso concreto no se atribuya a
+toda la plataforma. Tras T24-02 revisar que avance, aprobación y constancia
+tengan estados distintos. El informe mantiene un vínculo con el original de
+Figma y resume las pautas del colegio si las hay. Se usan enlaces locales
+mientras falten los destinos autorizados de Figma o Jira.
+
+La revisión final aplica Definition of Done y Security Checklist al alcance
+documental. Verificar fuentes, trazabilidad, permisos de destino descritos y
+ausencia de datos personales. `git diff --check` valida el formato del diff.
+El build no aplica. La revisión humana del prototipo y el registro de sus
+nodos son el paso de entrega en Figma. El commit se prepara para ejecución
+manual según `AGENTS.md`.
+
+Por sí sola, la entrega documental incrementaría el nivel **Interno** de
+`v3.1.0.0.0` a `v3.1.0.0.1`. Si se incluye con una función como HU-29, se
+mantiene el incremento **Función** de esa entrega sobre la base efectiva.
+
+## Prototipo aprobado en el repositorio
+
+| Tarea | Entrega | Verificación |
+| --- | --- | --- |
+| T24-P01 | Curso de ejemplo, inscripción y ruta del aula en modo demo. | Acceso desde el catálogo y «Mis cursos». Verificar sesión, inscripción y aislamiento del modo real. |
+| T24-P02 | Índice, material grabado, avance y evaluaciones. | Verificar bloqueo, respuesta incorrecta, progreso por cuenta y recuperación al recargar. |
+| T24-P03 | Constancia de demostración y revisión móvil. | Verificar PDF tras completar el curso, rechazo de la descarga anticipada y Playwright en escritorio y móvil. |
+
+P02 usa el acceso de P01 y P03 usa el progreso de P02. Preparar el commit
+manual y dejar el build para el usuario según `AGENTS.md`.

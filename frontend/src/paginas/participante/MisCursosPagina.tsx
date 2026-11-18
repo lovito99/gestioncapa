@@ -5,6 +5,7 @@ import { useAuth } from '@/auth/useAuth'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { Etiqueta } from '@/components/ui/Etiqueta'
 import { mensajeDeError } from '@/lib/api'
+import { cursoTieneAulaDemo } from '@/lib/aulaGrabadaDemo'
 import { rangoFechasCorto } from '@/lib/formato'
 import { CERTIFICADOS_CURSO } from '@/servicios/cursos'
 import { historiales, intervaloEntrega, type Historial } from '@/servicios/historial'
@@ -70,6 +71,7 @@ function TarjetaCurso({ curso }: { curso: CursoInscrito }) {
   const terminado = curso.estado === 'TERMINADO'
   const fechas = curso.sesiones.map((s) => s.fecha).sort()
   const certificado = curso.certificados.find((c) => c.estado === 'VALIDO')
+  const aulaDemo = cursoTieneAulaDemo(curso.id) && curso.modalidad === 'GRABADO'
 
   return (
     <article className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
@@ -81,7 +83,7 @@ function TarjetaCurso({ curso }: { curso: CursoInscrito }) {
         </h2>
         {curso.estado==='CANCELADA'?<Etiqueta tono="advertencia">Reserva cancelada</Etiqueta>:curso.estado === 'PENDIENTE_PAGO' ? <Etiqueta tono="advertencia">Pendiente de pago</Etiqueta> : <>
           {curso.pagoPendiente && <Etiqueta tono="advertencia">Pendiente de pago</Etiqueta>}
-          <Etiqueta tono={terminado ? 'exito' : 'marca'}>{terminado ? 'Terminado' : 'En curso'}</Etiqueta>
+          <Etiqueta tono={terminado ? 'exito' : 'marca'}>{aulaDemo ? 'Aula grabada' : terminado ? 'Terminado' : 'En curso'}</Etiqueta>
         </>}
       </div>
       {fechas.length > 0 && (
@@ -90,8 +92,13 @@ function TarjetaCurso({ curso }: { curso: CursoInscrito }) {
           {rangoFechasCorto(fechas[0]!, fechas.at(-1)!)} · {curso.horasLectivas} horas lectivas
         </p>
       )}
-      <Avance asistencia={curso.asistencia} />
-      <AvisoProgreso aviso={queTeFalta(curso)} />
+      {aulaDemo ? (
+        (curso.estado === 'EN_CURSO' || curso.estado === 'TERMINADO') &&
+        <Link to={`/cursos/${curso.id}/aula`} className={`${enlaceSecundario} self-start`}>Abrir aula grabada</Link>
+      ) : <>
+        <Avance asistencia={curso.asistencia} />
+        <AvisoProgreso aviso={queTeFalta(curso)} />
+      </>}
       <IntentosAnteriores intentos={curso.intentosAnteriores} />
       {curso.estadoEntrega==='RETENIDA' && <p className="text-sm">{curso.estadoFinanciero==='PAGADO'?'Pago confirmado. Constancia en preparación.':'Constancia retenida hasta confirmar el pago.'} <Link className="font-semibold text-brand underline" to={`/cursos/${curso.id}`}>Consultar curso y pago</Link></p>}
       {certificado && (
