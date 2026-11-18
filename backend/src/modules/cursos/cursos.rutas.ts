@@ -2,10 +2,10 @@ import { asistenciaCurso, programarSesion } from './sesiones.repositorio.js';
 import { validarClase } from '../clases/clases.validacion.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { pool } from '../../shared/database.js';
-import { crearCurso, guardarMaterial, inscribirseEnCurso, paginaCatalogo, listarCursos, obtenerArchivo, obtenerCurso, publicarCurso } from './cursos.repositorio.js';
+import { actualizarCobro, crearCurso, guardarMaterial, inscribirseEnCurso, listarCursos, obtenerArchivo,
+  obtenerCurso, obtenerMiInscripcion, paginaCatalogo, publicarCurso, type Curso } from './cursos.repositorio.js';
 import { esquemaCurso, esquemaMaterial, esquemaConsultaCatalogo, idCurso } from './cursos.validacion.js';
 import { esquemaCambioCobro } from './cursos.cobro.js';
-import { actualizarCobro, obtenerMiInscripcion } from './cursos.repositorio.js';
 import { entradaInscripcion } from './cursos.cobro.js';
 import { puedeAccederContenido } from './cursos.acceso.js';
 import { env } from '../../config/env.js';
@@ -13,12 +13,12 @@ import { admiteInscripcionExterna, cotizarInscripcion, precioDelTitular } from '
 
 type ConId = FastifyRequest<{ Params: { id: string; moduloId?: string; materialId?: string } }>;
 const error = (reply: FastifyReply, status: number, code: string, message: string) => reply.code(status).send({ code, message });
-const cursoNoExiste = (reply: FastifyReply) => error(reply, 404, 'CURSO_NO_EXISTE', 'El curso no existe.');
-
-function resumenPublico({ id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, cupos,
-  cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro, plazoPagoMinutos, versionCobro }: Curso) {
-  return { id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, cupos,
-    cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro, plazoPagoMinutos, versionCobro };
+function resumenPublico({ id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, precioGeneral, cupos,
+  cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro, plazoPagoMinutos, versionCobro }: Curso, padronDisponible: boolean) {
+  const admiteExternos = padronDisponible && (costo === 0 || (precioGeneral !== null && modalidadCobro !== null));
+  return { id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, precioGeneral, cupos,
+    cuposDisponibles, categoria, fechaInicio, fechaFin, modalidadCobro, plazoPagoMinutos, versionCobro,
+    ...(admiteExternos && { admiteExternos }) };
 }
 
 async function cursoAutorizado(request: ConId, reply: FastifyReply) {
@@ -47,15 +47,7 @@ export async function registrarCursos(app: FastifyInstance) {
     const consulta = esquemaConsultaCatalogo.parse(request.query);
     const [pagina, padronDisponible] = await Promise.all([paginaCatalogo(0, consulta, true), admiteInscripcionExterna()]);
     // Lista explícita: nunca publicar inscritos ni materiales.
-    return { ...pagina, items: pagina.items.map(resumenPublico) };
-  });
-  app.get('/api/publico/cursos/:id', async (request: ConId, reply) => {
-    reply.header('Cache-Control', 'no-store');
-    const id = idCurso.safeParse(request.params.id);
-    if (!id.success) return cursoNoExiste(reply);
-    const curso = await obtenerCursoPublicado(id.data);
-    if (!curso) return cursoNoExiste(reply);
-    return { ...resumenPublico(curso), vigente: curso.vigente };
+    return { ...pagina, items: pagina.items.map(curso => resumenPublico(curso, padronDisponible)) };
   });
   app.get('/api/cursos/instructores', async request => {
     return (await pool.query(`select id::text,name as nombre from users where role='instructor' and active order by name`)).rows;

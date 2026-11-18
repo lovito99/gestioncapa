@@ -74,7 +74,11 @@ export type MaterialEntrada = { titulo: string } & ({ tipo: 'PDF'; contenidoBase
 export type FiltrosCatalogo = { buscar?: string; modalidad?: string; categoria?: string; cobro?: string; pagina?: number; tamanoPagina?: number }
 /** Portada que se sube con el curso: JPG, PNG o WebP de hasta 1 MB (SCRUM-182). */
 export type PortadaEntrada = { nombre: string; tipo: 'image/jpeg' | 'image/png' | 'image/webp'; contenidoBase64: string }
-export type CursoPublico = Pick<Curso, 'id' | 'titulo' | 'descripcion' | 'instructorNombre' | 'horasLectivas' | 'modalidad' | 'costo' | 'cupos' | 'cuposDisponibles' | 'categoria' | 'fechaInicio' | 'fechaFin' | 'modalidadCobro' | 'plazoPagoMinutos' | 'versionCobro' | 'precioGeneral' | 'portadaUrl'>
+/** Enlace para compartir que abre la ficha pública del curso. */
+export type EnlaceCompartir = { url: string; enlaceCorto: string }
+export type CursoPublico = Pick<Curso, 'id' | 'titulo' | 'descripcion' | 'instructorNombre' | 'horasLectivas' | 'modalidad'
+  | 'costo' | 'cupos' | 'cuposDisponibles' | 'categoria' | 'fechaInicio' | 'fechaFin' | 'modalidadCobro' | 'plazoPagoMinutos'
+  | 'versionCobro' | 'precioGeneral' | 'admiteExternos' | 'portadaUrl'>
 /**
  * SCRUM-187 · Detalle público del curso (sin sesión). Las sesiones no traen la sala virtual,
  * el encargado ni datos de inscritos.

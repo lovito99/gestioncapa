@@ -430,9 +430,11 @@ Los campos nuevos son **opcionales**; el backend actual los ignora porque su esq
 
 ## SCRUM-187 — Página pública del curso (HU-22, Figma S3 5.0–5.2)
 
-Pantallas: `/` y `/capacitaciones` (cursos vigentes, sin sesión) y `/capacitaciones/:id`
-(página pública del curso). Es la URL que entrega «Compartir» (`GET /api/publico/cursos/:id/compartir`).
-Simulación en `frontend/src/mocks/cursos.ts`; prueba en `mocks/cursosS3.test.ts`.
+Las pantallas `/`, `/capacitaciones` y `/capacitaciones/:id` están disponibles sin sesión.
+Con el backend real, la ficha obtiene el curso vigente de `GET /api/publico/cursos`
+y usa los valores por defecto de asistencia y certificación de la pantalla,
+con una lista de sesiones vacía. La demo simula el detalle y «Compartir» en
+`frontend/src/mocks/cursos.ts`, con pruebas en `mocks/cursosS3.test.ts`.
 
 | Método y ruta | Sesión | Respuesta |
 |---|---|---|

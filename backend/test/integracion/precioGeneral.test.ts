@@ -88,7 +88,11 @@ test('HU43-01: el administrador guarda ambos precios y el catálogo los lee', as
   assert.equal(curso.costo, 42.35);
   assert.equal(curso.precioGeneral, 69.29);
   assert.equal((await pedir('POST', `/api/cursos/${curso.id}/publicar`, {}, administrador)).statusCode, 200);
-  assert.equal((await pedir('GET', `/api/publico/cursos/${curso.id}`)).json().precioGeneral, 69.29);
+  const publico = await pedir('GET', '/api/publico/cursos?tamanoPagina=50');
+  assert.equal(publico.statusCode, 200, publico.body);
+  const oferta = publico.json().items.find((item: { id: string }) => item.id === curso.id);
+  assert.equal(oferta?.precioGeneral, 69.29);
+  assert.equal(oferta?.admiteExternos, undefined);
 
   const cobro = { modalidadCobro: 'PREVIO', costo: 42.35, precioGeneral: 42.35, plazoPagoMinutos: 60, versionCobro: curso.versionCobro };
   const cambio = await pedir('PATCH', `/api/cursos/${curso.id}/cobro`, cobro, administrador);
@@ -147,9 +151,11 @@ test('HU43-02: el titular ve la tarifa asignada y se protege el padrón', async 
     { tipo: 'COLEGIADO', importe: 42.35, dniParcial: '•••• 4302', enPadron: true });
   assert.equal((await pedir('GET', ruta, undefined, noVerificado.token)).json().impedimentoInscripcion.codigo, 'AFILIACION_NO_VERIFICADA');
   assert.equal((await pedir('GET', ruta, undefined, inhabilitado.token)).json().impedimentoInscripcion.codigo, 'AFILIACION_INHABILITADA');
-  const publico = await pedir('GET', `/api/publico/cursos/${curso.id}`);
-  assert.equal(publico.json().admiteExternos, true);
-  assert.equal(publico.json().miPrecio, undefined);
+  const publico = await pedir('GET', '/api/publico/cursos?tamanoPagina=50');
+  assert.equal(publico.statusCode, 200, publico.body);
+  const oferta = publico.json().items.find((item: { id: string }) => item.id === curso.id);
+  assert.equal(oferta?.admiteExternos, true);
+  assert.equal(oferta?.miPrecio, undefined);
   assert.doesNotMatch(publico.body, /5500430[1-4]/);
   assert.equal((await pedir('GET', ruta, undefined, administrador)).json().miPrecio, undefined);
   const incompleto = await publicar();
