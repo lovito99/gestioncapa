@@ -82,8 +82,8 @@ describe('enlace para compartir', () => {
     const id = await evaluacion()
     const { status, cuerpo } = await llamar('GET', `/publico/cursos/${id}/compartir`)
     expect(status).toBe(200)
-    expect(cuerpo.url).toBe(`http://localhost/capacitaciones/${id}`)
-    expect(cuerpo.enlaceCorto).toBe(`localhost/capacitaciones/${id}`)
+    expect(cuerpo.url).toBe(`http://localhost/c/${id}`)
+    expect(cuerpo.enlaceCorto).toBe(`localhost/c/${id}`)
   })
 
   it('no existe para cursos en borrador', async () => {

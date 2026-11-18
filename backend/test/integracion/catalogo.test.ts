@@ -158,6 +158,37 @@ test('RF-07: catálogo público vigente, paginado y sin datos internos', async (
 });
 
 
+test('HU-40: detalle público de un curso publicado por ID, con campos públicos y vigencia', async () => {
+  const curso = await crear({ titulo: 'HU-40 · Didáctica & evaluación', modalidadCobro: 'CERTIFICADO', plazoPagoMinutos: null });
+  const vencido = await crear({ fechaInicio: '2020-01-01', fechaFin: '2020-01-02' });
+  await pool.query(`update cursos set fecha_inicio=(now() at time zone 'America/Lima')::date,
+    fecha_fin=(now() at time zone 'America/Lima')::date where id=$1`, [curso.id]);
+  const ruta = `/api/publico/cursos/${curso.id}`;
+  const respuesta = await pedir(null, 'GET', ruta);
+  assert.equal(respuesta.statusCode, 200, respuesta.body);
+  assert.equal(respuesta.headers['cache-control'], 'no-store');
+  assert.deepEqual(Object.keys(respuesta.json()).sort(), [
+    'id', 'titulo', 'descripcion', 'instructorNombre', 'horasLectivas', 'modalidad', 'costo', 'cupos',
+    'cuposDisponibles', 'categoria', 'fechaInicio', 'fechaFin', 'modalidadCobro', 'plazoPagoMinutos', 'versionCobro', 'vigente',
+  ].sort());
+  assert.equal(respuesta.json().titulo, curso.titulo);
+  assert.equal(respuesta.json().modalidadCobro, 'CERTIFICADO');
+  assert.equal(respuesta.json().vigente, true);
+  assert.equal((await pedir(null, 'GET', `/api/publico/cursos/${vencido.id}`)).json().vigente, false);
+  assert.equal((await pedir(null, 'GET', `/api/cursos/${curso.id}`)).statusCode, 401);
+});
+
+test('HU-40: los ID inválidos, inexistentes, borradores y cerrados devuelven el mismo 404', async () => {
+  const cerrado = await crear();
+  await pool.query("update cursos set estado='CERRADO' where id=$1", [cerrado.id]);
+  for (const id of ['01', '1000000000000000', 'texto', '999999999999999', borrador, cerrado.id]) {
+    const respuesta = await pedir(null, 'GET', `/api/publico/cursos/${id}`);
+    assert.equal(respuesta.statusCode, 404);
+    assert.equal(respuesta.headers['cache-control'], 'no-store');
+    assert.deepEqual(respuesta.json(), { code: 'CURSO_NO_EXISTE', message: 'El curso no existe.' });
+  }
+});
+
 test('HU-16: curso con costo reserva vacante pendiente, sin confirmar ni duplicar', async () => {
   const curso = await crear({ titulo: 'HU16 · Reserva con costo', costo: 45, cupos: 1 });
   const sesion = (await pool.query<{ id: string }>("insert into classes(nombre,instructor_id,fecha,hora_inicio,hora_fin,lugar,curso_id)\n    values('Sesión pendiente',$1,'2031-04-01','08:00','09:00','Sala',$2) returning id::text", [personas.get('docente')!.id, curso.id])).rows[0]!;

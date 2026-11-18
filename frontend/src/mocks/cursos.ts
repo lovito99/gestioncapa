@@ -7,6 +7,7 @@ import { dniPorUsuario, enmascararDni } from './asistenciaPuerta'
 import { crearPago, pagoDeInscripcion, sembrarPagosDemo } from './pagos'
 import type { DetalleCurso, MaterialCurso, SesionCurso, FilaCierre, MiPrecio, ModalidadCobro } from '@/servicios/cursos'
 import { z } from 'zod'
+import { esIdCursoPublico, rutaCortaCurso } from '@/lib/enlaceCurso'
 import { modalidadDerivada, modalidadesCurso, modalidadesSesion } from '@/servicios/modalidadCurso'
 
 const API = import.meta.env.VITE_API_URL ?? '/api'
@@ -148,13 +149,16 @@ function resumenPublico(curso: DetalleCurso) {
     precioGeneral: curso.precioGeneral ?? costo, portadaUrl: curso.portadaUrl ?? null,
     plazoPagoMinutos: curso.plazoPagoMinutos ?? null, versionCobro: curso.versionCobro ?? 1 }
 }
+const hoyEnLima = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
+const cursoVigente = (curso: Pick<DetalleCurso, 'fechaFin'>, hoy: string) => !curso.fechaFin || curso.fechaFin >= hoy
+
 function catalogoPaginado(request: Request, publico = false, usuarioId = '') {
   const consulta = z.object({ buscar: z.string().trim().max(160).default(''), categoria: z.string().min(1).max(80).optional(), modalidad: z.enum(modalidadesCurso).optional(), cobro: z.enum(['PREVIO', 'CERTIFICADO', 'GRATUITO']).optional(), pagina: z.coerce.number().int().min(1).max(100000).default(1), tamanoPagina: z.coerce.number().int().min(1).max(50).default(6) }).strict().safeParse(Object.fromEntries(new URL(request.url).searchParams))
   if (!consulta.success) return error(422, 'Revisa los filtros y la página solicitada.')
   const { buscar, categoria, modalidad, cobro, pagina, tamanoPagina } = consulta.data
   const normalizar = (texto: string) => texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
-  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
-  const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO' && (!publico || !c.fechaFin || c.fechaFin >= hoy))
+  const hoy = hoyEnLima()
+  const publicados = cursosSimulados.filter(c => c.estado === 'PUBLICADO' && (!publico || cursoVigente(c, hoy)))
   const filtrados = publicados.filter(c => normalizar(c.titulo).includes(normalizar(buscar)) && (!categoria || c.categoria === categoria) && (!modalidad || disponibilidad(c).modalidad === modalidad) && (!cobro || modalidadCobroDe(c) === cobro)).sort((a,b) => Number(b.id)-Number(a.id))
   return HttpResponse.json({ items: filtrados.slice((pagina-1)*tamanoPagina,pagina*tamanoPagina).map(c => publico ? resumenPublico(disponibilidad(c, '')) : disponibilidad(c, usuarioId)), total: filtrados.length, pagina, tamanoPagina, totalPaginas: Math.ceil(filtrados.length/tamanoPagina), categorias: [...categoriasCatalogo] })
 }
@@ -199,19 +203,20 @@ export const handlersCursos = [
   }),
   // ---------- SCRUM-187: página pública del curso (sin sesión) ----------
   http.get(`${API}/publico/cursos/:id`, ({ params }) => {
-    const curso = cursosSimulados.find(c => c.id === params.id && c.estado === 'PUBLICADO')
-    if (!curso) return error(404, 'El curso no existe o ya no está disponible.', 'CURSO_NO_EXISTE')
+    const id = String(params.id)
+    const curso = esIdCursoPublico(id) && cursosSimulados.find(c => c.id === id && c.estado === 'PUBLICADO')
+    const headers = { 'Cache-Control': 'no-store' }
+    if (!curso) return HttpResponse.json({ code: 'CURSO_NO_EXISTE', message: 'El curso no existe.' }, { status: 404, headers })
     const sesiones = sesionesDe(curso.id).filter(s => s.estado === 'PROGRAMADA')
       .map(({ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }) => ({ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }))
     return HttpResponse.json({ ...resumenPublico(disponibilidad(curso, '')), tipoCertificado: curso.tipoCertificado, notaMinima: curso.notaMinima,
-      requisitoAsistencia: curso.requisitoAsistencia, sesiones })
+      requisitoAsistencia: curso.requisitoAsistencia, vigente: cursoVigente(curso, hoyEnLima()), sesiones }, { headers })
   }),
   // ---------- SCRUM-185: enlace para compartir (público) ----------
   http.get(`${API}/publico/cursos/:id/compartir`, ({ request, params }) => {
     const curso = cursosSimulados.find(c => c.id === params.id && c.estado === 'PUBLICADO')
     if (!curso) return error(404, 'El curso no existe o aún no está publicado.')
-    // El backend real acorta el enlace (p. ej. cppp.pe/c/…); la demo usa la ruta pública completa
-    const url = `${new URL(request.url).origin}/capacitaciones/${curso.id}`
+    const url = `${new URL(request.url).origin}${rutaCortaCurso(curso.id)}`
     return HttpResponse.json({ url, enlaceCorto: url.replace(/^https?:\/\//, '') })
   }),
   http.patch(`${API}/cursos/:id/cobro`, async ({ request, params }) => {
