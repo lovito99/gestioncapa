@@ -430,16 +430,17 @@ Los campos nuevos son **opcionales**; el backend actual los ignora porque su esq
 
 ## SCRUM-187 — Página pública del curso (HU-22, Figma S3 5.0–5.2)
 
-Las pantallas `/`, `/capacitaciones` y `/capacitaciones/:id` están disponibles sin sesión.
-Con el backend real, la ficha obtiene el curso vigente de `GET /api/publico/cursos`
-y usa los valores por defecto de asistencia y certificación de la pantalla,
-con una lista de sesiones vacía. La demo simula el detalle y «Compartir» en
-`frontend/src/mocks/cursos.ts`, con pruebas en `mocks/cursosS3.test.ts`.
+Las pantallas `/`, `/capacitaciones`, `/capacitaciones/:id` y el enlace corto `/c/:id`
+están disponibles sin sesión. La ficha usa `GET /api/publico/cursos/:id` en el backend
+real y en la demo (`frontend/src/mocks/cursos.ts`, pruebas en `mocks/cursosS3.test.ts`).
 
 | Método y ruta | Sesión | Respuesta |
 |---|---|---|
-| `GET /api/publico/cursos/:id` | No requiere | `200` con los campos de `GET /api/publico/cursos` (cada `item`) más `tipoCertificado`, `notaMinima`, `requisitoAsistencia` y `sesiones` |
-| | | `404 CURSO_NO_EXISTE` si no existe o no está `PUBLICADO` |
+| `GET /api/publico/cursos/:id` | No requiere | `200` con los campos de `GET /api/publico/cursos` (cada `item`) más `tipoCertificado`, `notaMinima`, `requisitoAsistencia`, `sesiones` y `vigente` |
+| | | `404 CURSO_NO_EXISTE` si el ID no es válido, no existe o no está `PUBLICADO`. `Cache-Control: no-store` |
+
+- Un curso publicado con fecha de fin pasada se consulta con `vigente: false`; la ficha
+  muestra «Curso finalizado» y no ofrece «Inscribirme» (HU-40).
 
 - `sesiones`: solo las `PROGRAMADA`, ordenadas por fecha y hora, cada una con
   `{ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }`. **Sin** `reunion`,
@@ -473,14 +474,19 @@ Simulación: `frontend/src/mocks/cursos.ts`; especificación ejecutable: `mocks/
 
 | Método y ruta | Actor | Cuerpo y respuesta |
 |---|---|---|
-| `PUT /api/cursos/:id/portada` | ADMIN | `{ nombre, tipo: "image/jpeg"\|"image/png"\|"image/webp", contenidoBase64 }` estricto. `200 { portadaUrl }`. Más de 1 MB → `422 PORTADA_MUY_PESADA`; otro tipo → `422 VALIDACION` con `fields.portada` |
-| `DELETE /api/cursos/:id/portada` | ADMIN | `204`. El curso vuelve a la portada por defecto de su categoría |
+| `POST /api/cursos` | ADMIN | Acepta `portada` opcional con el mismo objeto de `PUT …/portada`. Si la portada no es válida responde `422` con `fields.portada` y no crea el borrador (HU-51) |
+| `PUT /api/cursos/:id/portada` | ADMIN | `{ nombre, tipo: "image/jpeg"\|"image/png"\|"image/webp", contenidoBase64 }` estricto. `200 { portadaUrl }`. Archivo de más de 1 048 576 bytes → `422 PORTADA_MUY_PESADA`; tipo real distinto, archivo dañado, animado, de más de 16 MP o que no es exactamente 16:9 tras orientar la foto → `422 VALIDACION` con `fields.portada`. Cuerpo mayor a 1,75 MiB → `413`. Un rechazo conserva la portada anterior |
+| `DELETE /api/cursos/:id/portada` | ADMIN | `204`, también si ya no tenía portada. El curso vuelve a la portada por defecto de su categoría |
+| `GET /api/cursos/:id/portada` | Con sesión y permiso de ver el curso | JPEG de 1280 × 720 con `Cache-Control: private, no-store`. `404 PORTADA_NO_EXISTE` sin portada. Lo usa la vista previa de borradores y cerrados |
+| `GET /api/publico/cursos/:id/portada/:version/:variante` | Sin sesión | Solo la versión vigente de un curso `PUBLICADO`. `miniatura` (WebP ≤ 352 px), `tarjeta` (WebP ≤ 704 px) o `grande` (JPEG 1280 × 720). `Cache-Control: public, no-cache`, `ETag` y `nosniff`; `304` con `If-None-Match`. Otro estado, versión o variante → `404 PORTADA_NO_EXISTE` |
 | `PATCH /api/cursos/:id/cobro` | ADMIN | `{ modalidadCobro: "PREVIO"\|"CERTIFICADO"\|"GRATUITO", costo, precioGeneral?, plazoPagoMinutos\|null, versionCobro }` estricto. `200` con el curso y `versionCobro + 1`. `GRATUITO` ⇔ `costo = 0`; `PREVIO` ⇔ hay plazo. Curso cerrado o `versionCobro` desactualizada → `409` |
-| `GET /api/publico/cursos/:id/compartir` | Sin sesión | `200 { url, enlaceCorto }` para cursos `PUBLICADO`; si no, `404`. `url` apunta a `/capacitaciones/:id` (SCRUM-187); el backend puede acortarlo |
+| `GET /api/publico/cursos/:id/compartir` | Sin sesión | `200 { url, enlaceCorto, vistaPrevia: { titulo, descripcion, categoria, imagen } }` para cursos `PUBLICADO`; si no, `404`. `url` es `<origen>/c/:id`, con el origen de `catalogoOrigenPublico` o `FRONTEND_URL` (nunca el `Host` de la petición). `imagen` es `{ url, ancho: 1280, alto: 720, tipo: "image/jpeg" }` o `null` (ilustración de la categoría). Origen no válido → `503 ORIGEN_NO_CONFIGURADO` |
 | `GET /api/publico/cursos?cobro=` | Sin sesión | Filtro nuevo `cobro`: `PREVIO`, `CERTIFICADO` o `GRATUITO` (otro valor → `422`) |
 
 Campos nuevos del curso (en `GET /api/cursos/:id`, el catálogo y el catálogo público):
-`portadaUrl` (`null` → portada por categoría), `precioGeneral` (precio para no colegiados;
+`portadaUrl` (`null` → portada por categoría; ruta pública `grande` si está publicado y
+privada `/api/cursos/:id/portada?v=` en otro estado), `portadaFuentes` (solo publicados:
+`[{ url, ancho }]` de `miniatura` y `tarjeta` para `srcset`), `precioGeneral` (precio para no colegiados;
 si falta se usa `costo`), `modalidadCobro`, `plazoPagoMinutos`, `versionCobro` y `categoria`.
 
 - El backend real guarda `precioGeneral` en `POST /api/cursos` y

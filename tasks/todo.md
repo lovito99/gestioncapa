@@ -1238,3 +1238,176 @@ Versión propuesta `v3.1.0.0.1` si T-24 se entrega por separado sobre
 
 Versión propuesta para la entrega con prototipo `v3.2.0.0.0`, nivel Función
 sobre la etiqueta base local `v3.1.0.0.0`.
+
+# HU-51 · Tareas de implementación
+
+**SCRUM-177 · Implementada, pendiente de build manual y revisión humana · 18/11/2026**
+
+- [x] Revisar código real, demo, historial de HU-40 y cobertura existente.
+- [x] Guardar la [especificación](../SPEC.md#hu-51--imagen-de-portada-del-curso-en-el-catálogo)
+  y el [plan](plan.md#hu-51--plan-de-implementación) para aprobación.
+- [x] Aprobación del usuario para continuar con el plan (18/11/2026).
+
+**Secuencia por tarea** · Anotar el fallo esperado y el resultado rojo,
+implementar el cambio mínimo, comprobar el verde y preparar Summary y
+Description para commit manual. El usuario ejecuta el build y las
+operaciones Git.
+
+### T51-01 · Validar y procesar la portada
+
+- [x] Aceptar archivos estáticos reales de los tres formatos, 16:9 tras
+  orientación y hasta 1 048 576 bytes. Rechazar proporción inválida,
+  falsos tipos, archivo corrupto o sobredimensionado. Generar variantes
+  dentro del presupuesto y sin metadatos originales. HU51-01, HU51-06.
+- **Verificar** · `cd backend && node --import tsx --test test/portada.test.ts`.
+  Usar imágenes 16:9 reales, incluido un archivo válido rellenado mediante
+  metadatos hasta el límite. Medir dimensiones, tipo y bytes de las salidas.
+- **Depende de** · Aprobación. **Alcance S/M** · Procesador y pruebas en
+  `backend/src/modules/cursos/` y `backend/test/`; dependencia en
+  `backend/package.json`.
+
+### T51-02 · Editar la portada mediante la API
+
+- [x] Reemplazar, consultar en privado y quitar como admin, con lectura
+  privada permitida solo a quien puede ver el curso. Un rechazo preserva la
+  portada anterior y los reintentos de una misma operación convergen.
+  HU51-01, HU51-04, HU51-05.
+- **Verificar** · Suite de integración de portadas. Probar `401/403/404`,
+  cambio de dos archivos concurrentes, carga fallida, retiro repetido y
+  lectura después de reiniciar la aplicación de pruebas.
+- **Depende de** · T51-01. **Alcance M** · Una migración aditiva, repositorio
+  de portadas, `cursos.rutas.ts`, `permisos.ts` y
+  `backend/test/integracion/portadas.test.ts`.
+
+### T51-03 · Crear con portada en una sola operación
+
+- [x] Crear borrador y portada juntos, o devolver un error sin que aparezca
+  un nuevo curso. Una creación sin portada conserva su contrato. HU51-01.
+- **Verificar** · Suites de cursos y portadas. Probar rechazos de portada e
+  instructor, un fallo de almacenamiento y la creación con archivo en el
+  límite válido de transporte y negocio.
+- **Depende de** · T51-02. **Alcance M** · `cursos.validacion.ts`,
+  `cursos.repositorio.ts`, `cursos.rutas.ts` y pruebas de integración.
+
+### Punto de control tras T51-03
+
+- [x] Evidencia roja y verde, migración y cursos históricos comprobados.
+  Build manual pendiente del usuario.
+
+### T51-04 · Guardar desde el formulario administrativo
+
+- [x] Crear con portada, visualizarla al recargar y cambiarla o quitarla
+  desde edición. Los errores del campo son accesibles y el fallo en un
+  reemplazo conserva la portada anterior. HU51-01, HU51-05.
+- **Verificar** · `npm run e2e:real -- cursos.spec.ts`. Verificar selector a
+  360 px, error de proporción, persistencia y actualización sin depender de
+  la edición general del curso.
+- **Depende de** · T51-02 y T51-03. **Alcance M** · `CursoFormPagina.tsx`,
+  `CampoPortada.tsx`, `reglasCurso.ts`, servicio de cursos y prueba real.
+
+### T51-05 · Alinear el modo demo
+
+- [x] Simular creación y edición de portada con los mismos resultados de
+  formulario, errores relevantes y restricciones de rol. HU51-01, HU51-05.
+- **Verificar** · `npm exec -w frontend -- vitest run src/mocks/cursosS3.test.ts src/mocks/cursosDemo.test.ts`
+  y `npm run e2e -- cursos.spec.ts`.
+- **Depende de** · T51-04. **Alcance M** · `frontend/src/mocks/cursos.ts`,
+  pruebas MSW y prueba demo de cursos.
+
+### T51-06 · Servir portadas de cursos publicados
+
+- [x] Publicar las URLs actuales en los catálogos y el detalle autenticado,
+  con archivos separados del JSON. Cada acceso directo comprueba estado,
+  variante y versión vigentes. HU51-02, HU51-04, HU51-05, HU51-06.
+- **Verificar** · Suites de portadas y catálogo. Probar los tres tamaños,
+  cabeceras, URL antigua tras reemplazo o retiro, autorización y `404` sin
+  datos de curso para borrador y cerrado.
+- **Depende de** · T51-02. **Alcance M** · Repositorio, rutas, matriz de roles
+  y pruebas de catálogo y portadas.
+
+### Punto de control tras T51-06
+
+- [x] Repetir verificación API y formulario en demo y real. Registrar
+  errores, reintento, roles, versiones y estado público de los cursos.
+
+### T51-07 · Mostrar la portada responsiva en el catálogo y el detalle
+
+- [x] Mostrar datos debajo de la imagen, detectar pulsación y conservar
+  navegación por teclado y el botón independiente. Mantener texto
+  alternativo, respaldo de categoría, ancho de 360 px y portada grande.
+  HU51-02, HU51-03, HU51-04, HU51-05, HU51-06.
+- **Verificar** · `npm run e2e -- catalogo.spec.ts catalogoPublico.spec.ts`
+  y `npm run e2e:real -- catalogo.spec.ts catalogoPublico.spec.ts`. Verificar
+  dimensiones y bytes descargados, foco, toque, dos categorías y error
+  de descarga. Incluir fuente real seleccionada en la evidencia.
+- **Depende de** · T51-05 y T51-06. **Alcance M por tramo** · Primero el
+  componente común y sus contratos visuales en `piezasCurso.tsx` y su fuente
+  de respaldo. Después `CursosPagina.tsx` y las pruebas Playwright. Usar
+  las fichas existentes y ajustar sus llamadas si hace falta.
+
+### T51-08 · Recuperar el enlace público de HU-40
+
+- [x] Una visita anónima consulta la ficha por ID y puede obtener el enlace
+  HTTPS estable, con los estados de inscripción de HU-22 y una lista
+  explícita de datos públicos. HU51-04, HU51-07.
+- **Verificar** · Suite de catálogo y `npm run e2e:real -- catalogoPublico.spec.ts`.
+  Probar publicado vigente, vencido, sin cupos, borrador y cerrado, y
+  conservar el ID al ir al acceso. Verificar integridad del origen configurado.
+- **Depende de** · T51-06. **Alcance M por tramo** · Rutas, proyección,
+  permisos y prueba de integración. En el cliente, alias de ruta React y
+  prueba de catálogo público.
+
+### T51-09 · Servir el HTML inicial con portada para WhatsApp
+
+- [x] Responder el enlace corto y la ficha pública con Open Graph y la
+  portada visible actual o el raster de categoría. Manejar errores de
+  configuración y backend de forma diferenciada. HU51-05, HU51-07.
+- **Verificar** · `npm run test:servidor -w frontend`. Probar HTML sin
+  JavaScript, origen, escape, dimensiones, título y descarga del recurso.
+  Validar el enlace generado en Playwright y en WhatsApp sobre HTTPS
+  autorizado cuando el entorno esté disponible.
+- **Depende de** · T51-07 y T51-08. **Alcance M por tramo** · Módulo de
+  metadatos, Express y pruebas de servidor. Recursos raster de respaldo
+  del mismo sistema de categorías, con una prueba de correspondencia.
+
+### Punto de control tras T51-09
+
+- [x] Relacionar HU51-01 a HU51-07 con productos de pruebas y evidencia real.
+- [x] Simplificar el código tocado y repetir tipos, lint, unitarias,
+  integración y Playwright. Actualizar los contratos y guías afectados.
+- [x] Cotejar Definition of Done y Security Checklist en
+  `~/.agents/agent-skills/references/`. Revisar permisos, entradas, límites,
+  dependencia de imagen, contenido público, HTML, caché y logs.
+- [ ] Registrar build manual y prueba externa pendientes hasta contar con
+  evidencia. Completar revisión humana y preparación de salida, sin publicar.
+
+### Comandos y evidencia
+
+- Integración aislada, desde `backend/` con PostgreSQL y Redis de pruebas:
+  `NODE_ENV=test DB_NAME=gestioncapa_hu51_test node --import tsx --test --test-concurrency=1 test/integracion/portadas.test.ts test/integracion/cursos.test.ts test/integracion/catalogo.test.ts`.
+- Cierre: `npm run typecheck`, `npm run lint -w frontend`,
+  `npm test`, `npm run e2e:tipos` y `git diff --check`, además de los
+  recorridos de arriba. `npm run build` es manual.
+- Línea base antes de la implementación: **19 pruebas de Vitest y 3
+  de Express aprobadas**. La prueba de Vitest cubre el contrato simulado.
+  Express cubre el proxy actual. La cobertura de HU-51 queda pendiente.
+
+### Evidencia de la entrega
+
+| Criterio | Pruebas |
+| --- | --- |
+| HU51-01 | `backend/test/portada.test.ts`, integración `portadas.test.ts`, MSW `cursosS3.test.ts`, Playwright `cursos.spec.ts` demo y real |
+| HU51-02, HU51-03 | Playwright `portadaCatalogo.spec.ts` demo y real: orden visual, hover, pulsación, Enter, «Compartir» |
+| HU51-04 | `portadas.test.ts` (URLs por versión), `portadaCatalogo.spec.ts` (detalle y ficha `/c/:id` con `grande`) |
+| HU51-05 | `portadaCatalogo.spec.ts` (dos categorías y fallo de descarga), prueba de correspondencia raster en `servidor.prueba.js` |
+| HU51-06 | `portadaCatalogo.spec.ts` real: `miniatura` ≤ 90 KiB con DPR 1 y `tarjeta` ≤ 180 KiB con DPR 2 a 360 px, sin desborde |
+| HU51-07 | `catalogo.test.ts` (ficha y enlace), `servidor.prueba.js` (Open Graph sin JavaScript, escape, 404/502/503) |
+
+- Rojo observado: MSW (2 fallos), integración T51-06 y T51-08 (1 y 3), cliente T51-08 (3),
+  Playwright demo T51-07 contra los componentes previos y Express T51-09 (3).
+- Verde: 370 unitarias backend; 369/370 de integración (HU29 falla solo con
+  notificaciones pendientes de otras suites en la base compartida; aislada pasa 6/6);
+  167 Vitest y 7 Express; Playwright 146 demo y 42 real; tipos, lint (2 advertencias
+  previas) y `git diff --check`.
+- Pendientes: build manual, prueba de WhatsApp en HTTPS autorizado, configurar
+  `catalogoOrigenPublico` y revisión humana. `package-lock.json` está ignorado por Git.

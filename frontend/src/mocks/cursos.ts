@@ -169,6 +169,30 @@ const esquema = z.object({
 }).strict().refine(d => (!d.fechaInicio && !d.fechaFin) || (!!d.fechaInicio && !!d.fechaFin && d.fechaFin >= d.fechaInicio))
 // Al editar, cada módulo puede traer el id del que ya existe para conservar su material
 const esquemaEdicion = esquema.safeExtend({ modulos: z.array(z.object({ id: z.string().optional(), titulo }).strict()).min(1).max(100) })
+const esquemaPortada = z.object({ nombre: z.string().trim().min(1).max(255), tipo: z.enum(['image/jpeg', 'image/png', 'image/webp']), contenidoBase64: z.string().min(1) }).strict()
+const rechazoPortada = (code: 'VALIDACION' | 'PORTADA_MUY_PESADA', mensaje: string) =>
+  ({ fallo: HttpResponse.json({ code, message: mensaje, fields: { portada: mensaje } }, { status: 422 }) })
+
+/** Replica en demo las reglas del backend que no requieren decodificar la imagen. */
+function validarPortada(entrada: unknown): { url: string } | ReturnType<typeof rechazoPortada> {
+  const formato = 'Selecciona una imagen JPG, PNG o WebP válida.'
+  const datos = esquemaPortada.safeParse(entrada)
+  if (!datos.success) return rechazoPortada('VALIDACION', formato)
+  const { tipo, contenidoBase64 } = datos.data
+  if (contenidoBase64.length > 4 * Math.ceil(1024 * 1024 / 3)) return rechazoPortada('PORTADA_MUY_PESADA', 'La imagen de portada supera 1 MB.')
+  let binario: string
+  try { binario = atob(contenidoBase64) } catch { return rechazoPortada('VALIDACION', formato) }
+  if (binario.length > 1024 * 1024) return rechazoPortada('PORTADA_MUY_PESADA', 'La imagen de portada supera 1 MB.')
+  const firma = { 'image/png': binario.startsWith('\x89PNG\r\n\x1a\n'), 'image/jpeg': binario.startsWith('\xff\xd8\xff'),
+    'image/webp': binario.startsWith('RIFF') && binario.slice(8, 12) === 'WEBP' }[tipo]
+  if (btoa(binario) !== contenidoBase64 || !firma) return rechazoPortada('VALIDACION', formato)
+  if (tipo === 'image/png') {
+    const medida = (inicio: number) => [...binario.slice(inicio, inicio + 4)].reduce((total, letra) => total * 256 + letra.charCodeAt(0), 0)
+    if (medida(16) * 9 !== medida(20) * 16) return rechazoPortada('VALIDACION', 'Usa una imagen en proporción 16:9, por ejemplo 1280 × 720.')
+  }
+  return { url: `data:${tipo};base64,${contenidoBase64}` }
+}
+
 function resumenPublico(curso: DetalleCurso) {
   const { id, titulo, descripcion, instructorNombre, horasLectivas, modalidad, costo, cupos,
     cuposDisponibles, categoria, fechaInicio, fechaFin } = curso
@@ -246,11 +270,9 @@ export const handlersCursos = [
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
     const curso = cursosSimulados.find(c => c.id === params.id)
     if (!curso) return error(404, 'El curso no existe.')
-    const entrada = z.object({ nombre: z.string().min(1).max(255), tipo: z.enum(['image/jpeg', 'image/png', 'image/webp']), contenidoBase64: z.string().min(1) }).strict().safeParse(await request.json())
-    if (!entrada.success) return HttpResponse.json({ code: 'VALIDACION', message: 'La portada debe ser JPG, PNG o WebP.', fields: { portada: 'La portada debe ser JPG, PNG o WebP.' } }, { status: 422 })
-    const bytes = Math.floor(entrada.data.contenidoBase64.length * 3 / 4)
-    if (bytes > 1024 * 1024) return HttpResponse.json({ code: 'PORTADA_MUY_PESADA', message: 'La imagen de portada supera 1 MB.', fields: { portada: 'La imagen de portada supera 1 MB.' } }, { status: 422 })
-    curso.portadaUrl = `data:${entrada.data.tipo};base64,${entrada.data.contenidoBase64}`
+    const portada = validarPortada(await request.json())
+    if ('fallo' in portada) return portada.fallo
+    curso.portadaUrl = portada.url
     return HttpResponse.json({ portadaUrl: curso.portadaUrl })
   }),
   http.delete(`${API}/cursos/:id/portada`, ({ request, params }) => {
@@ -266,16 +288,18 @@ export const handlersCursos = [
     if (!curso) return error(404, 'El curso no existe o ya no está disponible.', 'CURSO_NO_EXISTE')
     const sesiones = sesionesDe(curso.id).filter(s => s.estado === 'PROGRAMADA')
       .map(({ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }) => ({ id, nombre, fecha, horaInicio, horaFin, lugar, modalidad }))
+    const vigente = !curso.fechaFin || curso.fechaFin >= new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lima' })
     return HttpResponse.json({ ...resumenPublico(disponibilidad(curso, '')), tipoCertificado: curso.tipoCertificado, notaMinima: curso.notaMinima,
-      requisitoAsistencia: curso.requisitoAsistencia, sesiones })
+      requisitoAsistencia: curso.requisitoAsistencia, vigente, sesiones })
   }),
   // ---------- SCRUM-185: enlace para compartir (público) ----------
   http.get(`${API}/publico/cursos/:id/compartir`, ({ request, params }) => {
     const curso = cursosSimulados.find(c => c.id === params.id && c.estado === 'PUBLICADO')
     if (!curso) return error(404, 'El curso no existe o aún no está publicado.')
-    // El backend real acorta el enlace (p. ej. cppp.pe/c/…); la demo usa la ruta pública completa
-    const url = `${new URL(request.url).origin}/capacitaciones/${curso.id}`
-    return HttpResponse.json({ url, enlaceCorto: url.replace(/^https?:\/\//, '') })
+    // Mismo contrato que el backend real; la demo usa el origen del navegador.
+    const url = new URL(`/c/${curso.id}`, new URL(request.url).origin)
+    return HttpResponse.json({ url: url.href, enlaceCorto: `${url.host}${url.pathname}`, vistaPrevia: { titulo: curso.titulo, descripcion: curso.descripcion,
+      categoria: curso.categoria, imagen: null } })
   }),
   http.patch(`${API}/cursos/:id/cobro`, async ({ request, params }) => {
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
@@ -343,12 +367,15 @@ export const handlersCursos = [
   }),
   http.post(`${API}/cursos`, async ({ request }) => {
     const auth = acceso(request, ['ADMIN']); if (auth.fallo) return auth.fallo
-    const datos = esquema.safeParse(await request.json())
+    const { portada: entradaPortada, ...cuerpo } = await request.json() as Record<string, unknown>
+    const datos = esquema.safeParse(cuerpo)
     if (!datos.success) return error(422, 'Completa los campos obligatorios: horas mayores que cero, certificado y al menos un módulo.')
+    const portada = entradaPortada === undefined ? { url: null } : validarPortada(entradaPortada)
+    if ('fallo' in portada) return portada.fallo
     const instructor = usuarios.find(u => u.id === datos.data.instructorId && u.rol === 'INSTRUCTOR')
     if (!instructor) return error(422, 'Selecciona un instructor válido.')
     const curso: DetalleCurso = { ...datos.data, cuposDisponibles: datos.data.cupos, id: nuevoId(), instructorNombre: instructor.nombre, estado: 'BORRADOR', requisitoAsistencia: 80, sesiones: [],
-      modulos: datos.data.modulos.map((m, i) => ({ ...m, id: nuevoId(), orden: i + 1, materiales: [] })) }
+      portadaUrl: portada.url, modulos: datos.data.modulos.map((m, i) => ({ ...m, id: nuevoId(), orden: i + 1, materiales: [] })) }
     cursosSimulados.push(curso)
     return HttpResponse.json(curso, { status: 201 })
   }),

@@ -175,13 +175,14 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
   const [erroresCobro, cambiarErroresCobro] = useState<ErroresCobro>({})
   const [portada, cambiarPortada] = useState<CambioPortada>({ tipo: 'sin-cambios' })
   const [errorPortada, cambiarErrorPortada] = useState<string>()
+  const [preparandoPortada, cambiarPreparandoPortada] = useState(false)
   const {
     register,
     handleSubmit,
     reset,
     setError,
     control,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<Formulario>({ resolver: zodResolver(esquema), defaultValues: valoresDe(curso) })
   // La vista previa de la portada por defecto cambia con el nombre y la categoría
   const [titulo, categoria] = useWatch({ control, name: ['titulo', 'categoria'] })
@@ -200,16 +201,17 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
         plazoPagoMinutos: condiciones.plazoPagoMinutos,
         modulos: modulos.map(({ id, titulo: nombre }) => ({ id, titulo: nombre.trim() })),
       }
-      let guardado = curso ? await cursos.actualizar(curso.id, entrada) : await cursos.crear(entrada)
-      if (portada.tipo === 'nueva') await cursos.subirPortada(guardado.id, portada.entrada)
-      if (portada.tipo === 'quitar') await cursos.quitarPortada(guardado.id)
-      if (portada.tipo !== 'sin-cambios') guardado = await cursos.obtener(guardado.id)
+      if (!curso) return cursos.crear({ ...entrada, ...(portada.tipo === 'nueva' && { portada: portada.entrada }) })
+      const modulosGuardados = modulosDe(curso)
+      const cambioModulos = modulos.length !== modulosGuardados.length ||
+        modulos.some(({ id, titulo }, indice) => id !== modulosGuardados[indice]?.id || titulo.trim() !== modulosGuardados[indice]?.titulo)
+      if (publicar && !isDirty && !cambioModulos) return cursos.publicar(curso.id)
+      const guardado = await cursos.actualizar(curso.id, entrada)
       return publicar ? cursos.publicar(guardado.id) : guardado
     },
     onSuccess: async (guardado, { publicar }) => {
       cache.setQueryData(['curso', guardado.id], guardado)
       await cache.invalidateQueries({ queryKey: ['cursos'] })
-      cambiarPortada({ tipo: 'sin-cambios' })
       if (!curso) {
         toast.success('Curso guardado como borrador.')
         navegar(`/admin/cursos/${guardado.id}/editar`, { replace: true })
@@ -230,6 +232,27 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
     },
   })
 
+  const guardarImagen = useMutation({
+    mutationFn: async ({ id, cambio }: { id: string; cambio: Exclude<CambioPortada, { tipo: 'sin-cambios' }> }) => {
+      if (cambio.tipo === 'nueva') return (await cursos.subirPortada(id, cambio.entrada)).portadaUrl
+      await cursos.quitarPortada(id)
+      return null
+    },
+    onSuccess: (portadaUrl, { id }) => {
+      cache.setQueryData<DetalleCurso>(['curso', id], anterior => anterior && { ...anterior, portadaUrl })
+      void cache.invalidateQueries({ queryKey: ['curso', id] })
+      void cache.invalidateQueries({ queryKey: ['cursos'] })
+      cambiarPortada({ tipo: 'sin-cambios' })
+      toast.success(portadaUrl ? 'Portada guardada.' : 'Se usará la portada de la categoría.')
+    },
+  })
+  const guardandoFormulario = guardar.isPending || guardarImagen.isPending
+  const portadaPorGuardar = !!curso && portada.tipo !== 'sin-cambios'
+  const errorGuardadoPortada = guardarImagen.isError
+    ? (esApiError(guardarImagen.error) && guardarImagen.error.fields.portada) ||
+      mensajeDeError(guardarImagen.error, 'No pudimos guardar la portada.')
+    : undefined
+
   /** Lo que no valida zod: módulos y, en un curso nuevo, la sección «Cobro». */
   const validarExtra = () => {
     const nuevosCobro = curso ? {} : validarCobro(cobro)
@@ -246,7 +269,7 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
   const enviar = (publicar: boolean) =>
     handleSubmit(
       (datos) => {
-        if (validarExtra()) guardar.mutate({ datos, publicar })
+        if (!preparandoPortada && !portadaPorGuardar && validarExtra()) guardar.mutate({ datos, publicar })
       },
       () => validarExtra(),
     )
@@ -300,7 +323,7 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
       ) : null}
 
       <form id="formulario-curso" noValidate onSubmit={enviar(false)} className="contents">
-        <fieldset disabled={guardar.isPending} className={cn(tarjeta, 'min-w-0 gap-4')}>
+        <fieldset disabled={guardandoFormulario} className={cn(tarjeta, 'min-w-0 gap-4')}>
           <h2 className="font-serif text-xl leading-7 font-bold text-ink">Datos del curso</h2>
           <Campo etiqueta="Nombre del curso" obligatorio error={errors.titulo?.message}>
             <Entrada placeholder="Ej.: Evaluación formativa en el aula" maxLength={160} estado={estado('titulo')} {...register('titulo')} />
@@ -308,9 +331,18 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
           <CampoPortada
             curso={{ titulo: titulo?.trim() || 'Curso', categoria: categoria || 'General', portadaUrl: curso?.portadaUrl ?? null }}
             cambio={portada}
-            alCambiar={cambiarPortada}
+            alCambiar={(cambio) => {
+              guardarImagen.reset()
+              cambiarPortada(cambio)
+            }}
             error={errorPortada}
             alError={cambiarErrorPortada}
+            alPreparar={cambiarPreparandoPortada}
+            alGuardar={curso ? () => {
+              if (portada.tipo !== 'sin-cambios') guardarImagen.mutate({ id: curso.id, cambio: portada })
+            } : undefined}
+            guardando={guardarImagen.isPending}
+            errorGuardado={errorGuardadoPortada}
           />
           <Campo etiqueta="Descripción" obligatorio error={errors.descripcion?.message}>
             <Entrada placeholder="Describe de qué trata el curso" maxLength={5000} estado={estado('descripcion')} {...register('descripcion')} />
@@ -382,7 +414,7 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
         </fieldset>
 
         {!curso && (
-          <fieldset disabled={guardar.isPending} className={cn(tarjeta, 'min-w-0 gap-4')}>
+          <fieldset disabled={guardandoFormulario} className={cn(tarjeta, 'min-w-0 gap-4')}>
             <h2 className="font-serif text-xl leading-7 font-bold text-ink">Cobro</h2>
             <CobroCursoFormulario
               valor={cobro}
@@ -427,19 +459,19 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
           Cancelar
         </Boton>
         {!curso ? (
-          <Boton type="submit" form="formulario-curso" cargando={guardar.isPending} className="h-12 text-base sm:h-10 sm:text-sm">
+          <Boton type="submit" form="formulario-curso" disabled={preparandoPortada || portadaPorGuardar || guardarImagen.isPending} cargando={guardar.isPending} className="h-12 text-base sm:h-10 sm:text-sm">
             Guardar borrador
           </Boton>
         ) : publicado || cerrado ? (
-          <Boton type="submit" form="formulario-curso" cargando={guardar.isPending}>
+          <Boton type="submit" form="formulario-curso" disabled={preparandoPortada || portadaPorGuardar || guardarImagen.isPending} cargando={guardar.isPending}>
             Guardar cambios
           </Boton>
         ) : (
           <>
-            <Boton type="submit" form="formulario-curso" variante="secundario" disabled={guardar.isPending}>
+            <Boton type="submit" form="formulario-curso" variante="secundario" disabled={guardandoFormulario || preparandoPortada || portadaPorGuardar}>
               Guardar cambios
             </Boton>
-            <Boton cargando={guardar.isPending} onClick={() => void enviar(true)()}>
+            <Boton cargando={guardar.isPending} disabled={guardandoFormulario || preparandoPortada || portadaPorGuardar} onClick={() => void enviar(true)()}>
               Publicar curso
             </Boton>
           </>
