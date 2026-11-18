@@ -6,7 +6,6 @@ import { redis } from '../../src/shared/redis.js';
 import { migrar } from '../../src/shared/migraciones.js';
 import type { FastifyInstance } from 'fastify';
 import { crearObligacion,obtenerPago } from '../../src/modules/pagos/pagos.repositorio.js';
-import { iniciarPago } from '../../src/modules/pagos/pagos.servicio.js';
 import { randomUUID, createHmac } from 'node:crypto';
 import { env } from '../../src/config/env.js';
 import { iniciarOperacion } from '../../src/modules/pagos/pagos.repositorio.js';
@@ -337,27 +336,29 @@ test('HU53-07: conserva referencia Culqi si falla la consulta y concilia sin cob
   try {
     const curso=await crear();await llamar('admin','POST',`/api/cursos/${curso.id}/publicar`);
     const alta=(await llamar('alumno','POST',`/api/cursos/${curso.id}/inscribirme`,{versionCobro:1})).json();
-    const referencia=`chr_test_R${curso.id}`;let cargos=0;let permitirConsulta=false;
-    let metadata:unknown;
-    const llamada=mock.method(globalThis,'fetch',async(url:unknown,opciones?:RequestInit)=>{
-      if (opciones?.method==='POST') {
-        assert.equal(String(url),'https://api.culqi.com/v2/charges');cargos++;
-        metadata=JSON.parse(String(opciones.body)).metadata;
-        return new Response(JSON.stringify({id:referencia}),{status:201});
-      }
+    const referencia=`chr_test_R${curso.id}`;
+    const op = await iniciarOperacion(alta.pagoId, Number(usuarios.get('alumno')!.id), {
+      medio: 'CULQI', clave: randomUUID(), cargaHash: 'a'.repeat(64),
+    });
+    await pool.query(`update "operacionesPago" set "referenciaExterna"=$2,estado='INCIERTO' where id=$1`, [op.id, referencia]);
+    let permitirConsulta = false;
+    const llamada = mock.method(globalThis, 'fetch', async (url: unknown, opciones?: RequestInit) => {
+      assert.notEqual(opciones?.method, 'POST');
+      assert.equal(String(url), `https://api.culqi.com/v2/charges/${referencia}`);
       if (!permitirConsulta) throw new Error('interrupción simulada');
-      return new Response(JSON.stringify({object:'charge',id:referencia,amount:15050,currency_code:'PEN',response_code:'venta_exitosa',metadata}),{status:200});
-    });restaurar=()=>llamada.mock.restore();
-    // Simula una operación histórica anterior a la elección T-25. La API del
-    // participante ya no crea cargos Culqi; sí debe conciliar los existentes.
-    await assert.rejects(iniciarPago((await obtenerPago(alta.pagoId))!,Number(usuarios.get('alumno')!.id),
-      {medio:'CULQI',clave:randomUUID(),token:'tkn_test_soloPruebas'}),{statusCode:503});
-    const operacion=(await llamar('alumno','GET',`/api/pagos/${alta.pagoId}`)).json().operaciones[0];
-    assert.equal(operacion.referenciaExterna,referencia);
-    assert.equal(operacion.estado,'INCIERTO');
-    permitirConsulta=true;
-    assert.equal((await llamar('admin','POST',`/api/pagos/${alta.pagoId}/conciliar`,{operacionId:operacion.id})).statusCode,200);
-    assert.equal(cargos,1);
+      return Response.json({ object: 'charge', id: referencia, amount: 15050, currency_code: 'PEN',
+        response_code: 'venta_exitosa', metadata: { operacionId: op.id, pagoId: alta.pagoId } });
+    });
+    restaurar = () => llamada.mock.restore();
+    const ruta = `/api/pagos/${alta.pagoId}`;
+    assert.equal((await llamar('alumno', 'POST', `${ruta}/intentos`, { medio: 'CULQI', clave: randomUUID() })).statusCode, 503);
+    assert.equal((await llamar('admin', 'POST', `${ruta}/conciliar`, { operacionId: op.id })).statusCode, 503);
+    const [operacion] = (await llamar('alumno', 'GET', ruta)).json().operaciones;
+    assert.equal(operacion.referenciaExterna, referencia);
+    assert.equal(operacion.estado, 'INCIERTO');
+    permitirConsulta = true;
+    assert.equal((await llamar('admin', 'POST', `${ruta}/conciliar`, { operacionId: op.id })).statusCode, 200);
+    assert.equal(llamada.mock.callCount(), 2);
     assert.equal((await llamar('alumno','GET',`/api/cursos/${curso.id}`)).json().estadoInscripcion,'EN_CURSO');
   } finally {restaurar?.();Object.assign(env,anterior);}
 });
@@ -387,21 +388,95 @@ test('HU53-07: operaciones sin referencia no bloquean la recuperación automáti
   } finally {restaurar?.();Object.assign(env,anterior);}
 });
 
+test('HU54: conserva la comisión aceptada y aplica una sola vez una aprobación de Yape', async () => {
+  const anterior = { ...env, izipayComisionYape: env.izipayComisionYape };
+  const clave = 'clave-de-firma-solo-para-pruebas-32';
+  Object.assign(env, { izipayHabilitado: true, izipayConciliacionHabilitada: true, izipayComisionYape: 350,
+    izipayCodigoComercio: 'PRUEBA', izipayClaveHash: clave, izipayClavePublica: 'clave-publica-pruebas',
+    izipayRsaPublica: 'rsa-publica-solo-pruebas', pagosUrlPublica: 'https://comercio.example' });
+  const generar = mock.method(globalThis, 'fetch', async (url: unknown, opciones?: RequestInit) => {
+    assert.match(String(url), /sandbox-api-pw\.izipay\.pe\/security/);
+    assert.equal(JSON.parse(String(opciones?.body)).amount, '155.77');
+    return Response.json({ code: '00', response: { token: 'token-efimero-prueba' } });
+  });
+  try {
+    const curso = await crear();
+    await llamar('admin', 'POST', `/api/cursos/${curso.id}/publicar`);
+    const alta = (await llamar('alumno', 'POST', `/api/cursos/${curso.id}/inscribirme`, { versionCobro: 1 })).json();
+    const ruta = `/api/pagos/${alta.pagoId}`;
+    const detalle = (await llamar('alumno', 'GET', ruta)).json();
+    assert.equal(detalle.opcionesEnLinea?.length, 1);
+    const [opcion] = detalle.opcionesEnLinea;
+    assert.deepEqual([opcion.instrumento, opcion.baseCentimos, opcion.comisionCentimos, opcion.totalCentimos], ['YAPE', 15050, 527, 15577]);
+    const entrada = { medio: 'IZIPAY', instrumento: 'YAPE', cotizacion: opcion.cotizacion, clave: randomUUID() };
+    assert.equal((await llamar('otro', 'POST', `${ruta}/intentos`, entrada)).statusCode, 403);
+    assert.equal((await llamar('alumno', 'POST', `${ruta}/intentos`, { ...entrada, cotizacion: '1.' + '0'.repeat(64) })).statusCode, 409);
+    const futuro = Date.now() + 360000;
+    const reloj = mock.method(Date, 'now', () => futuro);
+    try {
+      const vencida = await llamar('alumno', 'POST', `${ruta}/intentos`, entrada);
+      assert.equal(vencida.json().code, 'COTIZACION_CAMBIO');
+    } finally { reloj.mock.restore(); }
+    const entradas = [entrada, { ...entrada, clave: randomUUID() }];
+    const inicios = await Promise.all(entradas.map(solicitud => llamar('alumno', 'POST', `${ruta}/intentos`, solicitud)));
+    assert.deepEqual(inicios.map(respuesta => respuesta.statusCode).sort(), [200, 409]);
+    const ganador = inicios.findIndex(respuesta => respuesta.statusCode === 200);
+    const inicio = inicios[ganador]!;
+    const sesion = inicio.json().izipay;
+    assert.equal(sesion.importe, '155.77');
+    Object.assign(env, { izipayComisionYape: 990 });
+    assert.equal((await llamar('alumno', 'POST', `${ruta}/intentos`, entradas[ganador])).json().izipay.importe, '155.77');
+    assert.equal(generar.mock.callCount(), 1);
+    Object.assign(env, { izipayHabilitado: false });
+    assert.deepEqual((await llamar('alumno', 'GET', ruta)).json().opcionesEnLinea, []);
+    const notificar = (metodo: string) => {
+      const payloadHttp = JSON.stringify({ code: '00', response: { merchant: { merchantCode: 'PRUEBA' }, order: [{
+        orderNumber: sesion.orden, payMethodAuthorization: metodo, amount: '155.77', currency: 'PEN',
+        uniqueId: `YAPE${curso.id}`, codeAuth: '123456', stateMessage: 'Autorizado',
+      }] } });
+      return llamar(null, 'POST', '/api/pagos/notificaciones/izipay', {
+        transactionId: sesion.transaccionId, payloadHttp,
+        signature: createHmac('sha256', clave).update(payloadHttp).digest('base64'),
+      });
+    };
+    assert.equal((await notificar('CARD')).statusCode, 422);
+    const respuestas = await Promise.all([notificar('YAPE_CODE'), notificar('YAPE_CODE')]);
+    for (const respuesta of respuestas) assert.deepEqual(respuesta.json(), { estado: 'CONFIRMADO' });
+    const pago = (await llamar('alumno', 'GET', ruta)).json();
+    assert.equal(pago.estado, 'PAGADO');
+    assert.equal(pago.importeCentimos, 15050);
+    assert.equal(pago.comprobante.totalCentimos, 15577);
+    const cola = await pool.query('select texto from "notificacionesPago" where "operacionId"=$1 and tipo=\'COMPROBANTE\'', [inicio.json().operacionId]);
+    assert.equal(cola.rowCount, 1);
+    assert.match(cola.rows[0].texto, /155\.77/);
+    assert.equal((await llamar('otro', 'GET', `${ruta}/comprobante`)).statusCode, 403);
+    const pdf = await llamar('alumno', 'GET', `${ruta}/comprobante`);
+    assert.equal(pdf.statusCode, 200, pdf.body);
+    assert.match(pdf.headers['content-type']!, /application\/pdf/);
+  } finally {
+    generar.mock.restore();
+    Object.assign(env, anterior);
+  }
+});
+
 test('HU53-07: recupera la sesión original Izipay sin generar otro token', async () => {
-  const anterior={...env};let restaurar:(()=>void)|undefined;
-  Object.assign(env,{izipayHabilitado:true,izipayCodigoComercio:'PRUEBA',izipayClavePublica:'clave-publica-prueba',izipayRsaPublica:'rsa-publica-solo-prueba',pagosUrlPublica:'https://comercio.example'});
+  const anterior={...env,izipayComisionTarjeta:env.izipayComisionTarjeta};let restaurar:(()=>void)|undefined;
+  Object.assign(env,{izipayHabilitado:true,izipayComisionTarjeta:0,izipayCodigoComercio:'PRUEBA',izipayClavePublica:'clave-publica-prueba',izipayRsaPublica:'rsa-publica-solo-prueba',pagosUrlPublica:'https://comercio.example'});
   try {
     const curso=await crear();await llamar('admin','POST',`/api/cursos/${curso.id}/publicar`);
     const alta=(await llamar('alumno','POST',`/api/cursos/${curso.id}/inscribirme`,{versionCobro:1})).json();
     let tokens=0;
     const llamada=mock.method(globalThis,'fetch',async()=>{tokens++;return new Response(JSON.stringify({code:'00',response:{token:'token-efimero-solo-para-pruebas'}}),{status:200})});
     restaurar=()=>llamada.mock.restore();
-    const entrada={medio:'IZIPAY',clave:randomUUID()};
+    const [opcion]=(await llamar('alumno','GET',`/api/pagos/${alta.pagoId}`)).json().opcionesEnLinea;
+    const entrada={medio:'IZIPAY',clave:randomUUID(),instrumento:'TARJETA',cotizacion:opcion.cotizacion};
     const primero=await llamar('alumno','POST',`/api/pagos/${alta.pagoId}/intentos`,entrada);
     assert.equal(primero.statusCode,200,primero.body);
     const segundo=await llamar('alumno','POST',`/api/pagos/${alta.pagoId}/intentos`,entrada);
     assert.deepEqual(segundo.json().izipay,primero.json().izipay);
     assert.equal(tokens,1);
+    const sesionRecuperada = await llamar('alumno','POST',`/api/pagos/${alta.pagoId}/intentos/${primero.json().operacionId}/sesion`);
+    assert.deepEqual(sesionRecuperada.json().sesion, primero.json().sesion);
     const sesion=(await pool.query('select "sesionCifrada" from "operacionesPago" where id=$1',[primero.json().operacionId])).rows[0].sesionCifrada;
     assert.ok(sesion);assert.equal(sesion.includes('token-efimero-solo-para-pruebas'),false);
     await pool.query('update "intentosInscripcion" set "venceEn"=clock_timestamp()-interval \'1 second\' where id=$1',[alta.intentoId]);
@@ -449,21 +524,23 @@ test('HU53-07: termina el proceso durante la consulta Culqi y recupera sin crear
   const curso=await crear();await llamar('admin','POST',`/api/cursos/${curso.id}/publicar`);
   const alta=(await llamar('alumno','POST',`/api/cursos/${curso.id}/inscribirme`,{versionCobro:1})).json();
   const referencia=`chr_test_Caida${curso.id}`;
-  const codigo=`
+  const op = await iniciarOperacion(alta.pagoId, Number(usuarios.get('alumno')!.id), {
+    medio: 'CULQI', clave: randomUUID(), cargaHash: 'a'.repeat(64),
+  });
+  await pool.query('update "operacionesPago" set "referenciaExterna"=$2 where id=$1', [op.id, referencia]);
+  const codigo=String.raw`
     import { env } from './backend/src/config/env.ts';
-    import { obtenerPago } from './backend/src/modules/pagos/pagos.repositorio.ts';
-    import { iniciarPago } from './backend/src/modules/pagos/pagos.servicio.ts';
-    import { randomUUID } from 'node:crypto';
+    import { buscarOperacion } from './backend/src/modules/pagos/pagos.repositorio.ts';
+    import { conciliarOperacion } from './backend/src/modules/pagos/pagos.pasarelas.ts';
     Object.assign(env,{culqiHabilitado:true,culqiClaveSecreta:'sk_test_soloPruebas'});
     setInterval(()=>{},1000);
-    globalThis.fetch=async(url,opciones)=>{
-      if(opciones?.method==='POST') return new Response(JSON.stringify({id:process.argv[3]}),{status:201});
-      process.stdout.write('consulta-iniciada\\n');
+    globalThis.fetch=async()=>{
+      process.stdout.write('consulta-iniciada\n');
       return new Promise(()=>{});
     };
-    await iniciarPago(await obtenerPago(process.argv[1]),Number(process.argv[2]),{medio:'CULQI',clave:randomUUID(),token:'tkn_test_soloPruebas'});
+    await conciliarOperacion(await buscarOperacion(process.argv[1]));
   `;
-  const hijo=spawn(process.execPath,['--import','tsx','--input-type=module','-e',codigo,alta.pagoId,usuarios.get('alumno')!.id,referencia],{cwd:new URL('../../../',import.meta.url),stdio:['ignore','pipe','pipe']});
+  const hijo=spawn(process.execPath,['--import','tsx','--input-type=module','-e',codigo,op.id],{cwd:new URL('../../../',import.meta.url),stdio:['ignore','pipe','pipe']});
   try {
     await new Promise<void>((resolver,rechazar)=>{
       const limite=setTimeout(()=>rechazar(new Error('El proceso no alcanzó la consulta de prueba.')),10000);

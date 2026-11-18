@@ -179,8 +179,8 @@ function BienvenidaPublica() {
       <h1 id="titulo-bienvenida" className="font-serif text-[28px] leading-9 font-bold sm:text-[40px] sm:leading-12">Cursos vigentes del CPPP</h1>
       <p className="max-w-150 text-base leading-6 text-brand-soft">Elige tu curso, inscríbete y paga en línea, por transferencia o en efectivo. Al terminar, descarga tu constancia verificable.</p>
       <div className="mt-2 flex flex-wrap gap-3">
-        <a href="#proximos-cursos" className="inline-flex h-10 items-center gap-2 rounded-lg bg-gold px-5 text-sm font-semibold text-ink hover:bg-gold-light"><BookOpen className="size-[18px]" aria-hidden />Ver cursos</a>
-        <Link to="/verificar" className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-brand hover:bg-brand-soft"><Award className="size-[18px]" aria-hidden />Consultar constancias</Link>
+        <a href="#proximos-cursos" className="inline-flex h-10 items-center gap-2 rounded-lg bg-gold px-5 text-sm font-semibold text-ink hover:bg-gold-light"><BookOpen className="size-4.5" aria-hidden />Ver cursos</a>
+        <Link to="/verificar" className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-5 text-sm font-semibold text-brand hover:bg-brand-soft"><Award className="size-4.5" aria-hidden />Consultar constancias</Link>
       </div>
     </div>
     <div aria-hidden className="relative hidden h-50 w-90 shrink-0 overflow-hidden rounded-xl bg-brand-night lg:flex">

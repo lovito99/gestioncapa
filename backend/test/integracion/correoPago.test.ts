@@ -5,7 +5,7 @@ import { randomUUID } from 'node:crypto';
 import { env } from '../../src/config/env.js';
 import { pool } from '../../src/shared/database.js';
 import { migrar } from '../../src/shared/migraciones.js';
-import { crearObligacion,registrarEfectivo,obtenerPago } from '../../src/modules/pagos/pagos.repositorio.js';
+import { confirmarOperacion, crearObligacion, iniciarOperacion, registrarEfectivo, obtenerPago } from '../../src/modules/pagos/pagos.repositorio.js';
 import { enviarNotificacionesPago } from '../../src/modules/pagos/pagos.correo.js';
 import { inscribirseEnCurso } from '../../src/modules/cursos/cursos.repositorio.js';
 import { buildApp } from '../../src/app.js';
@@ -97,6 +97,27 @@ test('HU32-07: SMTP local rechaza, reintenta y entrega un PDF; dos trabajadores 
   assert.match(Buffer.from(pdf,'base64').toString(),/^%PDF-/);
   assert.equal(await enviarNotificacionesPago(),0);
   assert.equal((await pool.query('select estado from "notificacionesPago" where "pagoId"=$1',[pago.id])).rows[0].estado,'ENVIADO');
+});
+
+test('HU54-02: SMTP acepta el comprobante del importe realmente cobrado en línea', async () => {
+  mensajes.length = 0;
+  rechazar = false;
+  env.correoHabilitado = true;
+  const pago = await crearObligacion(pool, {
+    cursoId, usuarioId: alumno, intentoId: randomUUID(), concepto: 'CURSO', importeCentimos: 15050, moneda: 'PEN',
+  });
+  const operacion = await iniciarOperacion(pago.id, alumno, {
+    medio: 'IZIPAY', clave: randomUUID(), cargaHash: 'a'.repeat(64),
+    cotizar: () => ({ instrumento: 'YAPE', comisionCentimos: 527, totalCentimos: 15577, comercio: 'PRUEBA', ordenExterna: 'GCSMTP54' }),
+  });
+  await confirmarOperacion(operacion.id, { referencia: `YAPE-${randomUUID()}`, importeCentimos: 15577, moneda: 'PEN' });
+  assert.equal(await enviarNotificacionesPago(), 1);
+  const [mensaje] = mensajes;
+  assert.equal(mensajes.length, 1);
+  assert.match(mensaje!, /155\.77/);
+  const pdf = mensaje!.slice(mensaje!.indexOf('Content-Type: application/pdf')).split('\r\n\r\n')[1]!.split('\r\n--')[0]!.replace(/\s/g,'');
+  assert.ok(Buffer.from(pdf, 'base64').toString().includes(Buffer.from('Total pagado: S/ 155.77 PEN').toString('hex')));
+  assert.equal(await enviarNotificacionesPago(), 0);
 });
 
 test('HU29: una inscripción gratuita se confirma por correo una vez', async () => {

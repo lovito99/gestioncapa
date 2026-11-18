@@ -1,0 +1,30 @@
+import { expect, test } from '../../ayud/prueba'
+import { cuentas } from '../../ayud/datos'
+import { flujoInscripcionCurso } from '../../ayud/inscripcionCurso'
+
+test('HU54: muestra el total antes de cobrar y recupera el rechazo al volver', async ({ page }) => {
+  await flujoInscripcionCurso(page, cuentas.admin)
+  await page.getByRole('link', { name: 'Ir a pagar' }).click()
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click()
+  await page.getByRole('radio', { name: /Yape/ }).focus()
+  await page.keyboard.press('Space')
+  const resumen = page.getByRole('region', { name: 'Importes del pago en línea' })
+  await expect(resumen).toContainText('1.58')
+  await expect(resumen).toContainText('46.58')
+  const rechazo = page.waitForRequest(peticion => peticion.method() === 'POST' && peticion.url().endsWith('/intentos'))
+  await page.getByRole('button', { name: /Pagar.*46\.58/ }).click()
+  expect((await rechazo).postDataJSON()).toMatchObject({ medio: 'IZIPAY', instrumento: 'YAPE' })
+  await expect(page.getByText('La pasarela rechazó el pago.', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: 'Cambiar forma de pago' }).click()
+  await expect(page.getByText('La pasarela rechazó el pago.', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: 'Continuar', exact: true }).click()
+  await page.getByRole('radio', { name: /Tarjeta/ }).focus()
+  await page.keyboard.press('Space')
+  await page.getByRole('button', { name: /Pagar.*46\.58/ }).click()
+  await expect(page.getByRole('heading', { name: '¡Pago confirmado!' })).toBeVisible()
+  await expect(page.getByText(/Correo enviado/)).toBeVisible()
+  await expect(page.getByText(/46\.58/)).toBeVisible()
+  const descarga = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Descargar comprobante' }).click()
+  expect((await descarga).suggestedFilename()).toMatch(/^comprobante-.*\.pdf$/)
+})

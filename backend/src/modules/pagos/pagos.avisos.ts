@@ -2,27 +2,32 @@ import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import type { Pago } from './pagos.modelo.js';
 import type { DatosCorreo } from '../notificaciones/correo.contenido.js';
+import { lineasImporte } from './pagos.correo.js';
 
 export async function encolarAvisoPago(cliente:PoolClient,pago:Pago,operacionId:string,tipo:'COMPROBANTE'|'RECHAZO',motivo?:string) {
-  const contexto=(await cliente.query<{email:string;nombre:string;curso:string;medio:string;referencia:string;fecha:string;conciliar:boolean}>(`
+  const contexto=(await cliente.query<{email:string;nombre:string;curso:string;medio:string;instrumento:string|null;referencia:string;fecha:string;conciliar:boolean;totalCentimos:number|null}>(`
     select u.email,u.name as nombre,c.titulo as curso,o.medio,coalesce(t.referencia,h.referencia,'') as referencia,
-      coalesce(r."fechaRecepcion"::text,t."fechaOperacion"::text,p."pagadoEn"::text,'') as fecha,
+      o.instrumento,h."importeCentimos"::float8 as "totalCentimos",
+      coalesce(r."fechaRecepcion"::text,t."fechaOperacion"::text,h."verificadoEn"::text,p."pagadoEn"::text,'') as fecha,
       exists(select 1 from "incidenciasPago" i where i."pagoId"=p.id) as conciliar
     from "obligacionesPago" p join users u on u.id=p."usuarioId" join cursos c on c.id=p."cursoId"
     join "operacionesPago" o on o.id=$2 left join "transferenciasPago" t on t."operacionId"=o.id
     left join "recepcionesEfectivo" r on r."operacionId"=o.id left join "hechosPago" h on h."operacionId"=o.id
     where p.id=$1 order by h.id limit 1`,[pago.id,operacionId])).rows[0]!;
-  const asunto=tipo==='COMPROBANTE'?`CPPP: comprobante de pago #${pago.id}`:`CPPP: revisión de transferencia #${pago.id}`;
+  const transferencia = contexto.medio === 'TRANSFERENCIA';
+  const medio = [contexto.medio, contexto.instrumento].filter(Boolean).join(' · ');
+  const importe = tipo === 'COMPROBANTE' ? lineasImporte(pago.importeCentimos, contexto.totalCentimos ?? pago.importeCentimos)
+    : [`Importe: S/ ${(pago.importeCentimos/100).toFixed(2)} PEN`];
+  const asunto=tipo==='COMPROBANTE'?`CPPP: comprobante de pago #${pago.id}`:`CPPP: revisión de ${transferencia ? 'transferencia' : 'pago'} #${pago.id}`;
   const texto=[`Hola, ${contexto.nombre}.`,`Orden de pago: ${pago.id}`,`Curso: ${contexto.curso}`,`Concepto: ${pago.concepto}`,
-    `Importe: S/ ${(pago.importeCentimos/100).toFixed(2)} PEN`,`Medio: ${contexto.medio}`,`Referencia: ${contexto.referencia}`,`Fecha: ${contexto.fecha}`,
-    tipo==='RECHAZO'?`Transferencia rechazada. Motivo: ${motivo}`:'Recepción del pago confirmada y registrada por el CPPP.',
+    ...importe,`Medio: ${medio}`,`Referencia: ${contexto.referencia}`,`Fecha: ${contexto.fecha}`,
+    tipo==='RECHAZO'?`${transferencia ? 'Transferencia rechazada' : 'Pago rechazado'}. Motivo: ${motivo}`:'Recepción del pago confirmada y registrada por el CPPP.',
     ...(contexto.conciliar?['Este ingreso requiere conciliación. No recupera automáticamente cupos ni cambia una reserva vencida.']:[]),
     'Consulta en tu curso el estado de la inscripción o constancia.'].join('\n');
   const datos: DatosCorreo = {
     nombre: contexto.nombre, curso: contexto.curso, cursoId: pago.cursoId,
     detalles: [
-      `Orden de pago: ${pago.id}`, `Importe: S/ ${(pago.importeCentimos/100).toFixed(2)}`,
-      `Medio: ${contexto.medio}`,
+      `Orden de pago: ${pago.id}`, ...importe, `Medio: ${medio}`,
       ...(contexto.fecha ? [`Fecha del pago: ${contexto.fecha.slice(0, 10)}`] : []),
       tipo === 'RECHAZO'
         ? 'Consulta en tu curso el resultado y las opciones disponibles.'

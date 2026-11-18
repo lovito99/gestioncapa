@@ -145,21 +145,28 @@ test('T25-I05: carreras entre cursos no reutilizan abono y la confirmación orig
 });
 
 test('T25-I04: no entrega sesión Izipay recuperada ni nueva si ya se declaró transferencia',async()=>{
-  const anterior={...env};
-  Object.assign(env,{izipayHabilitado:true,izipayCodigoComercio:'PRUEBA',izipayClavePublica:'clave-publica-prueba',izipayRsaPublica:'rsa-publica-solo-prueba',pagosUrlPublica:'https://comercio.example'});
+  const anterior={...env,izipayComisionTarjeta:env.izipayComisionTarjeta};
+  Object.assign(env,{izipayHabilitado:true,izipayComisionTarjeta:0,izipayCodigoComercio:'PRUEBA',izipayClavePublica:'clave-publica-prueba',izipayRsaPublica:'rsa-publica-solo-prueba',pagosUrlPublica:'https://comercio.example'});
+  async function cotizar(ruta: string) {
+    const [opcion] = (await llamar('alumno','GET',ruta)).json().opcionesEnLinea;
+    return { medio: 'IZIPAY', clave: randomUUID(), instrumento: 'TARJETA', cotizacion: opcion.cotizacion };
+  }
   let durante:Awaited<ReturnType<typeof preparar>>|undefined;
   const llamada=mock.method(globalThis,'fetch',async()=>{
     if(durante) await declarar(durante);
     return new Response(JSON.stringify({code:'00',response:{token:'token-ficticio-solo-pruebas'}}),{status:200});
   });
   try {
-    const caso=await preparar();const ruta=`/api/pagos/${caso.pagoId}`;const entrada={medio:'IZIPAY',clave:randomUUID()};
-    assert.ok((await llamar('alumno','POST',`${ruta}/intentos`,entrada)).json().izipay);
+    const caso=await preparar();const ruta=`/api/pagos/${caso.pagoId}`;const entrada=await cotizar(ruta);
+    const intento = (await llamar('alumno','POST',`${ruta}/intentos`,entrada)).json();
+    assert.ok(intento.izipay);
     await declarar(caso);
     assert.equal((await llamar('alumno','GET',ruta)).json().operaciones.find((op:{medio:string})=>op.medio==='IZIPAY').sesionRecuperable,false);
     assert.equal((await llamar('alumno','POST',`${ruta}/intentos`,entrada)).json().izipay,undefined);
+    assert.equal((await llamar('alumno','POST',`${ruta}/intentos/${intento.operacionId}/sesion`)).json().sesion,undefined);
     durante=await preparar();
-    const respuesta=await llamar('alumno','POST',`/api/pagos/${durante.pagoId}/intentos`,{medio:'IZIPAY',clave:randomUUID()});
+    const rutaDurante = `/api/pagos/${durante.pagoId}`;
+    const respuesta=await llamar('alumno','POST',`${rutaDurante}/intentos`,await cotizar(rutaDurante));
     assert.equal(respuesta.statusCode,200,respuesta.body);assert.equal(respuesta.json().izipay,undefined);
   } finally {llamada.mock.restore();Object.assign(env,anterior);}
 });

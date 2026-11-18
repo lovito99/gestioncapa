@@ -19,6 +19,14 @@ test('HU53-08: activar exige credenciales propias, entorno coherente y callback 
   assert.throws(() => parseEnv({ ...base,culqiHabilitado:'true',culqiClavePublica:'pk_live_noUsar',culqiClaveSecreta:'sk_live_noUsar',pagosUrlPublica:'https://cursos.example.org' }));
 });
 
+test('HU54-06: una tasa vacía deja el instrumento sin configurar y cero lo habilita explícitamente', () => {
+  const config = parseEnv({ ...base, izipayComisionTarjeta: '0', izipayComisionYape: '  ' });
+  assert.equal(config.izipayComisionTarjeta, 0);
+  assert.equal(config.izipayComisionYape, undefined);
+  assert.equal(config.izipayConciliacionHabilitada, false);
+  assert.throws(() => parseEnv({ ...base, izipayConciliacionHabilitada: 'true' }));
+});
+
 test('T25-I02: transferencia apagada exige destino institucional completo al habilitar', () => {
   assert.equal(parseEnv(base).transferenciaHabilitada, false);
   assert.throws(() => parseEnv({ ...base, transferenciaHabilitada:'true' }));

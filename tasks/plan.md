@@ -721,3 +721,123 @@ La aprobación del plan confirma la proporción estricta, el límite de
 píxeles, PostgreSQL y Sharp, el guardado independiente en edición y la
 recuperación acotada de HU-40. El origen público y el entorno para la prueba
 externa se confirman antes de acreditar la salida.
+
+# HU-54 · Plan de implementación
+
+## Alcance de la fase
+
+Plan aprobado junto con [la especificación](../SPEC.md#hu-54--pago-en-línea-con-pasarela-intercambiable).
+Izipay es el primer checkout nuevo. Culqi conserva conciliación e historial.
+El trabajo abarca cotización, inicio, resultado y comprobante para las entradas
+de pago actuales, y ejercicios de regresión para transferencia BCP y efectivo.
+Las tareas y sus comprobaciones están en [el seguimiento](todo.md#hu-54--tareas-de-implementación).
+
+## Decisiones de arquitectura
+
+- **Registro de pasarelas.** El dominio recibe un proveedor registrado y su
+  capacidad de alta o conciliación. El adaptador traduce el contrato externo a
+  resultados de dominio. Las notificaciones y el trabajador se despachan por
+  ese registro. Para dejar de ofrecer un proveedor, se deshabilitan las altas
+  conservando acceso a la resolución de sus intentos. Para retirar su código,
+  primero se concilian operaciones pendientes y se conserva la identificación
+  del proveedor en los registros históricos. Agregar otro proveedor requiere
+  su adaptador, registro y configuración, incluida su identidad persistida.
+- **Datos persistidos.** Proponer una migración aditiva para el desglose del
+  intento en línea, instrumento y correlación cuando el protocolo lo requiera.
+  Sustituir las listas rígidas de proveedores SQL por una restricción basada
+  en un catálogo persistente que se inicia con los identificadores existentes.
+  Mantener restricciones de medios manuales, exclusión de operaciones activas,
+  claves de idempotencia y referencias. El código anterior a la migración
+  conserva la lectura de importes y medios que conocía. Probar el esquema
+  antes y después con datos históricos.
+- **Contrato HTTP.** Extender `GET /api/pagos/:id` con opciones en línea,
+  desglose y resultados persistidos. Mantener la respuesta privada y los
+  campos de los medios manuales. Extender `POST /api/pagos/:id/intentos` con
+  proveedor, instrumento y cotización aceptada. El servidor recalcula el
+  desglose, controla disponibilidad y reserva antes de pedir una sesión.
+  Conservar los reintentos exactos de operaciones anteriores y la forma
+  existente de las rutas. Las altas nuevas requieren cotización y consentimiento
+  explícitos. Actualizar los consumidores del repositorio en la misma entrega
+  y validar clientes existentes antes de decidir activación y versionado.
+  Los incrementos se ensayan con el proveedor de pruebas. En un entorno con
+  altas previas, desplegar API y cliente de forma coordinada con las altas
+  apagadas y la conciliación disponible durante la transición.
+- **Resultado financiero.** El retorno del checkout dispara una consulta o
+  entrega la prueba firmada. Almacenar una referencia correlacionada permite
+  recibir IPN aun cuando el usuario abandona la página. Usar el total retenido
+  en el intento para validar el movimiento. El flujo transaccional existente
+  conserva la deuda base, el efecto de HU-53 y la unicidad del correo.
+- **Interfaz y comprobante.** Reutilizar una interacción en línea en ambas
+  entradas y mantener la selección manual que ya existe. Actualizar UI desde
+  el resultado persistido y mostrar el estado del correo. Compartir los datos
+  financieros del PDF descargable y el adjunto de la cola, con lectura
+  autorizada y sin registrar el contenido de la notificación del proveedor.
+
+## Tareas ordenadas y dependencias
+
+| Tarea | Entrega | Depende de | Alcance |
+| --- | --- | --- | --- |
+| T54-01 | Despachar webhooks y conciliación histórica por adaptador | Aprobación | Mediano |
+| T54-02 | Persistir proveedores, correlación y desglose por intento | T54-01 | Mediano |
+| T54-03 | Cotizar e iniciar un pago en línea con consentimiento e idempotencia | T54-02 | Mediano |
+| T54-04 | Aplicar la respuesta Izipay de tarjeta o Yape | T54-03 | Mediano |
+| T54-05 | Servir un comprobante coherente por correo y descarga | T54-04 | Mediano |
+| T54-06 | Mostrar la cotización y abrir el SDK elegido en la ruta principal | T54-03, T54-04 | Mediano |
+| T54-07 | Mostrar resultado, conciliación y estado del correo en la ruta principal | T54-05, T54-06 | Mediano |
+| T54-08 | Reutilizar el recorrido en el historial y pago de constancia | T54-07 | Mediano |
+| T54-09 | Verificar la independencia de BCP y efectivo y el recorrido en navegador | T54-07, T54-08 | Mediano |
+| T54-10 | Documentar configuración, revisión y reversión | T54-09 | Pequeño |
+
+T54-01 a T54-04 cambian el mismo estado financiero y se ejecutan en orden.
+Tras fijar el contrato de la API, el comprobante y el cliente de checkout se
+pueden verificar de forma independiente. T54-07 necesita ambos resultados.
+Los puntos de control se aplican tras T54-02, T54-04, T54-07 y T54-10.
+Cada incremento debe dejar verificable la versión de prueba y los medios
+manuales. La salida requiere las pruebas de integración pertinentes y revisión
+humana del resultado.
+
+## TDD y comprobaciones
+
+1. Tras aprobar, escribir la prueba focalizada de la tarea y registrar su
+   fallo esperado, comando y resultado. Implementar lo mínimo y registrar
+   la ejecución verde junto con las regresiones relevantes. Si falla por un
+   motivo distinto, reproducir y localizar la causa antes de corregir.
+2. Al terminar cada incremento, revisar el diff y preparar los archivos,
+   **Summary** y **Description** del commit para que el usuario ejecute Git.
+   Anotar el SHA cuando esté disponible. La fase de documentación y revisión
+   registra evidencia de casos existentes cuando la tarea carece de cambios
+   de comportamiento.
+3. Al cerrar el código, simplificar el alcance tocado, volver a ejecutar
+   pruebas y revisar corrección, permisos, compatibilidad, errores y datos
+   sensibles. Aplicar ambas referencias solicitadas en la especificación y
+   registrar controles pendientes con su evidencia.
+
+## Riesgos y preparación para publicar
+
+| Riesgo | Mitigación y verificación |
+| --- | --- |
+| Cobrar un total diferente al que se aceptó | Céntimos enteros, revisión atómica de la cotización, desglose inmutable y prueba de cambio de tasa entre cotización, inicio, recepción y correo. |
+| SDK/IPN real incompatible con fixtures o Yape no habilitado | Apoyarse en el contrato oficial y validar el producto específico contra sandbox por instrumento. Probar estructuras, identificadores, firma, cierre y autenticidad antes de acreditar el recorrido externo. |
+| Doble cobro por timeout, cancelación dudosa, replay o carrera manual | Reaprovechar exclusión e idempotencia, mantener el estado en verificación mientras haga falta y conservar incidencias tardías o discrepantes. Observar operaciones inciertas, duplicados e incidencias por proveedor. |
+| Cambio de credenciales, entorno o retirada con operaciones abiertas | Desactivar altas primero, mantener IPN/consulta y revisar el lote pendiente. Verificar el drenado y conservar historial antes de cambiar de entorno o retirar el adaptador. |
+| Aprobación con correo fallido o documentos incoherentes | Verificar el registro contable y la cola en la misma transacción. Monitorizar antigüedad y estados pendientes, fallidos o inciertos, y verificar la operación segura de SMTP sin repetir el cobro. |
+
+Para publicar, el CPPP confirma contrato, política de comisión, métodos activos,
+credenciales por entorno y cuenta BCP. Operaciones ensaya la migración,
+verifica respaldo y recuperación, endpoint público HTTPS/IPN y SMTP,
+registra evidencia sandbox de tarjeta y Yape, comprueba indicadores de
+conciliación y correo y valida que apagar altas conserva los medios manuales.
+Ante una incidencia, apagar altas del proveedor, conservar eventos e historial
+y conciliar las operaciones en curso. La revisión humana y el build manual
+quedan pendientes hasta su ejecución. La activación requiere una decisión
+expresa del CPPP.
+
+## Versionado previsto
+
+La etiqueta local alcanzable desde la rama es `v3.1.0.0.0` (`9b3b497`).
+La entrega de HU-54 se clasifica como **Mayor** porque el inicio de cobros
+nuevos exige enviar instrumento y cotización. Un cliente anterior que inicia
+Izipay sin esos campos recibe 409 y debe actualizarse junto con la API.
+La versión propuesta, si la base de publicación efectiva sigue siendo esa,
+es `v4.0.0.0.0`. Si se entrega solo la planificación por separado, la
+documentación corresponde al nivel **Interno** sobre la misma base.

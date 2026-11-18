@@ -13,7 +13,8 @@ export async function abrirIzipay(sesion:SesionIzipay,alResponder:(respuesta:unk
   if (!window.Izipay) throw new Error('Izipay no está disponible. Consulta el estado de tu operación.')
   const checkout=new window.Izipay({config:{
     transactionId:sesion.transaccionId,action:'pay',merchantCode:sesion.comercio,
-    order:{orderNumber:sesion.orden,currency:'PEN',amount:sesion.importe,processType:'AT',dateTimeTransaction:String(Date.now())},
+    order:{orderNumber:sesion.orden,currency:'PEN',amount:sesion.importe,processType:'AT',dateTimeTransaction:String(Date.now()),
+      ...(sesion.instrumento && { payMethod: sesion.instrumento === 'YAPE' ? 'YAPE_CODE' : 'CARD' })},
     urlIPN:sesion.urlIPN,
   }})
   checkout.LoadForm({authorization:sesion.token,keyRSA:sesion.keyRSA,callbackResponse:alResponder})

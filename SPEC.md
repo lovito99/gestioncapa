@@ -1584,3 +1584,171 @@ El [plan de implementación](tasks/plan.md#hu-51--plan-de-implementación) y el
 - Requisitos de texto alternativo, teclado, foco y reflow. [WCAG 2.1, W3C](https://www.w3.org/TR/WCAG21/)
 - Metadatos de imagen y texto alternativo para el HTML inicial. [Open Graph Protocol](https://ogp.me/)
 - Decodificación acotada y formatos derivados. [Constructor de Sharp](https://sharp.pixelplumbing.com/api-constructor/), [Opciones de salida de Sharp](https://sharp.pixelplumbing.com/api-output/)
+
+# HU-54 · Pago en línea con pasarela intercambiable
+
+## Objetivo y caso de uso
+
+El agremiado que tiene un pago exigible por un curso puede elegir tarjeta o
+Yape, revisar el importe del curso, la comisión y el total en soles, y abrir
+el checkout del proveedor. Cuando el servidor verifica un cobro aprobado,
+confirma automáticamente el pago, aplica las reglas de acceso de HU-53 y
+encola el comprobante para el correo del titular. Un rechazo o una cancelación
+definitivos dejan el pago pendiente y permiten volver a elegir un medio si
+la obligación sigue vigente. La transferencia BCP y el efectivo siguen sus
+procesos actuales.
+
+La historia original fue aportada para esta revisión. Proviene de la reunión
+del 09/11/2026, acuerdos A-07 y A-11. Se toma Izipay Web Core como primera
+integración en sandbox, según la decisión local T-25. La historia se trata
+como un solo recorrido de pago, incluida la reutilización del comprobante
+existente. La contratación y habilitación del comercio corresponden al CPPP.
+[ADR de T-25](docs/decisions/001-pasarelaIzipay.md) · [Criterios derivados](docs/esp/hu54Pagos.md)
+
+## Código actual e inconsistencias
+
+| Hallazgo | Consecuencia |
+| --- | --- |
+| `PagarCursoPagina` suma un 3,5 % de respaldo en el cliente. `iniciarPago` envía únicamente el importe base a Izipay y el libro financiero verifica ese importe. | El botón y la confirmación visual pueden anunciar un total distinto del cobrado. `PagoCurso`, usado también desde el historial y para constancias, abre Izipay directamente. |
+| El formulario deja elegir tarjeta o Yape, pero el cliente retira `instrumento` del POST, el esquema estricto no lo acepta y el SDK no selecciona ese instrumento. La demo aprueba por defecto cuando falta el campo. | El método mostrado puede diferir del checkout real y la demo no acredita el rechazo de Yape. |
+| La pantalla principal interpreta un pago todavía pendiente o un fallo de notificación como rechazo. La pantalla secundaria solo muestra verificación genérica. | Un cierre, un callback inválido o un retraso se pueden presentar como un fallo definitivo y ofrecer un nuevo intento antes de conciliar. |
+| El verificador Izipay y sus fixtures usan una forma concreta de JSON firmado y buscan un UUID dentro del contenido firmado. Los ejemplos oficiales muestran variantes, como el rechazo de Yape con datos de orden y comercio en otra estructura y ejemplos con el identificador de transacción fuera de `payloadHttp`. | La evidencia local de HMAC y correlación no prueba que la forma empleada por el SDK/IPN y la búsqueda del comercio funcionen en sandbox. Se necesita comprobar correlación mediante campos auténticos del proveedor y la compatibilidad de los identificadores. |
+| Alta, notificación, recuperación automática, validación de proveedor y restricciones SQL enumeran Izipay y Culqi. El mismo flag Izipay abre altas y permite conciliar las operaciones ya iniciadas. | Apagar las altas corta también la resolución de operaciones en curso. Una incorporación requiere cambiar varias capas compartidas. Culqi conserva historia y conciliación, con altas deshabilitadas por T-25. |
+| El backend encola el comprobante en la transacción, pero el correo toma el importe base. La pantalla declara enviado el correo al confirmar el pago. El botón de descarga de esa pantalla usa una ruta implementada en MSW y descrita en la API, ausente del backend revisado. | El correo, el PDF, la pantalla y el libro deben mostrar datos coherentes y separar confirmación del dinero y entrega SMTP. |
+
+## Reglas propuestas para aprobación
+
+1. **Cotización.** El servidor ofrece las pasarelas e instrumentos configurados
+   para la obligación con importe base, comisión, total y moneda PEN en céntimos.
+   Se propone configurar una tasa por proveedor e instrumento, con cero explícito
+   si el CPPP absorbe la comisión. Se calcula en enteros, con redondeo al céntimo
+   más cercano y medias al alza. La confirmación identifica proveedor e
+   instrumento y devuelve la cotización que vio el titular. Si cambió o caducó
+   la oferta, el servidor devuelve conflicto y la pantalla pide volver a revisar
+   el total. Una vez reservado el intento bajo bloqueo, se conserva su desglose:
+   se usa en el token y el checkout, la verificación financiera y el comprobante,
+   incluso si la configuración cambia. La deuda de HU-53 y el importe de los
+   medios manuales siguen siendo el base.
+2. **Adaptadores.** Un registro de backend resuelve cada proveedor por un
+   identificador estable para cotizar, iniciar, recibir notificaciones y
+   conciliar. El cliente despacha la sesión a su adaptador de checkout mediante
+   un registro local de SDK y orígenes permitidos. Alta y conciliación son
+   capacidades separadas. Al apagar altas, las sesiones de ese proveedor dejan
+   de ofrecerse y el procesamiento de operaciones anteriores sigue disponible.
+   La retirada completa del adaptador requiere conciliar lo que esté en curso
+   y preservar el historial. Mientras una obligación siga en verificación, se
+   mantiene su protección frente a otro cargo. Los demás pagos y proveedores
+   funcionan de forma independiente.
+3. **Confirmación y dinero.** Se verifica la respuesta auténtica del proveedor
+   con su comercio, orden u operación, instrumento cuando es necesario para
+   validar la cotización, entorno, moneda, total y referencia. Solo el servidor
+   aplica el resultado verificado. Repeticiones, callbacks tardíos y carreras
+   conservan un único efecto sobre la deuda, acceso y aviso. Una discrepancia,
+   un ingreso adicional o un pago tardío se conservan para conciliación según
+   HU-53. Una reserva vencida no recupera el cupo y el pago de constancia
+   conserva su regla de liberación. El historial se muestra con importes
+   realmente registrados.
+4. **Estados visibles.** Una denegación o cancelación definitiva verificada
+   permite volver a intentar si el pago es exigible. Si el usuario cierra el
+   checkout antes de verificar el estado, se muestra que cerró la ventana y
+   que el pago sigue pendiente de verificación. La interfaz distingue también
+   errores de comunicación e incidencias. Solo un resultado definitivo permite
+   quitar el bloqueo financiero. Se conserva la recuperación de una sesión
+   vigente cuando el proveedor y la obligación la permiten.
+5. **Comprobante y privacidad.** Reutilizar la cola transaccional, el PDF y los
+   estados SMTP existentes. El comprobante de recepción detalla base, comisión,
+   total, PEN, medio, referencia y fecha a partir del registro persistido.
+   La descarga existente en el cliente se sirve con permiso de propietario o
+   ADMIN. La pantalla informa si el envío está pendiente, aceptado por SMTP o
+   requiere revisión. El proveedor captura PAN, vencimiento, CVV y códigos Yape.
+   GestionCapa conserva únicamente los metadatos financieros necesarios y, si
+   aplica, la sesión efímera protegida, sin guardar tarjetas ni volcar callbacks
+   completos, secretos o datos sensibles a logs, base de datos o analítica.
+
+## Criterios de aceptación
+
+| ID | Criterio verificable |
+| --- | --- |
+| HU54-01 | Dado un pago exigible y una opción en línea activa, las dos entradas existentes muestran base, comisión y total del servidor antes de abrir el checkout. Cambiar instrumento actualiza el desglose, una cotización obsoleta exige confirmación nueva y manipular el importe no inicia un cargo. El token y el checkout reciben exactamente el total aceptado. |
+| HU54-02 | Dada una autorización auténtica, el pago pasa a confirmado sin intervención administrativa, se aplica una vez el efecto de HU-53 y se encola un único comprobante por la confirmación. La consulta, el PDF y el correo reflejan los importes registrados. El estado SMTP distingue aceptación y fallo. Una repetición o un fallo SMTP no altera la decisión financiera. |
+| HU54-03 | Una denegación o cancelación definitiva conserva la deuda pendiente y la pantalla muestra el resultado correcto, incluso después de recargar. Cerrar la ventana da un mensaje claro y, si falta evidencia definitiva, el intento sigue en verificación sin permitir un cargo paralelo. |
+| HU54-04 | El checkout de tarjeta y Yape se captura en el proveedor. Los formularios propios, las solicitudes de inicio, las respuestas de la API, el almacenamiento, los logs y el correo excluyen datos de tarjeta y códigos Yape. Eventos sin prueba auténtica, cruzados de comercio o entorno, o con discrepancias no confirman. |
+| HU54-05 | Con dos adaptadores en una prueba de integración, registrar o quitar uno conserva operativo el otro. Apagar altas de uno oculta su oferta y conserva su conciliación mientras siga instalado. BCP acepta voucher con el importe base y revisión administrativa, y efectivo registra el mismo importe con permisos y auditoría. Culqi conserva sus cobros históricos. |
+| HU54-06 | El recorrido de pruebas usa identidades, medios y credenciales de prueba. La integración local verifica aprobaciones, fallos y cancelación con fixtures y dobles. La aceptación de Izipay se comprueba por separado contra su sandbox oficial con tarjeta y Yape habilitados. Producción arranca con las altas apagadas y solo se activa con contratación, configuración y autorización del CPPP. |
+| HU54-07 | Los intentos históricos sin desglose se verifican con su importe original. Reintentar una clave con otra solicitud genera conflicto. Dos inicios concurrentes, notificaciones repetidas, un pago recibido después del vencimiento y un abono manual simultáneo mantienen las invariantes de HU-53 y HU-32. |
+
+## Pila, estructura y estilo
+
+Fastify 5, Node.js con TypeScript, Zod, PostgreSQL y Redis en backend.
+React 19, Vite, TanStack Query y MSW en frontend. El dominio financiero está en
+`backend/src/modules/pagos/`, la cola en `backend/src/modules/notificaciones/`,
+y los cambios de esquema irán en migraciones nuevas de `backend/migraciones/`.
+Las pantallas viven en `frontend/src/paginas/pagos/` y
+`frontend/src/paginas/cursos/`, con sus clientes en `frontend/src/servicios/`.
+Las pruebas siguen `backend/test/`, `backend/test/integracion/`, archivos
+Vitest junto al código y `e2e/prb/{demo,real}/`.
+
+Se aplica `camelCase` a funciones y variables, `PascalCase` a tipos y
+componentes y nombres nuevos de archivo sin guion bajo. Se preservan nombres
+externos y migraciones históricas. Como ejemplo real de la protección al
+persistir un cambio de pago, la confirmación actual delega al flujo transaccional
+existente en `pagos.repositorio.ts`.
+
+```ts
+return conPago(operacion.pagoId, (cliente,pago) => guardarHecho(cliente,pago,operacion,hecho,null));
+```
+
+## Estrategia de pruebas y comandos
+
+| Nivel | Comando y alcance |
+| --- | --- |
+| Backend focalizado | Desde `backend/`, `node --import tsx --test test/izipay.test.ts test/culqi.test.ts test/pagosConfiguracion.test.ts`. Añadir las pruebas unitarias nuevas al comando focalizado que corresponda. |
+| Persistencia y API | Desde `backend/`, con PostgreSQL y Redis aislados, `NODE_ENV=test DB_NAME=gestioncapa_hu54_test node --import tsx --test --test-concurrency=1 test/integracion/pagosCurso.test.ts test/integracion/cobroCurso.test.ts test/integracion/correoPago.test.ts test/integracion/transferenciasPago.test.ts test/integracion/voucherPago.test.ts`. Cubrir regresión, migración, transacciones y SMTP de prueba. |
+| Frontend focalizado | `npm exec -w frontend -- vitest run src/servicios/pagos.test.ts src/paginas/cursos/PagoCurso.test.tsx`. Añadir cobertura de la pantalla principal y SDK. |
+| Navegador | `npm run e2e -- inscripcionCurso.spec.ts pagoEnLinea.spec.ts` en demo y `npm run e2e:real -- inscripcionCurso.spec.ts transferenciaPago.spec.ts pagoEnLinea.spec.ts` con la BD y Redis dedicados. `pagoEnLinea.spec.ts` se incorpora al implementar. La ejecución local de API real usará una frontera de proveedor controlada. El sandbox oficial requiere un entorno HTTPS de pruebas y sus propias credenciales. |
+| Comprobación general | `npm run typecheck`, `npm run lint -w frontend`, `npm test`, `npm run e2e:tipos` y `git diff --check`. |
+| Desarrollo y entrega | `npm run dev` para backend y frontend, `npm run dev:demo` para MSW y `npm run build` para ejecución manual del usuario. |
+
+Se exige evidencia roja y verde por comportamiento nuevo y trazabilidad de los
+criterios con pruebas unitarias, integración o navegador. La firma, la
+correlación, la idempotencia, la privacidad, accesibilidad por teclado y
+acciones tras recargar se comprueban de forma explícita. Se mantiene el umbral
+de cobertura vigente del repositorio.
+
+## Límites y decisiones para la aprobación
+
+- **Siempre** conservar evidencia de la fuente financiera, reutilizar los
+  controles de acceso y la cola existentes, y comprobar la historia de pagos
+  durante las migraciones. El plan incluye revisión de calidad y seguridad
+  contra `~/.agents/agent-skills/references/definition-of-done.md` y
+  `~/.agents/agent-skills/references/security-checklist.md`.
+- **Aprobar ahora** el desglose por opción, la transición ante un cierre
+  indeterminado, la preparación de la descarga existente y la separación
+  entre altas y conciliación. El equipo debe confirmar el esquema comercial de
+  comisión que verá el agremiado. En pruebas se usarán tasas ficticias.
+- **Antes de acreditar el sandbox externo** conseguir un entorno HTTPS
+  autorizado y credenciales sandbox por el canal de secretos del equipo.
+  Validar habilitación y límites de Yape, campos obligatorios de facturación,
+  formatos reales de token/SDK/IPN/consulta, identificadores, correlación y
+  señales definitivas de cancelación con el comercio de prueba.
+- **Reservado al usuario** build, operaciones Git y decisión de publicar.
+  Activar producción requiere que el CPPP confirme el contrato, credenciales
+  y métodos activos, la tarifa y el destino BCP vigentes, y que Operaciones
+  compruebe HTTPS/IPN, SMTP, monitoreo y reversión.
+- **Fuera de alcance** contratar otro proveedor, alta nueva por Culqi, crear
+  un panel de configuración, rehacer el flujo administrativo de BCP o efectivo
+  y automatizar devoluciones, pagos parciales o facturación tributaria.
+
+Fuentes oficiales consultadas para el contrato de la integración.
+[Inicio rápido de Izipay](https://developers.izipay.pe/web-core/quickstart/) ·
+[Pago con Yape](https://developers.izipay.pe/web-core/use-cases/pay_with_yape_code/) ·
+[Validación de firma](https://developers.izipay.pe/web-core/Modalidades/firma-validation/) ·
+[API de pruebas y producción](https://developers.izipay.pe/api/) ·
+[Credenciales por entorno](https://developers.izipay.pe/credentials/)
+
+Estado. Especificación y plan aprobados para implementar. La evidencia local
+incluye la API y PostgreSQL con respuestas de prueba firmadas, SMTP local y
+Playwright con el SDK y la petición de sesión sustituidos. El ensayo contra
+el sandbox oficial de Izipay queda pendiente de un comercio de prueba.
+[Plan](tasks/plan.md#hu-54--plan-de-implementación) ·
+[Seguimiento](tasks/todo.md#hu-54--tareas-de-implementación)

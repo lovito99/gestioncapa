@@ -6,6 +6,19 @@ export type ArchivoVoucherEntrada={tipo:'image/png'|'image/jpeg'|'application/pd
 export type VoucherPago={id:string;version:number;tipo:ArchivoVoucherEntrada['tipo'];tamano:number;hash:string;disponible:boolean;eliminarEn:string;eliminadoEn:string|null}
 export type RecepcionEfectivo={referencia:string;importeCentimos:number;fechaRecepcion:string}
 export type NotificacionPago={id:string;tipo:'COMPROBANTE'|'RECHAZO';estado:EstadoCorreo;intentos:number;enviadoEn:string|null}
+export type InstrumentoPago = 'TARJETA' | 'YAPE'
+export const nombreInstrumento: Record<InstrumentoPago, string> = { TARJETA: 'Tarjeta', YAPE: 'Yape' }
+export type OpcionPagoEnLinea = {
+  medio: string; nombre: string; instrumento: InstrumentoPago; cotizacion: string;
+  baseCentimos: number; comisionCentimos: number; totalCentimos: number; moneda: 'PEN';
+}
+export type EstadoOperacion = 'INICIADO'|'INCIERTO'|'DECLARADO'|'RECHAZADO'|'CONFIRMADO'|'CANCELADO'
+export type SesionPago = { medio: string; datos: unknown }
+type ResultadoInicioPago = { operacionId: string; estado: EstadoOperacion; sesion?: SesionPago }
+export type ComprobantePago = Pick<OpcionPagoEnLinea, 'baseCentimos'|'comisionCentimos'|'totalCentimos'|'moneda'> & {
+  operacionId: string; medio: string; instrumento: InstrumentoPago | null; referencia: string;
+  fecha: string; estadoCorreo: EstadoCorreo | null;
+}
 export type TransferenciaPago = Omit<DestinoTransferencia,'id'> & {
   operacionId:string;referencia:string;fechaOperacion:string;estado:'INICIADO'|'DECLARADO'|'INCIERTO'|'RECHAZADO'|'CONFIRMADO';motivoRechazo:string|null;voucher?:VoucherPago|null
   /** S3 8.1a: el backend avisa si el número de operación ya existe en otro pago. */
@@ -17,7 +30,7 @@ export type RevisionTransferencia = {decision:'RECHAZAR';motivo:string} | {
 export type Pago = {
   id:string;cursoId:string;concepto:'CURSO'|'CONSTANCIA';importeCentimos:number;moneda:'PEN';estado:'PENDIENTE'|'PAGADO';
   cursoTitulo:string;participanteNombre:string;exigible:boolean;
-  operaciones:{id:string;medio:'IZIPAY'|'CULQI'|'EFECTIVO'|'TRANSFERENCIA';estado:'INICIADO'|'INCIERTO'|'DECLARADO'|'RECHAZADO'|'CONFIRMADO';referenciaExterna:string|null;clave?:string;sesionRecuperable?:boolean;
+  operaciones:{id:string;medio:string;estado:EstadoOperacion;referenciaExterna:string|null;clave?:string;sesionRecuperable?:boolean;instrumento?:InstrumentoPago|null;
     /** «Tarjeta Visa •••• 4242», «Yape», «Recibo 0158» (S3 7.1 aprobado) */ detalle?:string|null;confirmadoEn?:string|null}[];
   incidencias:{motivo:string;referencia:string}[];
   transferencias:TransferenciaPago[];destinoTransferencia:DestinoTransferencia|null;
@@ -25,8 +38,8 @@ export type Pago = {
   medios:{izipay:boolean;culqi:boolean;efectivo:boolean;transferencia:boolean;entorno:'sandbox'|'produccion'};
   /** S3 7.1: código que el agremiado escribe en el concepto de la transferencia, p. ej. ORD-2026-00482 */
   codigoOrden?:string;
-  /** Comisión que cobra la pasarela al pagar en línea (3.5 %); no aplica a transferencia ni efectivo */
-  comisionEnLinea?:{porcentaje:number;importeCentimos:number};
+  opcionesEnLinea?: OpcionPagoEnLinea[];
+  comprobante?: ComprobantePago;
   /** Fecha límite de la reserva (ISO 8601) */
   venceEn?:string|null;
   /** Correo donde se envía el comprobante, enmascarado (m•••@gmail.com) */
@@ -45,18 +58,16 @@ export type PendientesPorDni={agremiado:{nombre:string;dniParcial:string|null};p
 export const MOTIVOS_RECHAZO=['El monto no coincide','El voucher no se lee bien','El número de operación no coincide','El código de orden no aparece en el concepto','La cuenta destino no es la del CPPP','Otro motivo'] as const
 /** «ORD-2026-00482» cuando el backend aún no envía `codigoOrden`. */
 export const codigoOrdenDe=(pago:Pick<Pago,'id'|'codigoOrden'>)=>pago.codigoOrden??`ORD-${new Date().getFullYear()}-${pago.id.padStart(5,'0')}`
-/** Comisión del pago en línea: la del backend o, si no la envía, 3.5 % redondeado al céntimo. */
-export const comisionDe=(pago:Pick<Pago,'importeCentimos'|'comisionEnLinea'>)=>pago.comisionEnLinea??{porcentaje:3.5,importeCentimos:Math.round(pago.importeCentimos*0.035)}
-export type SesionIzipay = {token:string;keyRSA:string;comercio:string;orden:string;transaccionId:string;importe:string;urlIPN:string;entorno:'sandbox'|'produccion'}
+export type SesionIzipay = {token:string;keyRSA:string;comercio:string;orden:string;transaccionId:string;importe:string;urlIPN:string;entorno:'sandbox'|'produccion';instrumento?:InstrumentoPago}
 export function pagoNecesitaActualizacion(pago:Pick<Pago,'estado'|'operaciones'|'notificaciones'>) {
   return pago.estado==='PENDIENTE'||pago.operaciones.some(op=>['INICIADO','INCIERTO','DECLARADO'].includes(op.estado))||pago.notificaciones?.some(aviso=>aviso.estado==='PENDIENTE'||aviso.estado==='ENVIANDO')===true
 }
 export const pagos = {
   obtener:async(id:string)=>(await api.get<Pago>(`/pagos/${id}`)).data,
-  /** `instrumento` (Tarjeta o Yape) aún no se envía: el esquema estricto del backend lo rechaza con 422. Izipay ofrece ambos. */
-  iniciar:async(id:string,{instrumento:_instrumento,...entrada}:{medio:'IZIPAY'|'CULQI';clave:string;token?:string;instrumento?:'TARJETA'|'YAPE'})=>
-    (await api.post<{operacionId:string;estado:string;izipay?:SesionIzipay}>(`/pagos/${id}/intentos`,entrada)).data,
-  notificarIzipay:async(respuesta:unknown)=>{await api.post('/pagos/notificaciones/izipay',respuesta)},
+  iniciar: async (id: string, entrada: Pick<OpcionPagoEnLinea, 'medio'|'instrumento'|'cotizacion'> & { clave: string }) =>
+    (await api.post<ResultadoInicioPago>(`/pagos/${id}/intentos`, entrada)).data,
+  recuperarSesion: async (id: string, operacionId: string) =>
+    (await api.post<ResultadoInicioPago>(`/pagos/${id}/intentos/${operacionId}/sesion`)).data,
   efectivo:async(id:string,entrada:RecepcionEfectivo)=>(await api.post<Pago>(`/pagos/${id}/efectivo`,entrada)).data,
   declararTransferencia:async(id:string,entrada:{destinoId:string;referencia:string;fechaOperacion:string;clave:string;voucher:ArchivoVoucherEntrada})=>
     (await api.post<{operacionId:string;estado:string}>(`/pagos/${id}/transferencias`,entrada)).data,
