@@ -139,8 +139,9 @@ function EntradaBusqueda(props: InputHTMLAttributes<HTMLInputElement>) {
 function TarjetaCatalogo({ curso, publico }: { curso: CursoPublico & { inscrito?: boolean }; publico: boolean }) {
   const { usuario } = useAuth()
   const idTitulo = `curso-${curso.id}-titulo`
-  // SCRUM-187: sin sesión, la tarjeta abre la página pública del curso (S3 5.0 → 5.1)
-  const destino = publico && !usuario ? `/capacitaciones/${curso.id}` : `/cursos/${curso.id}`
+  // SCRUM-187: sin sesión, la tarjeta abre la página pública del curso (S3 5.0 → 5.1).
+  // El instructor solo consulta el detalle de los cursos que dicta (403 en los ajenos): ve la ficha pública.
+  const destino = !usuario || usuario.rol === 'INSTRUCTOR' ? `/capacitaciones/${curso.id}` : `/cursos/${curso.id}`
   const sinCupos = curso.cuposDisponibles === 0
   return <article className="relative flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white transition-[box-shadow,border-color,background-color] has-[a:hover]:border-brand has-[a:hover]:shadow-[0_4px_12px_rgba(100,20,43,0.12)] has-[a:focus-visible]:outline-2 has-[a:focus-visible]:outline-offset-2 has-[a:focus-visible]:outline-brand has-[a:active]:border-brand has-[a:active]:bg-brand-soft">
     <PortadaCurso curso={curso} tamanos={tamanosTarjeta} diferida>

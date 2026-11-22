@@ -1,7 +1,7 @@
 import { Award, Calendar, Clock, UserRound, Users } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '@/auth/useAuth'
 import { Aviso } from '@/components/ui/Aviso'
@@ -11,7 +11,7 @@ import { Entrada, Selector } from '@/components/ui/Entrada'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { EtiquetaEstadoCurso } from '@/components/ui/Etiqueta'
-import { mensajeDeError } from '@/lib/api'
+import { esApiError, mensajeDeError } from '@/lib/api'
 import { cursoTieneAulaDemo } from '@/lib/aulaGrabadaDemo'
 import { cursos, leerPdfBase64 as leerPdf, type DetalleCurso, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
 import { BotonCompartir } from './CompartirCurso'
@@ -39,6 +39,8 @@ export function DetalleCursoPagina() {
   }, onError: async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] })]) } })
   const publicar = useMutation({ mutationFn: () => cursos.publicar(id), onSuccess: async () => { await Promise.all([cache.invalidateQueries({ queryKey: ['curso', id] }), cache.invalidateQueries({ queryKey: ['cursos'] })]) } })
   if (consulta.isPending) return <Cargando texto="Cargando curso…" />
+  // Curso ajeno (instructor no asignado, borrador): la ficha pública sí está disponible.
+  if (esApiError(consulta.error, 'SIN_PERMISO')) return <Navigate to={`/capacitaciones/${id}`} replace />
   if (consulta.isError) return <ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar el curso.')} onReintentar={consulta.refetch} />
   const curso = consulta.data
   const gestion = usuario?.rol === 'ADMIN' || usuario?.rol === 'INSTRUCTOR'
