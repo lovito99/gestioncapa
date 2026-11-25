@@ -43,14 +43,14 @@
 | T39-01 a T39-03 | Módulo de firma ausente y API «Mi QR» con 404. | Firma estable, rechazo de formatos ajenos, descargas autenticadas y lectura del QR extraído del PDF. |
 | T39-04 a T39-07 | La API aceptaba un colegiado en el campo de encargado y faltaban las rutas reales. | Persistencia por sesión, permisos del delegado, pago pendiente sin acceso, búsqueda exacta y una sola marca en la carrera de tres métodos. |
 | T39-08 a T39-10 | El delegado no tenía vínculo en «Mis clases». El reinicio de las secuencias de E2E hacía colisionar la auditoría de «Deshacer». El bloqueo original de agenda retenía también la marca. | Playwright prueba DNI sin cámara, rectificación, PDF y escaneo con flujo de vídeo sintético. PostgreSQL verifica corrección auditada y convivencia con la agenda. El QR rotatorio respeta el valor guardado. |
-| T39-11 | La prueba de arquitectura señaló importaciones entre capas. Dos pruebas de contrato detectaron campos nuevos en respuestas históricas. | Composición de dependencias en la ruta, contratos históricos conservados y 0046 verificada sobre marcas antiguas `QR` y `VIRTUAL`. |
+| T39-11 | La prueba de arquitectura señaló importaciones entre capas. Dos pruebas de contrato detectaron campos nuevos en respuestas históricas. | Composición de dependencias en la ruta, contratos históricos conservados y migración de puerta verificada sobre marcas antiguas `QR` y `VIRTUAL`. |
 
 Las verificaciones se ejecutaron en PostgreSQL, Redis y navegador locales.
 Las pruebas específicas de HU-39 quedaron excluidas de Git mediante
 `.git/info/exclude`. También quedan en la máquina los archivos de prueba
 anteriores de HU-37 y arranque.
 
-### Resultados
+### Resultados de la rama antes de integrar HU-37
 
 | Verificación | Resultado |
 | --- | --- |
@@ -59,8 +59,22 @@ anteriores de HU-37 y arranque.
 | Frontend | 190 de 190 con Vitest y 7 de 7 del servidor. Vitest excluyó la suite local de HU-37. |
 | Navegador | 14 de 14 contra la API real y 18 de 18 en demo para clases y roles. |
 | Tipos y lint | Tipos de la rama y E2E correctos con la exclusión documentada de HU-37. Lint terminó con dos advertencias previas en otros archivos. |
-| Migración 0046 | Aplicada en una base aislada ya migrada a 0045 y con marcas de ambos orígenes históricos. Ambos registros conservaron sus identificadores y sus orígenes. |
+| Ensayo inicial de migración de puerta | Aplicada en una base aislada ya migrada a 0045 y con marcas de ambos orígenes históricos. Ambos registros conservaron sus identificadores y sus orígenes. |
 | Build y cámara física | Pendientes de ejecución manual. |
+
+### Verificación después de integrar HU-37
+
+- La prueba en rojo reprodujo el bloqueo de arranque por dos archivos con
+  versión 0046. La PostgreSQL local ya registraba `0046-leccionesYoutube.sql`.
+- El SQL de puerta pasó a `0047-asistenciaPuerta.sql`. En PostgreSQL 17
+  aislado, aplicar 0047 sobre el historial de HU-37 conservó el nombre y el
+  checksum de 0046 y las marcas previas de QR y asistencia virtual.
+  La segunda ejecución quedó al día. El artefacto de retorno debe incluir 0047.
+- `npm test` pasó con 636 pruebas de backend y 200 de frontend, incluidas
+  las siete del servidor. También pasaron 29 pruebas enfocadas de asistencia
+  y lecciones con PostgreSQL y Redis, cuatro de Playwright contra la API
+  real, los tipos de ambos workspaces y los de E2E. El escaneo de Playwright
+  usó cámara sintética.
 
 ### Revisión de calidad y seguridad
 
@@ -76,7 +90,7 @@ anteriores de HU-37 y arranque.
 - La lectura del PDF y la liberación de la pista se comprobaron con
   Chromium y un flujo de cámara sintético. Queda la comprobación física
   en un teléfono por HTTPS.
-- El chequeo de tipos estándar detecta referencias locales a HU-37 sin
-  sus módulos en la rama. Tipos de backend y frontend pasan excluyendo
-  esos archivos locales. Las pruebas locales de arranque incluyen dos
-  casos que esperan un comportamiento distinto al lanzador de esta rama.
+- Antes de integrar HU-37, los archivos locales de dicha historia requerían
+  excluirse del chequeo de tipos. La rama integrada resuelve ya esas
+  referencias. Los resultados anteriores se conservan como evidencia del
+  trabajo previo al merge.

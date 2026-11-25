@@ -48,23 +48,23 @@ manual. Los archivos de pruebas nuevos se mantienen locales.
 | DNI y credencial quedan en registros o caché | Revisar URLs, logs y respuestas. Evitar rastreo por prefijos y resultados de consultas previas. Validar límites y limpieza al salir. |
 | QR copiado, alterado o de otro flujo | Firma con propósito propio e identidad confrontada en puerta. Probar códigos de ambos flujos en sentido cruzado y prever reemplazo de credencial si se compromete. |
 | Dos marcas simultáneas u operación deshacer atrasada | Restricción única, transacción y marca identificada en la corrección. Verificar actores, hora y métodos en PostgreSQL. |
-| El historial de migraciones impide volver al artefacto anterior | La prueba aislada confirmó que el backend necesita el archivo 0046 una vez aplicado. Preparar un artefacto de retorno que incluya 0046 y respete la configuración de puerta y rotatorio. |
+| El historial de migraciones impide volver al artefacto anterior | La prueba aislada confirmó que el backend necesita el archivo 0047 una vez aplicado. Preparar un artefacto de retorno que incluya 0047 y respete la configuración de puerta y rotatorio. |
 | Cámara indisponible en puerta | Verificar HTTPS, permisos y escaneo de teléfono y papel en dispositivos del equipo. La búsqueda por DNI mantiene el recorrido disponible. |
 
 ## Publicación
 
-1. Resolver los archivos locales de HU-37 que importan código de otra rama,
-   comprobar la discrepancia de las pruebas locales de arranque y ejecutar
-   el build manual sobre el checkout que se vaya a publicar.
+1. Ejecutar el build manual sobre el checkout que se vaya a publicar.
+   Las comprobaciones de tipos de backend, frontend y E2E ya pasan tras
+   integrar HU-37.
 2. Probar con un teléfono por HTTPS un QR en pantalla y una copia impresa.
    Repetir con permisos de cámara denegados y con el DNI como alternativa.
 3. En la ventana de entrega, respaldar la base, verificar PostgreSQL y Redis
-   y ejecutar `npm run migrate` para aplicar 0046 antes de iniciar el backend.
+   y ejecutar `npm run migrate` para aplicar 0047 antes de iniciar el backend.
    Confirmar salud, delegación y modo rotatorio con una sesión de prueba.
 4. Supervisar rechazos de firma, duplicados, límites de búsqueda y
    rectificaciones por código y estado. Los eventos de éxito usan identificadores
    internos y método. Mantener el DNI y el token fuera de los registros.
-5. Preparar y validar un artefacto de retorno que incluya 0046 y mantenga
+5. Preparar y validar un artefacto de retorno que incluya 0047 y mantenga
    el control de ambos modos de asistencia. Si se restaura un respaldo,
    reconciliar las marcas y rectificaciones posteriores a la copia.
 6. El usuario ejecuta build, staging, commits y publicación. El sprint
@@ -78,7 +78,8 @@ manual. Los archivos de pruebas nuevos se mantienen locales.
 | Registro, permisos limitados, corrección, interfaces y compatibilidad rotatoria | `feat: registrar asistencia en puerta por QR personal o DNI` |
 | Contrato público, verificación y publicación | `docs: documentar la implementación y verificación de HU-39` |
 
-La versión se recomienda para la entrega completa. La rama parte de la
-etiqueta alcanzable `v3.1.0.0.1`. `v3.2.0.0.0` existe en otra línea.
-Si la publicación integra esa entrega, corresponde `v3.3.0.0.0` por la
-nueva funcionalidad. No se asignó versión ni se creó un commit.
+La base original de HU-39 era `v3.1.0.0.1`. Tras integrar HU-37, la
+etiqueta alcanzable de la rama es `v3.2.0.0.0`. Para la entrega completa
+de HU-39 se propone `v3.3.0.0.0` por la nueva funcionalidad. El commit
+`c6540e0` contiene la implementación. La corrección posterior del número
+de migración se prepara para commit manual.

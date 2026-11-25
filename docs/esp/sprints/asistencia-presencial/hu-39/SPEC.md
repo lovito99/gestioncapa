@@ -88,7 +88,7 @@ y habilitar el QR rotatorio como alternativa para que el colegiado se registre.
 
 La búsqueda usa POST y un límite de 30 consultas por operador y minuto.
 La delegación usa el catálogo actual de instructores activos. La migración
-0046 conserva el QR rotatorio habilitado en las sesiones históricas. La API de
+0047 conserva el QR rotatorio habilitado en las sesiones históricas. La API de
 clases puede omitir los nuevos campos cuando se aplica ese comportamiento
 histórico.
 
