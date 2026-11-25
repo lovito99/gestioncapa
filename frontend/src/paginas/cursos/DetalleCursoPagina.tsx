@@ -13,7 +13,7 @@ import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { EtiquetaEstadoCurso } from '@/components/ui/Etiqueta'
 import { esApiError, mensajeDeError } from '@/lib/api'
 import { cursoTieneAulaDemo, modoDemoActivo } from '@/lib/aulaGrabadaDemo'
-import { cursos, leerPdfBase64 as leerPdf, type DetalleCurso, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
+import { cursos, descargarMaterialPdf, leerPdfBase64 as leerPdf, type DetalleCurso, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
 import { BotonCompartir } from './CompartirCurso'
 import { ConfirmarInscripcion } from './ConfirmarInscripcion'
 import { cuposCurso, fechasCurso } from './formatoCurso'
@@ -89,6 +89,8 @@ export function DetalleCursoPagina() {
         {agremiado && curso.estado === 'PUBLICADO' && <TarjetaInscripcion curso={curso} aulaDemo={aulaDemo} alInscribirme={() => { inscripcion.reset(); cambiarConfirmando(true) }} />}
         {agremiado && curso.estado === 'CERRADO' && inscripcionVigente && curso.accesoContenido !== false && !modoDemoActivo &&
           <EnlaceEvaluaciones curso={curso} />}
+        {puedeAgregar && curso.estado !== 'CERRADO' && !modoDemoActivo && <Link to={`/instructor/cursos/${id}/contenido`}
+          className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Configurar contenido</Link>}
         {puedeAgregar && curso.estado !== 'CERRADO' && !modoDemoActivo && <Link to={`/instructor/cursos/${id}/evaluaciones`}
           className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Gestionar evaluaciones</Link>}
         {usuario?.rol === 'ADMIN' && <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-6">
@@ -96,6 +98,8 @@ export function DetalleCursoPagina() {
           <PreciosCurso curso={curso} />
           {curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()} className="h-12 w-full text-base">Publicar en catálogo</Boton>}
           {aulaDemo ? <p className="text-sm text-muted">El programa y la gratuidad son fijos en este curso de demostración.</p> : <Link to={`/admin/cursos/${curso.id}/editar`} className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Editar curso</Link>}
+          {!modoDemoActivo && <Link to={`/admin/cursos/${id}/contenido`}
+            className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Configurar contenido</Link>}
           {curso.estado !== 'CERRADO' && !modoDemoActivo && <Link to={`/admin/cursos/${curso.id}/evaluaciones/configuracion`}
             className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Configurar evaluaciones</Link>}
           {curso.estado === 'PUBLICADO' && grabado && curso.tipoCertificado === 'APROBACION' && !modoDemoActivo &&
@@ -126,7 +130,7 @@ function EnlaceEvaluaciones({ curso }: { curso: DetalleCurso }) {
   const grabado = curso.modalidad === 'GRABADO'
   return <Link to={`/cursos/${curso.id}/${grabado ? 'aula' : 'evaluaciones'}`}
     className="inline-flex h-12 items-center justify-center rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink">
-    {grabado ? 'Abrir aula grabada' : 'Ver evaluaciones'}
+    {grabado ? 'Abrir aula grabada' : 'Ver contenido y evaluaciones'}
   </Link>
 }
 
@@ -199,11 +203,7 @@ function Modulo({ cursoId, modulo, puedeAgregar }: { cursoId: string; modulo: Mo
   const descargar = async (materialId: string) => {
     cambiarError(''); cambiarDescargando(true)
     try {
-      const archivo = await cursos.descargar(cursoId, modulo.id, materialId)
-      const url = URL.createObjectURL(archivo)
-      const enlace = document.createElement('a')
-      enlace.href = url; enlace.download = 'material.pdf'; enlace.click()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      await descargarMaterialPdf(cursoId, modulo.id, materialId)
     } catch { cambiarError('No pudimos descargar el PDF. Revisa tu conexión e intenta de nuevo.') }
     finally { cambiarDescargando(false) }
   }

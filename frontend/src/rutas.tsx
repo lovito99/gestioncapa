@@ -64,6 +64,10 @@ export const router = createBrowserRouter([
         path: 'cursos/:id/evaluaciones',
         hydrateFallbackElement: <Cargando texto="Cargando página…" />,
         lazy: async () => ({ Component: (await import('@/paginas/cursos/evaluaciones/GestionEvaluacionesPagina')).GestionEvaluacionesPagina }),
+      }, {
+        path: 'cursos/:id/contenido',
+        hydrateFallbackElement: <Cargando texto="Cargando página…" />,
+        lazy: async () => ({ Component: (await import('@/paginas/cursos/avance/GestionContenidoPagina')).GestionContenidoPagina }),
       }] },
       // HU-49: las pantallas de QR (proyección y escaneo) no llevan pie de página
       { element: <PaginaConEncabezado sinPie />, children: [{ path: 'clases/:id/qr', element: <QrAsistenciaPagina /> }] },
@@ -129,6 +133,11 @@ export const router = createBrowserRouter([
           { path: 'usuarios', element: <UsuariosPagina /> },
           { path: 'cursos/nuevo', element: <CursoFormPagina /> },
           { path: 'cursos/:id/editar', element: <CursoFormPagina /> },
+          {
+            path: 'cursos/:id/contenido',
+            hydrateFallbackElement: <Cargando texto="Cargando página…" />,
+            lazy: async () => ({ Component: (await import('@/paginas/cursos/avance/GestionContenidoPagina')).GestionContenidoPagina }),
+          },
           { path: 'cursos/:id/evaluaciones/configuracion',
             hydrateFallbackElement: <Cargando texto="Cargando página…" />,
             lazy: async () => ({ Component: (await import('@/paginas/cursos/evaluaciones/PoliticaEvaluacionPagina')).PoliticaEvaluacionPagina }),

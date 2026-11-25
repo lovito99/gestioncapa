@@ -99,7 +99,7 @@ function TarjetaCurso({ curso }: { curso: CursoInscrito }) {
         <AvisoProgreso aviso={queTeFalta(curso)} />
       </>}
       {puedeAbrir && <Link to={`/cursos/${curso.id}/${grabado ? 'aula' : 'evaluaciones'}`} className={`${enlaceSecundario} self-start`}>
-        {grabado ? 'Abrir aula grabada' : 'Ver evaluaciones'}
+        {grabado ? 'Abrir aula grabada' : 'Ver contenido y evaluaciones'}
       </Link>}
       <IntentosAnteriores intentos={curso.intentosAnteriores} />
       {curso.estadoEntrega==='RETENIDA' && <p className="text-sm">{curso.estadoFinanciero==='PAGADO'?'Pago confirmado. Constancia en preparación.':'Constancia retenida hasta confirmar el pago.'} <Link className="font-semibold text-brand underline" to={`/cursos/${curso.id}`}>Consultar curso y pago</Link></p>}

@@ -13,10 +13,11 @@ type Formulario = Omit<EvaluacionEntrada, 'preguntas'> & { preguntas: PreguntaFo
 const preguntaNueva = (): PreguntaFormulario => ({ enunciado: '', opciones: [{ texto: '' }, { texto: '' }], correcta: -1 })
 const textoObligatorio = (texto: string) => !!texto.trim() || 'Completa este campo.'
 
-export function EditorEvaluacion({ evaluacion, modalidad, lecciones, guardar, publicar, ocupado }: {
+export function EditorEvaluacion({ evaluacion, modalidad, lecciones, avanceMedido = false, guardar, publicar, ocupado }: {
   evaluacion?: EvaluacionAutor
   modalidad: ModalidadCurso
   lecciones: LeccionEvaluacion[]
+  avanceMedido?: boolean
   guardar: (entrada: EvaluacionEntrada) => Promise<unknown>
   publicar?: () => void
   ocupado: boolean
@@ -46,7 +47,7 @@ export function EditorEvaluacion({ evaluacion, modalidad, lecciones, guardar, pu
       preguntas: datos.preguntas.map(({ enunciado, opciones, correcta }) => ({
         enunciado: enunciado.trim(), opciones: opciones.map(opcion => opcion.texto.trim()), correcta,
       })),
-      leccionesIds: requiereLecciones ? datos.leccionesIds : [],
+      leccionesIds: requiereLecciones && !avanceMedido ? datos.leccionesIds : [],
     }
     if (entrada.preguntas.some(pregunta => new Set(pregunta.opciones).size !== pregunta.opciones.length)) {
       setError('root', { message: 'Ingresa opciones distintas en cada pregunta.' })
@@ -72,9 +73,14 @@ export function EditorEvaluacion({ evaluacion, modalidad, lecciones, guardar, pu
       {requiereLecciones && (
         <fieldset className="space-y-2 rounded-lg border border-line p-4">
           <legend className="px-1 font-semibold text-ink">Lecciones obligatorias</legend>
-          <p className="text-sm text-muted">El colegiado deberá completar las lecciones seleccionadas antes de rendir el cuestionario.</p>
-          {lecciones.length === 0 && <p className="text-sm text-muted">Agrega un video a los materiales del curso para seleccionarlo como lección.</p>}
-          {lecciones.map(leccion => <label key={leccion.id} className="flex items-start gap-3 text-sm text-ink">
+          <p className="text-sm text-muted">{avanceMedido
+            ? 'El cuestionario se habilita al completar todos los videos obligatorios del curso.'
+            : 'El colegiado deberá completar las lecciones seleccionadas antes de rendir el cuestionario.'}</p>
+          {lecciones.length === 0 && <p className="text-sm text-muted">Agrega un video a los materiales del curso para usarlo como lección.</p>}
+          {avanceMedido && <ul className="space-y-1 text-sm text-ink">{lecciones.map(leccion =>
+            <li key={leccion.id}>{leccion.titulo} <span className="text-muted">· {leccion.modulo}</span></li>
+          )}</ul>}
+          {!avanceMedido && lecciones.map(leccion => <label key={leccion.id} className="flex items-start gap-3 text-sm text-ink">
             <input type="checkbox" className="mt-0.5 size-4 accent-brand" value={leccion.id}
               disabled={seleccionadas.length >= 200 && !seleccionadas.includes(leccion.id)}
               checked={seleccionadas.includes(leccion.id)} onChange={evento => formulario.setValue('leccionesIds', evento.target.checked
@@ -92,7 +98,7 @@ export function EditorEvaluacion({ evaluacion, modalidad, lecciones, guardar, pu
     <div className="flex flex-wrap gap-2">
       <Boton type="submit" cargando={isSubmitting} disabled={ocupado}>Guardar borrador</Boton>
       {publicar && <Boton variante="secundario" disabled={deshabilitado || isDirty || preguntas.fields.length === 0 ||
-        (requiereLecciones && seleccionadas.length === 0)} onClick={publicar}>Publicar evaluación</Boton>}
+        (requiereLecciones && (avanceMedido ? lecciones.length === 0 : seleccionadas.length === 0))} onClick={publicar}>Publicar evaluación</Boton>}
     </div>
   </form>
 }

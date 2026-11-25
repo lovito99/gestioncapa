@@ -28,7 +28,7 @@ export function transaccion<T>(trabajo: (cliente: PoolClient) => Promise<T>) {
 
 export async function bloquearCurso(cliente: Consultor, cursoId: string, exclusivo = false) {
   const consulta = await cliente.query<CursoEvaluacion>(
-    `select id::text,titulo,instructor_id::text as "instructorId",modalidad,estado,
+    `select id::text,titulo,instructor_id::text as "instructorId",modalidad,estado,"avanceMedido",
        nota_minima as "notaMinima","intentosMaximos" from cursos where id=$1
        ${exclusivo ? 'for update' : 'for share'}`, [cursoId]
   );
@@ -49,12 +49,13 @@ export async function buscarEvaluacion(cliente: Consultor, cursoId: string, eval
   return consulta.rows[0];
 }
 
-export async function videosDelCurso(cliente: Consultor, cursoId: string) {
+export async function videosDelCurso(cliente: Consultor, cursoId: string, medidos = false) {
   const consulta = await cliente.query<LeccionEvaluacion>(
     `select material.id::text,material.titulo,modulo.titulo as modulo,material.url
      from modulos_curso modulo join materiales_curso material on material.modulo_id=modulo.id
      where modulo.curso_id=$1 and material.tipo='VIDEO'
-     order by modulo.orden,material.id`, [cursoId]
+       and (not $2 or (material.obligatorio and material."duracionMs" is not null))
+     order by modulo.orden,material.id`, [cursoId, medidos]
   );
   return consulta.rows;
 }
@@ -87,9 +88,10 @@ export async function existeEvaluacionOficialPublicada(cliente: Consultor, curso
 
 export async function publicarEvaluacion(cliente: Consultor, curso: CursoEvaluacion, evaluacionId: string, lecciones: LeccionEvaluacion[]) {
   const consulta = await cliente.query<Evaluacion>(
-    `update evaluaciones set "publicadaEn"=now(),"notaMinima"=$3,"intentosMaximos"=$4,lecciones=$5
+    `update evaluaciones set "publicadaEn"=now(),"notaMinima"=$3,"intentosMaximos"=$4,lecciones=$5,"leccionesIds"=coalesce($6::bigint[],"leccionesIds")
      where "cursoId"=$1 and id=$2 and "publicadaEn" is null returning ${columnas}`,
-    [curso.id, evaluacionId, curso.notaMinima, curso.intentosMaximos, JSON.stringify(lecciones)]
+    [curso.id, evaluacionId, curso.notaMinima, curso.intentosMaximos, JSON.stringify(lecciones),
+      curso.avanceMedido ? lecciones.map(leccion => leccion.id) : null]
   );
   return consulta.rows[0]!;
 }
@@ -103,9 +105,9 @@ export async function consultarResultadosOficiales(cliente: Consultor, cursoId: 
        coalesce(mejor.nota >= evaluacion."notaMinima",false) as aprobado,
        (curso.modalidad <> 'GRABADO' or (jsonb_array_length(evaluacion.lecciones) > 0 and not exists (
          select 1 from jsonb_array_elements(evaluacion.lecciones) leccion
-         where not exists (select 1 from "avanceLecciones" avance
-           where avance."evaluacionId"=evaluacion.id and avance."usuarioId"=persona.id
-             and avance."leccionId"=(leccion->>'id')::bigint)
+         where not exists (select 1 from "finalizacionesContenido" avance
+           where avance."cursoId"=evaluacion."cursoId" and avance."usuarioId"=persona.id
+             and avance."materialId"=(leccion->>'id')::bigint)
        ))) as "avanceCompleto"
      from evaluaciones evaluacion join cursos curso on curso.id=evaluacion."cursoId"
      cross join unnest($2::bigint[]) persona(id)
@@ -162,7 +164,7 @@ export async function buscarPublicada(cliente: Consultor, cursoId: string, evalu
 
 export async function leccionesCompletadas(cliente: Consultor, cursoId: string, usuarioId: number) {
   const consulta = await cliente.query<{ id: string }>(
-    'select "leccionId"::text as id from "avanceLecciones" where "cursoId"=$1 and "usuarioId"=$2',
+    'select "materialId"::text as id from "finalizacionesContenido" where "cursoId"=$1 and "usuarioId"=$2',
     [cursoId, usuarioId]
   );
   return new Set(consulta.rows.map(({ id }) => id));

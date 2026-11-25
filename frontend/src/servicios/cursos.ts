@@ -159,3 +159,13 @@ export function useCursosParaClase() {
     queryFn: async () => (await cursos.listar()).filter((c) => c.estado !== 'CERRADO'),
   })
 }
+
+export async function descargarMaterialPdf(cursoId: string, moduloId: string, materialId: string) {
+  const archivo = await cursos.descargar(cursoId, moduloId, materialId)
+  const url = URL.createObjectURL(archivo)
+  const enlace = document.createElement('a')
+  enlace.href = url
+  enlace.download = 'material.pdf'
+  enlace.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

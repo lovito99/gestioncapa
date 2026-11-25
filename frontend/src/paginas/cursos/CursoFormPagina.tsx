@@ -455,8 +455,10 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
       {curso && curso.modalidad !== 'GRABADO' && <SesionesCurso curso={curso} />}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-        {curso && !cerrado && !modoDemoActivo &&
-          <Link to={`/admin/cursos/${curso.id}/evaluaciones/configuracion`} className={enlaceSecundario}>Configurar evaluaciones</Link>}
+        {curso && !cerrado && !modoDemoActivo && <>
+          <Link to={`/admin/cursos/${curso.id}/contenido`} className={enlaceSecundario}>Configurar contenido</Link>
+          <Link to={`/admin/cursos/${curso.id}/evaluaciones/configuracion`} className={enlaceSecundario}>Configurar evaluaciones</Link>
+        </>}
         {/* 2.3 → 2.4: el curso publicado se cierra para emitir los certificados */}
         {publicado && (
           <Link to={`/admin/cursos/${curso.id}/${evaluacionIndividual ? 'certificados' : 'cerrar'}`} className={enlaceSecundario}>

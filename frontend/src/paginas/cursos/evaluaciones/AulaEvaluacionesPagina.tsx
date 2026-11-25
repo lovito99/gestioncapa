@@ -7,6 +7,9 @@ import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { Etiqueta } from '@/components/ui/Etiqueta'
 import { mensajeDeError } from '@/lib/api'
+import { modoDemoActivo } from '@/lib/aulaGrabadaDemo'
+import { avance, type AulaContenido as DatosContenido, type ProgresoContenido, type UnidadContenido } from '@/servicios/avance'
+import { AulaContenido } from '../avance/AulaContenido'
 import { evaluaciones, type AulaEvaluacion, type LeccionEvaluacion } from '@/servicios/evaluaciones'
 import { EstadoRendicion } from './EstadoRendicion'
 
@@ -16,9 +19,28 @@ export function AulaEvaluacionesPagina() {
   const cache = useQueryClient()
   const clave = ['evaluaciones', id, usuario?.id]
   const consulta = useQuery({ queryKey: clave, queryFn: () => evaluaciones.aula(id), retry: false })
+  const titular = usuario?.id ?? ''
+  const claveContenido = ['avance', id, titular]
+  const contenido = useQuery({
+    queryKey: claveContenido,
+    queryFn: () => avance.aula(id, String(titular)),
+    enabled: Boolean(titular) && !modoDemoActivo,
+    retry: false,
+  })
+  const actualizarContenido = (unidad: UnidadContenido, resultado: ProgresoContenido) => {
+    cache.setQueryData<DatosContenido>(claveContenido, anterior => anterior && ({
+      ...anterior, unidades: anterior.unidades.map(item => item.id === unidad.id && item.version === unidad.version ?
+        { ...item, ...resultado } : item),
+    }))
+    void cache.invalidateQueries({ queryKey: claveContenido })
+    if (!unidad.completadaEn && resultado.completadaEn) void cache.invalidateQueries({ queryKey: clave })
+  }
   const progreso = useMutation({
     mutationFn: (leccionId: string) => evaluaciones.completar(id, leccionId),
-    onSuccess: () => cache.invalidateQueries({ queryKey: clave }),
+    onSuccess: () => Promise.all([
+      cache.invalidateQueries({ queryKey: clave }),
+      cache.invalidateQueries({ queryKey: claveContenido }),
+    ]),
   })
 
   return <section className="mx-auto max-w-240 space-y-5 px-4 py-6 sm:py-10">
@@ -26,24 +48,31 @@ export function AulaEvaluacionesPagina() {
     {progreso.isError && <Aviso tipo="error" titulo="Lección sin completar">
       {mensajeDeError(progreso.error, 'No pudimos guardar tu avance.')}
     </Aviso>}
+    {!modoDemoActivo && (contenido.isPending ? <Cargando texto="Cargando contenido…" /> : contenido.isError ?
+      <ErrorCarga mensaje={mensajeDeError(contenido.error, 'No pudimos cargar el contenido.')} onReintentar={contenido.refetch} /> :
+      <AulaContenido key={`${id}:${titular}`} cursoId={id} datos={contenido.data}
+        videosHistoricos={consulta.data?.lecciones.map(leccion => leccion.id) ?? []} alGuardar={actualizarContenido} />)}
     {consulta.isPending ? <Cargando texto="Cargando el curso…" /> : consulta.isError ? (
       <ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar tus evaluaciones.')} onReintentar={consulta.refetch} />
     ) : <AulaEvaluaciones cursoId={id} aula={consulta.data} completar={leccionId => progreso.mutate(leccionId)}
-      completando={progreso.isPending ? progreso.variables : undefined} />}
+      completando={progreso.isPending ? progreso.variables : undefined}
+      conContenido={Boolean(contenido.data) && !contenido.isError} ocultarLecciones={contenido.data?.medido} />}
   </section>
 }
 
-export function AulaEvaluaciones({ cursoId, aula, completar, completando }: {
+export function AulaEvaluaciones({ cursoId, aula, completar, completando, conContenido, ocultarLecciones }: {
   cursoId: string
   aula: AulaEvaluacion
   completar: (leccionId: string) => void
   completando?: string
+  conContenido?: boolean
+  ocultarLecciones?: boolean
 }) {
   const grabado = aula.modalidad === 'GRABADO'
   const avance = aula.lecciones.filter(leccion => leccion.completada).length
 
   return <>
-    <header className="space-y-2 rounded-xl border border-line bg-white p-5 sm:p-6">
+    {!conContenido && <header className="space-y-2 rounded-xl border border-line bg-white p-5 sm:p-6">
       <p className="text-sm font-semibold text-brand">{grabado ? 'Aula grabada' : 'Evaluaciones del curso'}</p>
       <h1 className="font-serif text-2xl font-bold text-ink sm:text-3xl">{aula.titulo}</h1>
       {aula.lecciones.length > 0 && <div className="max-w-140 space-y-1.5">
@@ -53,9 +82,12 @@ export function AulaEvaluaciones({ cursoId, aula, completar, completando }: {
         <progress id="avance-lecciones" className="block h-3 w-full overflow-hidden rounded-full bg-brand-soft [&::-moz-progress-bar]:bg-brand [&::-webkit-progress-bar]:bg-brand"
           value={avance} max={aula.lecciones.length} />
       </div>}
-    </header>
-    {grabado && <section aria-labelledby="lecciones-aula" className="space-y-3">
+    </header>}
+    {grabado && !ocultarLecciones && <section aria-labelledby="lecciones-aula" className="space-y-3">
       <h2 id="lecciones-aula" className="font-serif text-xl font-bold text-ink">Lecciones obligatorias</h2>
+      {conContenido && aula.lecciones.length > 0 && <p className="text-sm text-muted" aria-live="polite">
+        {avance} de {aula.lecciones.length} lecciones completadas
+      </p>}
       {aula.lecciones.length === 0 ? <p className="text-sm text-muted">Aún no hay lecciones publicadas.</p> :
         <ol className="space-y-3">{aula.lecciones.map(leccion => <li key={leccion.id} className="space-y-3 rounded-xl border border-line bg-white p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">

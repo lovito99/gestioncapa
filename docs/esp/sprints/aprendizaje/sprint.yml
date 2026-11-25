@@ -11,3 +11,10 @@ historias:
     especificacion: hu-19/SPEC.md
     plan: hu-19/plan.md
     seguimiento: hu-19/todo.md
+  - id: HU-17
+    jira: SCRUM-17
+    titulo: Completar contenido y ver avance
+    estado: implementada-pendiente-build
+    especificacion: hu-17/SPEC.md
+    plan: hu-17/plan.md
+    seguimiento: hu-17/todo.md
