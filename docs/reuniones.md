@@ -101,10 +101,12 @@ Los contenedores de Jitsi permanecen activos al detener el backend; se detienen
 con `docker compose stop` desde `infraestructura/jitsi/servidor`.
 
 Los cambios de `backend/.env` se leen al arrancar el backend. Después de preparar
-Jitsi, reinícialo para que lea la configuración nueva. Si usas `npm start`, también
-debes ejecutar manualmente `npm run build -w backend` desde la raíz cuando cambie
-el código TypeScript: ese comando de arranque ejecuta `backend/dist/`. En desarrollo,
-`npm run dev -w backend` ejecuta los fuentes y observa sus cambios.
+Jitsi, reinicia el backend para que lea su configuración. En desarrollo/test,
+`npm start` ejecuta el TypeScript actual con las fuentes y `tsx` disponibles.
+`npm run dev -w backend` también observa los cambios del código. Para
+`NODE_ENV=production`, ejecuta manualmente `npm run build -w backend` desde
+la raíz antes de iniciar una versión nueva. Detén un backend ejecutado en
+primer plano con `Ctrl+C`.
 
 Si falla `POST /api/reuniones/:identificador/credencial`, distingue la respuesta:
 
