@@ -2,6 +2,8 @@ import { buildApp } from "./app.js";
 import { env } from "./config/env.js";
 import { MigracionError } from "./shared/migraciones.js";
 import { iniciarProcesosCobro } from './jobs/procesosCobro.js';
+import { iniciarProcesosLecciones } from './jobs/procesosLecciones.js';
+import { consultarYoutube } from './routes/lecciones.routes.js';
 
 let app: Awaited<ReturnType<typeof buildApp>>;
 
@@ -18,6 +20,7 @@ try {
 
 try {
   iniciarProcesosCobro(app);
+  iniciarProcesosLecciones(app, env.youtubeClaveApi ? consultarYoutube : undefined);
   await app.listen({ host: env.HOST, port: env.PORT });
 } catch (error) {
   app.log.error(error);

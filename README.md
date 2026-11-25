@@ -324,14 +324,18 @@ NODE_ENV=test npm run test:integracion
 npm run start
 ```
 
-Backend build/start:
+El backend arranca con `npm start` desde `backend/` o desde la raíz. En
+desarrollo/test usa el código TypeScript actual cuando están presentes las
+fuentes y las dependencias de desarrollo. Para detenerlo en la terminal, pulsa `Ctrl+C`.
+
+En producción, compila manualmente desde la raíz antes de iniciar:
 
 ```bash
 npm run build -w backend
 npm run start -w backend
 ```
 
-En desarrollo/test, `npm start` desde `backend/` también levanta Jitsi local
+En desarrollo/test, `npm start` también levanta Jitsi local
 cuando está habilitado en `backend/.env` y `jitsiDireccion` apunta a localhost.
 Usa las imágenes ya descargadas y espera a que Jitsi esté disponible antes de
 abrir la API. Requiere Docker activo y la [preparación de reuniones](docs/reuniones.md#preparación).

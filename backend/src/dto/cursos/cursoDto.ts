@@ -40,13 +40,13 @@ export type DatosCurso = z.infer<typeof esquemaCurso>;
 const urlSegura = z.string().max(2048).url('Ingresa una URL válida.').refine(valor => {
   try { const url = new URL(valor); return url.protocol === 'https:' && !url.username && !url.password; } catch { return false; }
 }, 'Usa una URL HTTPS sin credenciales.');
-const pdf = z.string().max(6990508, 'El PDF no puede superar 5 MB.').regex(/^[A-Za-z0-9+/]*={0,2}$/, 'El archivo no es válido.').refine(valor => {
+export const contenidoPdf = z.string().max(6990508, 'El PDF no puede superar 5 MB.').regex(/^[A-Za-z0-9+/]*={0,2}$/, 'El archivo no es válido.').refine(valor => {
   if (valor.length > 6990508 || valor.length % 4 !== 0) return false;
   const archivo = Buffer.from(valor, 'base64');
   return archivo.toString('base64') === valor && archivo.length >= 5 && archivo.length <= 5242880 && archivo.subarray(0, 5).toString() === '%PDF-';
 }, 'Selecciona un PDF válido de hasta 5 MB.');
 export const esquemaMaterial = z.discriminatedUnion('tipo', [
-  z.object({ titulo, tipo: z.literal('PDF'), contenidoBase64: pdf }).strict(),
+  z.object({ titulo, tipo: z.literal('PDF'), contenidoBase64: contenidoPdf }).strict(),
   z.object({ titulo, tipo: z.literal('ENLACE'), url: urlSegura }).strict(),
   z.object({ titulo, tipo: z.literal('VIDEO'), url: urlSegura }).strict(),
 ]);

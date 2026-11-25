@@ -10,6 +10,7 @@ import { mensajeDeError } from '@/lib/api'
 import { modoDemoActivo } from '@/lib/aulaGrabadaDemo'
 import { avance, type AulaContenido as DatosContenido, type ProgresoContenido, type UnidadContenido } from '@/servicios/avance'
 import { AulaContenido } from '../avance/AulaContenido'
+import { AulaLeccionesYoutube } from '../lecciones/AulaLeccionesYoutube'
 import { evaluaciones, type AulaEvaluacion, type LeccionEvaluacion } from '@/servicios/evaluaciones'
 import { EstadoRendicion } from './EstadoRendicion'
 
@@ -52,6 +53,8 @@ export function AulaEvaluacionesPagina() {
       <ErrorCarga mensaje={mensajeDeError(contenido.error, 'No pudimos cargar el contenido.')} onReintentar={contenido.refetch} /> :
       <AulaContenido key={`${id}:${titular}`} cursoId={id} datos={contenido.data}
         videosHistoricos={consulta.data?.lecciones.map(leccion => leccion.id) ?? []} alGuardar={actualizarContenido} />)}
+    {!modoDemoActivo && !contenido.isError && contenido.data?.modalidad === 'GRABADO' &&
+      <AulaLeccionesYoutube key={`youtube:${id}:${titular}`} cursoId={id} />}
     {consulta.isPending ? <Cargando texto="Cargando el curso…" /> : consulta.isError ? (
       <ErrorCarga mensaje={mensajeDeError(consulta.error, 'No pudimos cargar tus evaluaciones.')} onReintentar={consulta.refetch} />
     ) : <AulaEvaluaciones cursoId={id} aula={consulta.data} completar={leccionId => progreso.mutate(leccionId)}

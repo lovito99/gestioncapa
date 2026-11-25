@@ -932,3 +932,8 @@ Base comprobada `v3.1.0.0.0`. Refactorización sin cambio funcional → nivel
 **Interno**: `v3.1.0.0.1` para la entrega completa de T-26. `package.json` no cambia.
 Prefijos: `test:` (T1), `refactor:` (T2–T6), `docs:` (T7). Commit, etiqueta y
 build los ejecuta el usuario.
+
+
+## HU-37 · Agregar lecciones en video a un curso grabado
+
+[Plan de implementación](../docs/esp/sprints/aprendizaje/hu-37/plan.md) en el sprint Aprendizaje.

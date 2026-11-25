@@ -4,25 +4,49 @@ import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
-try {
-  const servidor = new URL("./dist/server.js", import.meta.url);
-  if (!existsSync(servidor)) {
-    throw new Error("Falta compilar el backend. Ejecuta npm run build -w backend desde la raíz antes de npm start.");
-  }
+function fechaMasReciente(carpeta, extension) {
+  return readdirSync(carpeta, { recursive: true, withFileTypes: true })
+    .filter(entrada => entrada.isFile() && entrada.name.endsWith(extension))
+    .reduce((maxima, entrada) => Math.max(maxima, statSync(join(entrada.parentPath, entrada.name)).mtimeMs), 0);
+}
 
-  // Evita servir un dist antiguo que consulte columnas ya eliminadas por migraciones.
+async function seleccionarArranque() {
   const fuentes = new URL("./src/", import.meta.url);
-  if (existsSync(fuentes)) {
-    const ultimaFecha = (carpeta, extension) => readdirSync(carpeta, { recursive: true, withFileTypes: true })
-      .filter((entrada) => entrada.isFile() && entrada.name.endsWith(extension))
-      .reduce((maxima, entrada) => Math.max(maxima, statSync(join(entrada.parentPath, entrada.name)).mtimeMs), 0);
-    if (ultimaFecha(fileURLToPath(fuentes), ".ts") > ultimaFecha(fileURLToPath(new URL("./dist/", import.meta.url)), ".js")) {
-      throw new Error("El backend compilado está desactualizado. Ejecuta npm run build -w backend desde la raíz antes de npm start.");
+  const servidorFuente = new URL("server.ts", fuentes);
+  const dist = new URL("./dist/", import.meta.url);
+  const servidorCompilado = new URL("server.js", dist);
+  let instruccion = "Ejecuta npm run build -w backend desde la raíz antes de npm start.";
+
+  if (existsSync(servidorFuente)) {
+    const { config } = await import("dotenv");
+    config({ quiet: true });
+    if (process.env.NODE_ENV !== "production") {
+      const tsx = await import("tsx/esm/api").catch(error => {
+        if (error.code !== "ERR_MODULE_NOT_FOUND") throw error;
+        return null;
+      });
+      if (tsx) {
+        tsx.register();
+        return { servidor: servidorFuente, configuracion: new URL("config/env.ts", fuentes) };
+      }
+      instruccion = "Instala las dependencias de desarrollo con npm install --include=dev para iniciar desde TypeScript.";
     }
   }
 
+  if (!existsSync(servidorCompilado)) {
+    throw new Error(`Falta compilar el backend. ${instruccion}`);
+  }
+  // Las migraciones pueden haber cambiado el esquema que consulta el código compilado.
+  if (existsSync(fuentes) && fechaMasReciente(fuentes, ".ts") > fechaMasReciente(dist, ".js")) {
+    throw new Error(`El backend compilado está desactualizado. ${instruccion}`);
+  }
+  return { servidor: servidorCompilado, configuracion: new URL("config/env.js", dist) };
+}
+
+try {
+  const { servidor, configuracion } = await seleccionarArranque();
   // Valida la configuración antes de arrancar Docker o abrir el puerto de la API.
-  const { env } = await import("./dist/config/env.js");
+  const { env } = await import(configuracion.href);
   if (env.jitsiHabilitado && env.NODE_ENV !== "production") {
     const direccion = new URL(env.jitsiDireccion ?? `https://${env.jitsiDominio}`);
     if (["localhost", "127.0.0.1", "[::1]"].includes(direccion.hostname)) {

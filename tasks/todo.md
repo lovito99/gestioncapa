@@ -1697,3 +1697,8 @@ Plan: [plan.md](plan.md#t-26--plan-backend-en-capas). Estado: aprobado el 24/11/
 - Evidencia final: tipos OK; 497/497 unitarias; integración 376/377 con `NODE_ENV=test`
   (fallo previo de HU29 por avisos pendientes que dejan otras pruebas); cobertura de asistencia 100 % líneas, 91,7 % ramas.
 - [ ] Build: ejecución manual por el usuario.
+
+
+## HU-37 · Agregar lecciones en video a un curso grabado
+
+[Tareas y puntos de control](../docs/esp/sprints/aprendizaje/hu-37/todo.md) en el sprint Aprendizaje.

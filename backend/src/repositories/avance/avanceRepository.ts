@@ -31,7 +31,8 @@ export async function tieneInscripcion(cliente: ClienteAvance, cursoId: string, 
 
 const columnas = `a.id::text,a.modulo_id::text as "moduloId",m.titulo as modulo,a.titulo,a.tipo,a.url,
   a.obligatorio,a."duracionMs",a."versionContenido" as version`;
-const materiales = 'from materiales_curso a join modulos_curso m on m.id=a.modulo_id';
+const materiales = `from materiales_curso a join modulos_curso m on m.id=a.modulo_id
+  and not exists(select 1 from "leccionesYoutube" l where l."materialVideoId"=a.id or l."materialPdfId"=a.id)`;
 
 export async function listarMateriales(cliente: ClienteAvance, cursoId: string) {
   const { rows } = await cliente.query<MaterialAvance>(
