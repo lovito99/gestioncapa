@@ -105,6 +105,7 @@ export const router = createBrowserRouter([
             path: '/cursos/:id/aula',
             hydrateFallbackElement: <Cargando texto="Cargando página…" />,
             lazy: async () => ({ Component: (await import('@/paginas/cursos/evaluaciones/AulaEvaluacionesPagina')).AulaEvaluacionesPagina }),
+            children: [{ path: 'lecciones/:materialId', element: null }],
           }]),
           // HU-39: QR personal que el encargado escanea en la puerta
           { path: '/participante/mi-qr', element: <MiQrPagina /> },

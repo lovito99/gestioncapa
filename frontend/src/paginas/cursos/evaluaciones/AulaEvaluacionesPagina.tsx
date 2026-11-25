@@ -15,17 +15,18 @@ import { evaluaciones, type AulaEvaluacion, type LeccionEvaluacion } from '@/ser
 import { EstadoRendicion } from './EstadoRendicion'
 
 export function AulaEvaluacionesPagina() {
-  const { id = '' } = useParams()
+  const { id = '', materialId } = useParams()
   const { usuario } = useAuth()
   const cache = useQueryClient()
   const clave = ['evaluaciones', id, usuario?.id]
-  const consulta = useQuery({ queryKey: clave, queryFn: () => evaluaciones.aula(id), retry: false })
+  const consulta = useQuery({ queryKey: clave, queryFn: () => evaluaciones.aula(id), retry: false, refetchOnWindowFocus: true })
   const titular = usuario?.id ?? ''
   const claveContenido = ['avance', id, titular]
   const contenido = useQuery({
     queryKey: claveContenido,
     queryFn: () => avance.aula(id, String(titular)),
     enabled: Boolean(titular) && !modoDemoActivo,
+    refetchOnWindowFocus: true,
     retry: false,
   })
   const actualizarContenido = (unidad: UnidadContenido, resultado: ProgresoContenido) => {
@@ -51,7 +52,7 @@ export function AulaEvaluacionesPagina() {
     </Aviso>}
     {!modoDemoActivo && (contenido.isPending ? <Cargando texto="Cargando contenido…" /> : contenido.isError ?
       <ErrorCarga mensaje={mensajeDeError(contenido.error, 'No pudimos cargar el contenido.')} onReintentar={contenido.refetch} /> :
-      <AulaContenido key={`${id}:${titular}`} cursoId={id} datos={contenido.data}
+      <AulaContenido key={`${id}:${titular}`} cursoId={id} titular={String(titular)} idLeccion={materialId} datos={contenido.data}
         videosHistoricos={consulta.data?.lecciones.map(leccion => leccion.id) ?? []} alGuardar={actualizarContenido} />)}
     {!modoDemoActivo && !contenido.isError && contenido.data?.modalidad === 'GRABADO' &&
       <AulaLeccionesYoutube key={`youtube:${id}:${titular}`} cursoId={id} />}
@@ -125,10 +126,10 @@ export function AulaEvaluaciones({ cursoId, aula, completar, completando, conCon
   </>
 }
 
-function VideoLeccion({ leccion }: { leccion: LeccionEvaluacion }) {
+function VideoLeccion({ leccion }: { leccion: Pick<LeccionEvaluacion, 'titulo'> & { url: string | null } }) {
   let url: URL
   try {
-    url = new URL(leccion.url)
+    url = new URL(leccion.url ?? '')
   } catch {
     return <p className="text-sm text-muted">El video no está disponible.</p>
   }

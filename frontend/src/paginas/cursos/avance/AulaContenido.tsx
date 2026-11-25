@@ -1,10 +1,15 @@
 import { useId, useRef, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Lock } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Aviso } from '@/components/ui/Aviso'
 import { Boton } from '@/components/ui/Boton'
 import { Etiqueta } from '@/components/ui/Etiqueta'
-import { mensajeDeError } from '@/lib/api'
+import { Cargando, ErrorCarga } from '@/components/ui/Estados'
+import { esApiError, mensajeDeError } from '@/lib/api'
 import { avance, type AulaContenido as DatosAula, type ProgresoContenido, type UnidadContenido } from '@/servicios/avance'
 import { descargarMaterialPdf } from '@/servicios/cursos'
+import { formatearDuracion } from '../lecciones/presentacionLecciones'
 import { fechaFinalizacion, fuenteHttps, fuenteVideo } from './reproduccion'
 import { VideoMedido, type ControlVideo } from './VideoMedido'
 
@@ -28,25 +33,40 @@ export function ResumenContenido({ titulo, modalidad, medido, porcentaje, obliga
   </header>
 }
 
-export function AulaContenido({ cursoId, datos, videosHistoricos, alGuardar }: {
+export function AulaContenido({ cursoId, titular, idLeccion, datos, videosHistoricos, alGuardar }: {
   cursoId: string
+  titular: string
+  idLeccion?: string
   datos: DatosAula
   videosHistoricos: string[]
   alGuardar: (unidad: UnidadContenido, resultado: ProgresoContenido) => void
 }) {
-  const [abierto, cambiarAbierto] = useState('')
+  const [abiertoLocal, cambiarAbierto] = useState('')
+  const abierto = idLeccion ?? abiertoLocal
   const [cerrando, indicarCierre] = useState(false)
   const controlVideo = useRef<ControlVideo>(null)
+  const navegar = useNavigate()
+  const rutaAula = `/cursos/${cursoId}/aula`
 
-  async function abrirUnidad(id: string) {
+  async function abrirUnidad(unidad: UnidadContenido) {
     indicarCierre(true)
     await controlVideo.current?.cerrar()
-    cambiarAbierto(abierto === id ? '' : id)
+    cambiarAbierto(abierto === unidad.id ? '' : unidad.id)
+    if (idLeccion) void navegar(rutaAula)
     indicarCierre(false)
   }
   const seccion = useId()
   const medible = datos.modalidad !== 'GRABADO' || datos.medido
   const unidades = datos.unidades.filter(unidad => medible || !videosHistoricos.includes(unidad.id))
+  const seleccionada = unidades.find(unidad => unidad.id === abierto)
+  const consultarLeccion = Boolean(idLeccion) || seleccionada?.bloqueo === null
+  const detalle = useQuery({
+    queryKey: ['leccion-curso', cursoId, titular, abierto],
+    queryFn: () => avance.leccion(cursoId, abierto),
+    enabled: consultarLeccion,
+    gcTime: 0,
+    retry: false,
+  })
   const modulos = new Map<string, UnidadContenido[]>()
   for (const unidad of unidades) {
     const grupo = modulos.get(unidad.moduloId)
@@ -63,6 +83,13 @@ export function AulaContenido({ cursoId, datos, videosHistoricos, alGuardar }: {
 
   return <>
     <ResumenContenido {...datos} />
+    {consultarLeccion && (detalle.isPending ? <Cargando texto="Cargando lección…" /> :
+      detalle.isError && (esApiError(detalle.error, 'LECCION_BLOQUEADA') ?
+        <Aviso tipo="advertencia" titulo="Lección bloqueada">
+          <p>{detalle.error.message}</p>
+          <Link className="font-semibold underline" to={rutaAula}>Volver al aula</Link>
+        </Aviso> : <ErrorCarga mensaje={mensajeDeError(detalle.error, 'No pudimos abrir la lección.')}
+          onReintentar={detalle.refetch} />))}
     <section aria-labelledby={seccion} className="space-y-3">
       <h2 id={seccion} className="font-serif text-xl font-bold text-ink">Módulos y materiales</h2>
       {!modulos.size && <p className="text-sm text-muted">
@@ -70,26 +97,34 @@ export function AulaContenido({ cursoId, datos, videosHistoricos, alGuardar }: {
       </p>}
       {Array.from(modulos, ([moduloId, grupo]) => <section key={moduloId} className="space-y-2 rounded-xl border border-line bg-white p-4">
         <h3 className="font-semibold text-ink">{grupo[0]?.modulo}</h3>
-        <ul className="divide-y divide-line">
+        <ol className="divide-y divide-line">
           {grupo.map(unidad => {
             const fuente = fuenteHttps(unidad.url)
-            const video = medible && unidad.tipo === 'VIDEO' && unidad.duracionMs ? fuenteVideo(unidad.url) : null
             const mostrandoVideo = abierto === unidad.id
+            const enSecuencia = unidad.bloqueo !== undefined
+            const detalleAutorizado = mostrandoVideo && consultarLeccion && detalle.isSuccess
+            const bloqueo = detalleAutorizado ? null : unidad.bloqueo
+            const video = medible && unidad.tipo === 'VIDEO' && unidad.duracionMs ?
+              fuenteVideo(enSecuencia ? (detalleAutorizado ? detalle.data.url : null) : unidad.url) : null
             return <li key={unidad.id} className="space-y-2 py-3">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <h4 className="font-semibold text-ink">{unidad.titulo}</h4>
                   <p className="text-sm text-muted">{unidad.tipo === 'ENLACE' ? 'Enlace' : unidad.tipo === 'VIDEO' ? 'Video' : 'PDF'}
-                    {unidad.obligatorio && ' · Obligatorio'}</p>
+                    {unidad.obligatorio && ' · Obligatorio'}
+                    {unidad.duracionMs && ` · ${formatearDuracion(Math.max(1, Math.round(unidad.duracionMs / 1000)))}`}</p>
                 </div>
-                {unidad.completadaEn && <Etiqueta tono="exito">Completada</Etiqueta>}
+                {bloqueo ? <Etiqueta><Lock className="mr-1 size-3.5" aria-hidden />Bloqueada</Etiqueta> :
+                  unidad.completadaEn && <Etiqueta tono="exito">Completada</Etiqueta>}
               </div>
               {unidad.completadaEn && <p className="text-sm text-muted">Completada el{' '}
                 <time dateTime={unidad.completadaEn}>{fechaFinalizacion(unidad.completadaEn)}</time></p>}
-              <div className="flex flex-wrap items-center gap-3">
-                {video ? <Boton variante="secundario" aria-expanded={mostrandoVideo}
+              {bloqueo ? <p className="text-sm text-muted">
+                {`Completa ${bloqueo.titulo} para habilitar esta lección.`}
+              </p> : <div className="flex flex-wrap items-center gap-3">
+                {enSecuencia || video ? <Boton variante="secundario" aria-expanded={mostrandoVideo}
                   aria-label={`${mostrandoVideo ? 'Cerrar lección' : 'Abrir lección'}: ${unidad.titulo}`}
-                  disabled={cerrando} onClick={() => void abrirUnidad(unidad.id)}>
+                  disabled={cerrando} onClick={() => void abrirUnidad(unidad)}>
                   {mostrandoVideo ? 'Cerrar lección' : 'Abrir lección'}
                 </Boton> : unidad.tipo === 'PDF' ? <Boton variante="secundario" disabled={descargar.isPending}
                   cargando={descargar.isPending && descargar.variables?.id === unidad.id}
@@ -100,17 +135,19 @@ export function AulaContenido({ cursoId, datos, videosHistoricos, alGuardar }: {
                 {unidad.tipo !== 'VIDEO' && !unidad.completadaEn && <Boton variante="secundario" disabled={marcar.isPending}
                   cargando={marcar.isPending && marcar.variables?.id === unidad.id} onClick={() => marcar.mutate(unidad)}
                   aria-label={`Marcar como visto: ${unidad.titulo}`}>Marcar como visto</Boton>}
-              </div>
+              </div>}
               {descargar.isError && descargar.variables?.id === unidad.id &&
                 <p role="alert" className="text-sm text-danger">{mensajeDeError(descargar.error, 'No pudimos descargar el PDF.')}</p>}
               {marcar.isError && marcar.variables?.id === unidad.id &&
                 <p role="alert" className="text-sm text-danger">{mensajeDeError(marcar.error, 'No pudimos guardar la marca.')}</p>}
-              {mostrandoVideo && video && unidad.duracionMs && <VideoMedido key={unidad.version} ref={controlVideo} cursoId={cursoId}
+              {mostrandoVideo && enSecuencia && detalle.isSuccess && !video &&
+                <p className="text-sm text-muted">El video no está disponible.</p>}
+              {!bloqueo && mostrandoVideo && video && unidad.duracionMs && <VideoMedido key={unidad.version} ref={controlVideo} cursoId={cursoId}
                 unidadId={unidad.id} titulo={unidad.titulo} fuente={video} duracionMs={unidad.duracionMs} inicial={unidad}
                 alGuardar={resultado => alGuardar(unidad, resultado)} />}
             </li>
           })}
-        </ul>
+        </ol>
       </section>)}
     </section>
   </>

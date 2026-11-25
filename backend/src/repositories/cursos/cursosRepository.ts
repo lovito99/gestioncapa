@@ -42,15 +42,18 @@ export async function listarCursos(instructorId?: number, catalogo = false) {
     where ($1::bigint is null or c.instructor_id=$1)
     and (not $2::boolean or c.estado='PUBLICADO') order by c.id desc`, [instructorId ?? null, catalogo])).rows.map(conPortada);
 }
-export async function obtenerCurso(id: string, usuarioId?: number) {
+export async function obtenerCurso(id: string, usuarioId?: number, ocultarFuentesDeLecciones = false) {
   const curso = (await pool.query<FilaCurso>(`select ${columnas},exists(select 1 from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as inscrito,(select ins.estado from inscripciones_curso ins where ins.curso_id=c.id and ins.usuario_id=$2) as "estadoInscripcion" from cursos c join users u on u.id=c.instructor_id where c.id=$1`, [id, usuarioId ?? null])).rows[0];
   if (!curso) return null;
   const modulos = (await pool.query<{ id: string; titulo: string; orden: number }>('select id::text,titulo,orden from modulos_curso where curso_id=$1 order by orden', [id])).rows;
   const materiales = (await pool.query<{ id: string; moduloId: string; titulo: string; tipo: string; url: string | null }>(`
-    select a.id::text,a.modulo_id::text as "moduloId",a.titulo,a.tipo,a.url from materiales_curso a
-    join modulos_curso m on m.id=a.modulo_id where m.curso_id=$1
+    select a.id::text,a.modulo_id::text as "moduloId",a.titulo,a.tipo,
+      case when $2 and c.modalidad='GRABADO' and c."avanceMedido"
+        and a.tipo='VIDEO' and a.obligatorio and a."duracionMs" is not null then null else a.url end as url
+    from materiales_curso a join modulos_curso m on m.id=a.modulo_id join cursos c on c.id=m.curso_id
+    where m.curso_id=$1
     and not exists(select 1 from "leccionesYoutube" l where l."materialVideoId"=a.id or l."materialPdfId"=a.id)
-    order by a.id`, [id])).rows;
+    order by a.id`, [id, ocultarFuentesDeLecciones])).rows;
   const miInscripcion=usuarioId===undefined ? null : await obtenerMiInscripcion(id,usuarioId);
   const estadoInscripcion=miInscripcion?.estado ?? curso.estadoInscripcion;
   return { ...conPortada(curso),estadoInscripcion,inscrito:!!curso.inscrito && estadoInscripcion!=='CANCELADA',miInscripcion,

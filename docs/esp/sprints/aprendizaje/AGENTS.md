@@ -45,3 +45,16 @@ sprint sin asignar hasta que el equipo lo confirme.
 - Registra resultados rojo y verde de las pruebas locales. Aplica las
   referencias de calidad y seguridad del proyecto. El build, los commits
   y la publicación quedan a cargo del usuario.
+
+## HU-55
+
+- Consulta la [especificación](hu-55/SPEC.md), el [plan](hu-55/plan.md) y el
+  [seguimiento](hu-55/todo.md). Empieza a implementar después de que el usuario
+  apruebe el alcance y el plan.
+- Reutiliza la finalización de HU-17 y verifica que el 403 se aplique desde el
+  servidor. Prueba las proyecciones de otros endpoints, la inscripción y el
+  cuestionario de HU-19. Respeta la decisión de alcance sobre el contenido
+  complementario de HU-37.
+- Registra rojo y verde por tarea y conserva las pruebas nuevas localmente.
+  Aplica las listas de calidad y de seguridad del repositorio al revisar la
+  entrega. El usuario ejecuta el build y las operaciones Git manualmente.

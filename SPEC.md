@@ -1969,3 +1969,8 @@ devuelve resultados. No se instala nada.
 ## HU-41 · Iniciar sesión con Google
 
 [Especificación y soluciones](docs/esp/sprints/acceso/hu-41/SPEC.md) en el sprint Acceso.
+
+## HU-55 · Lecciones en orden en un curso grabado
+
+[Especificación y soluciones existentes](docs/esp/sprints/aprendizaje/hu-55/SPEC.md)
+en el sprint Aprendizaje.

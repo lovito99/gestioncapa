@@ -24,6 +24,25 @@ export type MaterialAvance = {
 export type ProgresoUnidad = { vistoMs: number; posicionMs: number; completadaEn: Date | null };
 export type UnidadAvance = MaterialAvance & ProgresoUnidad;
 export type ConfiguracionUnidad = Pick<MaterialAvance, 'obligatorio' | 'duracionMs'>;
+export type BloqueoLeccion = { leccionId: string; titulo: string };
+
+export function usaSecuencia(curso: Pick<CursoAvance, 'modalidad' | 'medido'>) {
+  return curso.modalidad === 'GRABADO' && curso.medido;
+}
+
+export function esVideoObligatorio(unidad: Pick<MaterialAvance, 'tipo' | 'obligatorio' | 'duracionMs'>) {
+  return unidad.tipo === 'VIDEO' && unidad.obligatorio && unidad.duracionMs !== null;
+}
+
+export function bloqueosLecciones(unidades: UnidadAvance[]) {
+  const bloqueos = new Map<string, BloqueoLeccion | null>();
+  let pendiente: BloqueoLeccion | null = null;
+  for (const unidad of unidades.filter(esVideoObligatorio)) {
+    bloqueos.set(unidad.id, pendiente);
+    if (!unidad.completadaEn) pendiente ??= { leccionId: unidad.id, titulo: unidad.titulo };
+  }
+  return bloqueos;
+}
 
 export function resumirAvance(curso: CursoAvance, unidades: UnidadAvance[]) {
   const obligatorias = unidades.filter(unidad => unidad.obligatorio);
@@ -40,12 +59,16 @@ export function resumirAvance(curso: CursoAvance, unidades: UnidadAvance[]) {
     }
   }
 
+  const bloqueos = usaSecuencia(curso) ? bloqueosLecciones(unidades) : null;
   return {
     titulo: curso.titulo, modalidad: curso.modalidad, medido: curso.medido,
     porcentaje: total ? Math.floor(visto * 10000 / total) / 100 : 0,
     obligatorias: obligatorias.length,
     completadas: obligatorias.filter(unidad => unidad.completadaEn !== null).length,
-    unidades
+    unidades: unidades.map(unidad => {
+      const bloqueo = bloqueos?.get(unidad.id);
+      return bloqueo === undefined ? unidad : { ...unidad, url: null, bloqueo };
+    })
   };
 }
 

@@ -66,13 +66,13 @@ export function estadoEvaluacion(
 
 export function resumenEvaluacion(
   evaluacion: EncabezadoEvaluacion, modalidad: ModalidadCurso, completadas: Set<string>,
-  finalizado: boolean, intentos: ResumenIntentos | undefined
+  finalizado: boolean, intentos: ResumenIntentos | undefined, faltanVideosMedidos = false
 ) {
   const { id, titulo, oficial, notaMinima, intentosMaximos, lecciones } = evaluacion;
   return {
     id, titulo, oficial, notaMinima, intentosMaximos,
     bloqueada: oficial && modalidad === 'GRABADO' &&
-      (lecciones.length === 0 || lecciones.some(leccion => !completadas.has(leccion.id))),
+      (faltanVideosMedidos || lecciones.length === 0 || lecciones.some(leccion => !completadas.has(leccion.id))),
     estado: estadoEvaluacion(evaluacion, finalizado, intentos)
   };
 }

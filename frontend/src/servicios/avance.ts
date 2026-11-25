@@ -12,7 +12,9 @@ export type MaterialContenido = ConfiguracionContenido & {
   version: number
 }
 export type ProgresoContenido = { vistoMs: number; posicionMs: number; completadaEn: string | null }
-export type UnidadContenido = MaterialContenido & ProgresoContenido
+export type UnidadContenido = MaterialContenido & ProgresoContenido & {
+  bloqueo?: { leccionId: string; titulo: string } | null
+}
 export type AulaContenido = {
   titulo: string
   modalidad: ModalidadCurso
@@ -35,6 +37,7 @@ const material = (id: string, unidad: string) => `${ruta(id)}/materiales/${encod
 
 export const avance = {
   aula: async (id: string, titular: string) => (await api.get<AulaContenido>(`${ruta(id)}/${encodeURIComponent(titular)}`)).data,
+  leccion: async (id: string, unidad: string) => (await api.get<MaterialContenido>(material(id, unidad))).data,
   gestion: async (id: string) => (await api.get<GestionContenido>(`${ruta(id)}/gestion`)).data,
   activar: async (id: string) => (await api.post(`${ruta(id)}/activar`)).data,
   configurar: async (id: string, unidad: string, entrada: ConfiguracionContenido) =>

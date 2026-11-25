@@ -28,7 +28,7 @@ export type EvaluacionPublica = EvaluacionResumen & {
 export type AulaEvaluacion = {
   titulo: string
   modalidad: ModalidadCurso
-  lecciones: (LeccionEvaluacion & { completada: boolean })[]
+  lecciones: (Omit<LeccionEvaluacion, 'url'> & { url: string | null; completada: boolean })[]
   evaluaciones: EvaluacionResumen[]
 }
 export type IntentoEvaluacionEntrada = { operacionId: string; respuestas: { preguntaId: string; opcionId: string }[] }

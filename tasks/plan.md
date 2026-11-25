@@ -941,3 +941,8 @@ build los ejecuta el usuario.
 ## HU-41 · Iniciar sesión con Google
 
 [Plan de implementación](../docs/esp/sprints/acceso/hu-41/plan.md) en el sprint Acceso.
+
+## HU-55 · Lecciones en orden en un curso grabado
+
+[Plan de implementación](../docs/esp/sprints/aprendizaje/hu-55/plan.md)
+en el sprint Aprendizaje.

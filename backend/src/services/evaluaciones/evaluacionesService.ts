@@ -81,17 +81,27 @@ export function crearEvaluacionesService(repositorio: typeof Evaluaciones) {
     return { curso, finalizado: curso.estado === 'CERRADO' || inscripcion.finalizada };
   }
 
-  async function detallePublicado(cliente: Cliente, curso: CursoEvaluacion, usuarioId: number, evaluacionId: string, finalizado: boolean) {
+  async function faltanVideosMedidos(cliente: Cliente, curso: CursoEvaluacion, completadas: Set<string>) {
+    if (curso.modalidad !== 'GRABADO' || !curso.avanceMedido) return false;
+    const videos = await repositorio.videosDelCurso(cliente, curso.id, true);
+    return videos.length === 0 || videos.some(video => !completadas.has(video.id));
+  }
+
+  async function consultarPublicada(cliente: Cliente, curso: CursoEvaluacion, usuarioId: number, evaluacionId: string, finalizado: boolean) {
     const evaluacion = await repositorio.buscarPublicada(cliente, curso.id, evaluacionId);
     if (!evaluacion) throw evaluacionNoExiste();
     const completadas = await repositorio.leccionesCompletadas(cliente, curso.id, usuarioId);
     const intentos = (await repositorio.resumirIntentos(cliente, curso.id, usuarioId)).get(evaluacionId);
-    const resumen = resumenEvaluacion(evaluacion, curso.modalidad, completadas, finalizado, intentos);
+    const pendientes = evaluacion.oficial && await faltanVideosMedidos(cliente, curso, completadas);
+    const resumen = resumenEvaluacion(evaluacion, curso.modalidad, completadas, finalizado, intentos, pendientes);
+    return { evaluacion, resumen };
+  }
+
+  function exigirLeccionesCompletas(resumen: ReturnType<typeof resumenEvaluacion>) {
     if (resumen.bloqueada) {
       throw new ErrorAplicacion(409, 'LECCIONES_PENDIENTES', 'Completa las lecciones obligatorias antes de rendir el cuestionario.',
         { details: { estado: resumen.estado } });
     }
-    return { evaluacion, resumen };
   }
 
   return {
@@ -148,11 +158,14 @@ export function crearEvaluacionesService(repositorio: typeof Evaluaciones) {
         const salida = publicadas.find(evaluacion => evaluacion.oficial);
         const completadas = await repositorio.leccionesCompletadas(cliente, cursoId, usuarioId);
         const intentos = await repositorio.resumirIntentos(cliente, cursoId, usuarioId);
+        const pendientes = Boolean(salida) && await faltanVideosMedidos(cliente, curso, completadas);
         return {
           titulo: curso.titulo, modalidad: curso.modalidad,
-          lecciones: (salida?.lecciones ?? []).map(leccion => ({ ...leccion, completada: completadas.has(leccion.id) })),
+          lecciones: (salida?.lecciones ?? []).map(leccion => ({
+            ...leccion, url: curso.avanceMedido ? null : leccion.url, completada: completadas.has(leccion.id)
+          })),
           evaluaciones: publicadas.map(evaluacion =>
-            resumenEvaluacion(evaluacion, curso.modalidad, completadas, finalizado, intentos.get(evaluacion.id)))
+            resumenEvaluacion(evaluacion, curso.modalidad, completadas, finalizado, intentos.get(evaluacion.id), pendientes))
         };
       });
     },
@@ -178,7 +191,8 @@ export function crearEvaluacionesService(repositorio: typeof Evaluaciones) {
     detalle(cursoId: string, usuarioId: number, evaluacionId: string) {
       return repositorio.transaccion(async cliente => {
         const { curso, finalizado } = await cursoDelColegiado(cliente, cursoId, usuarioId);
-        const { evaluacion, resumen } = await detallePublicado(cliente, curso, usuarioId, evaluacionId, finalizado);
+        const { evaluacion, resumen } = await consultarPublicada(cliente, curso, usuarioId, evaluacionId, finalizado);
+        exigirLeccionesCompletas(resumen);
         return {
           ...resumen,
           preguntas: evaluacion.preguntas.map(({ id, enunciado, opciones }) => ({
@@ -191,7 +205,8 @@ export function crearEvaluacionesService(repositorio: typeof Evaluaciones) {
     rendir(cursoId: string, usuarioId: number, evaluacionId: string, entrega: EntregaEvaluacion) {
       return repositorio.transaccion(async cliente => {
         const { curso, finalizado } = await cursoDelColegiado(cliente, cursoId, usuarioId, true);
-        const { evaluacion, resumen: { estado } } = await detallePublicado(cliente, curso, usuarioId, evaluacionId, finalizado);
+        const { evaluacion, resumen } = await consultarPublicada(cliente, curso, usuarioId, evaluacionId, finalizado);
+        const { estado } = resumen;
         const { operacionId, respuestas } = entrega;
         const respuestasHash = firmaRespuestas(respuestas);
         const anterior = await repositorio.buscarOperacion(cliente, evaluacionId, usuarioId, operacionId);
@@ -203,6 +218,7 @@ export function crearEvaluacionesService(repositorio: typeof Evaluaciones) {
           }
           return { nota: anterior.nota, aprobado: anterior.nota >= evaluacion.notaMinima, estado };
         }
+        exigirLeccionesCompletas(resumen);
         if (estado.finalizado) throw conflicto('RESULTADO_FINALIZADO', 'Tu resultado ya es definitivo.');
         if (estado.intentosRestantes === 0) throw conflicto('INTENTOS_AGOTADOS', 'Ya usaste todos tus intentos.');
 
