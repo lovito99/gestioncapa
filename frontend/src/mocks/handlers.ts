@@ -185,6 +185,7 @@ export const handlers = [
   ),
 
   // ---------- Autenticación ----------
+  http.get(`${API}/auth/google/estado`, () => HttpResponse.json({ habilitado: false })),
   http.post(`${API}/auth/login`, async ({ request }) => {
     await delay(400)
     const { email, password } = (await request.json()) as { email: string; password: string }

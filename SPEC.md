@@ -1964,3 +1964,8 @@ devuelve resultados. No se instala nada.
 ## HU-39 · Asistencia presencial con QR personal o DNI
 
 [Especificación de HU-39](docs/esp/sprints/asistencia-presencial/hu-39/SPEC.md) en el sprint Asistencia presencial.
+
+
+## HU-41 · Iniciar sesión con Google
+
+[Especificación y soluciones](docs/esp/sprints/acceso/hu-41/SPEC.md) en el sprint Acceso.

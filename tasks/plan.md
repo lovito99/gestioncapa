@@ -936,3 +936,8 @@ build los ejecuta el usuario.
 ## HU-39 · Asistencia presencial con QR personal o DNI
 
 [Plan de implementación de HU-39](../docs/esp/sprints/asistencia-presencial/hu-39/plan.md) en el sprint Asistencia presencial.
+
+
+## HU-41 · Iniciar sesión con Google
+
+[Plan de implementación](../docs/esp/sprints/acceso/hu-41/plan.md) en el sprint Acceso.

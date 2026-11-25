@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { z } from 'zod'
+import googleG from '@/assets/googleG.png'
 import insignia from '@/assets/insignia-cppp.png'
 import lineaEscritorio from '@/assets/login-linea.svg'
 import lineaMovil from '@/assets/login-linea-movil.svg'
@@ -13,11 +14,12 @@ import { useAuth } from '@/auth/useAuth'
 import { inicioPorRol } from '@/auth/inicioPorRol'
 import { PaginaPublica } from '@/components/layout/Pagina'
 import { Boton } from '@/components/ui/Boton'
-import { esApiError } from '@/lib/api'
+import { esApiError, mensajeDeError } from '@/lib/api'
 import { cn } from '@/lib/cn'
 import { sesion } from '@/lib/sesion'
 import { accesoConCurso,cursoDeBusqueda,destinoTrasAcceso } from '@/lib/retornoCurso'
 import { useLogin } from '@/servicios/auth'
+import { iniciarGoogle, useGoogleDisponible } from '@/servicios/authGoogle'
 
 const esquema = z.object({
   email: z.string().trim().min(1, 'Ingresa tu correo electrónico').pipe(z.email('Ingresa un correo válido')),
@@ -69,6 +71,9 @@ export function LoginPagina() {
   const { usuario, iniciar } = useAuth()
   const ubicacion = useLocation()
   const login = useLogin()
+  const googleDisponible = useGoogleDisponible()
+  const [abriendoGoogle, setAbriendoGoogle] = useState(false)
+  const [errorGoogle, setErrorGoogle] = useState('')
   const [verPassword, setVerPassword] = useState(false)
   // Se lee una vez: el aviso desaparece al iniciar una sesión nueva.
   const [sesionExpiro] = useState(() => sesion.expiro())
@@ -90,19 +95,30 @@ export function LoginPagina() {
     }),
   )
 
-  const errorServidor = login.error
+  async function entrarConGoogle() {
+    setErrorGoogle('')
+    setAbriendoGoogle(true)
+    try {
+      await iniciarGoogle(curso)
+    } catch (error) {
+      setErrorGoogle(mensajeDeError(error, 'No pudimos abrir Google. Vuelve a intentarlo.'))
+      setAbriendoGoogle(false)
+    }
+  }
+
+  const errorServidor = errorGoogle || (login.error
     ? esApiError(login.error, 'CREDENCIALES_INVALIDAS')
       ? 'Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo.'
       : login.error.message
     : sesionExpiro
       ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
-      : null
+      : null)
 
   return (
     <PaginaPublica className="bg-brand-night">
       <div className="flex-1 lg:flex lg:items-center lg:justify-center lg:px-8 lg:py-20">
         {/* Tarjeta 960 × 560 con borde dorado en escritorio; pantalla completa en móvil */}
-        <div className="relative lg:h-140 lg:w-240 lg:shrink-0 lg:overflow-hidden lg:border-[1.5px] lg:border-gold lg:shadow-[0_0_44px_rgba(209,171,74,0.35)]">
+        <div className={cn("relative lg:h-140 lg:w-240 lg:shrink-0 lg:overflow-hidden lg:border-[1.5px] lg:border-gold lg:shadow-[0_0_44px_rgba(209,171,74,0.35)]", googleDisponible && "lg:h-156")}>
           <img src={panelEscritorio} alt="" aria-hidden className="absolute -top-[1.5px] -left-[1.5px] hidden h-140 w-150 max-w-none lg:block" />
           <img src={lineaEscritorio} alt="" aria-hidden className="absolute -top-[1.5px] left-[328.5px] hidden h-140 w-[270px] max-w-none lg:block" />
           <img src={panelMovil} alt="" aria-hidden className="absolute inset-x-0 top-0 h-75 w-full lg:hidden" />
@@ -193,11 +209,20 @@ export function LoginPagina() {
                 <Boton
                   type="submit"
                   cargando={login.isPending}
+                  disabled={abriendoGoogle}
                   className="h-12 w-full rounded-3xl bg-gold text-base text-brand-night hover:bg-gold-light focus-visible:outline-gold disabled:bg-gold/60"
                 >
                   Ingresar
                 </Boton>
               </form>
+
+              {googleDisponible && (
+                <Boton type="button" cargando={abriendoGoogle} disabled={login.isPending} onClick={() => void entrarConGoogle()}
+                  className="h-10 w-full gap-2.5 rounded-sm border border-[#747775] bg-white text-[#1f1f1f] hover:bg-[#f2f2f2]">
+                  <img src={googleG} alt="" width={18} height={18} aria-hidden />
+                  Ingresar con Google
+                </Boton>
+              )}
 
               <p className="text-center text-sm text-white">
                 ¿Aún no tienes cuenta?{' '}

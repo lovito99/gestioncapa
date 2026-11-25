@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/api'
+import { esApiError, api } from '@/lib/api'
 import type { LoginRespuesta, RegistroEntrada, Usuario } from '@/types/api'
 
 export interface Credenciales {
@@ -29,8 +29,10 @@ export function useRegistro() {
 export async function cerrarSesionEnServidor() {
   try {
     await api.post('/auth/logout')
-  } catch {
-    // Si falla igual cerramos la sesión local
+    return true
+  } catch (error) {
+    // Un 401 ya impide usar esa credencial. En red o 503 solo consta el cierre local.
+    return esApiError(error) && error.status === 401
   }
 }
 

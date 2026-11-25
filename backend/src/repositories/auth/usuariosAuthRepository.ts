@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { pool } from "../../shared/database.js";
 import type { CredencialesUsuario, NuevoDocente, PublicUser } from "../../entities/auth/usuarioPublico.js";
 
@@ -11,7 +12,17 @@ export type UsuariosAuthRepository = {
   registrarDocente(datos: NuevoDocente, hash: string): Promise<PublicUser | null>;
 };
 
-const restriccionesDuplicado = ["usersDniUnico", "usersCorreoNormalizadoUnico", "users_email_key"];
+export const restriccionesDuplicado = ["usersDniUnico", "usersCorreoNormalizadoUnico", "users_email_key"];
+
+export async function insertarDocente(cliente: PoolClient, datos: NuevoDocente, hash: string | null) {
+  const usuario = (await cliente.query<PublicUser>(`insert into users
+    (name,nombres,apellidos,email,celular,dni,password_hash,role)
+    values($1,$2,$3,$4,$5,$6,$7,'agremiado') returning id,name,email,role`,
+    [`${datos.nombres} ${datos.apellidos}`, datos.nombres, datos.apellidos, datos.email,
+      datos.celular, datos.dni, hash])).rows[0]!;
+  await cliente.query(`insert into "auditoriaRegistro"("usuarioId","aceptaPrivacidad","versionAviso") values($1,true,$2)`, [usuario.id, "https://www.cpppregion-cusco.com/privacidad.html"]);
+  return usuario;
+}
 
 export const usuariosAuthRepository: UsuariosAuthRepository = {
   async buscarPorEmail(email) {
@@ -19,7 +30,7 @@ export const usuariosAuthRepository: UsuariosAuthRepository = {
       `
       select id, name, email, role, password_hash, active
       from users
-      where email = $1
+      where lower(email) = $1
       limit 1
     `,
       [email]
@@ -52,12 +63,7 @@ export const usuariosAuthRepository: UsuariosAuthRepository = {
     const cliente = await pool.connect();
     try {
       await cliente.query("begin");
-      const usuario = (await cliente.query<PublicUser>(`insert into users
-      (name,nombres,apellidos,email,celular,dni,password_hash,role)
-      values($1,$2,$3,$4,$5,$6,$7,'agremiado') returning id,name,email,role`,
-      [`${datos.nombres} ${datos.apellidos}`, datos.nombres, datos.apellidos, datos.email,
-        datos.celular, datos.dni, hash])).rows[0]!;
-      await cliente.query(`insert into "auditoriaRegistro"("usuarioId","aceptaPrivacidad","versionAviso") values($1,true,$2)`, [usuario.id, "https://www.cpppregion-cusco.com/privacidad.html"]);
+      const usuario = await insertarDocente(cliente, datos, hash);
       await cliente.query("commit");
       return usuario;
     } catch (error) {

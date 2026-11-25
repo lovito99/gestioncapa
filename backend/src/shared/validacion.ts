@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ErrorAplicacion } from "./errorAplicacion.js";
 
 /** Conserva el mensaje obligatorio cuando llega un valor ausente o de otro tipo. */
 export function textoObligatorio(mensaje: string) {
@@ -18,4 +19,12 @@ export function camposDeError(error: z.ZodError) {
     }
   }
   return campos;
+}
+
+/** La validación explícita evita registrar valores privados del formulario. */
+export function validarEntrada<T>(esquema: z.ZodType<T>, entrada: unknown): T {
+  const resultado = esquema.safeParse(entrada);
+  if (resultado.success) return resultado.data;
+  throw new ErrorAplicacion(422, "VALIDACION", "Revisa los campos indicados e intenta de nuevo.",
+    { fields: camposDeError(resultado.error) });
 }

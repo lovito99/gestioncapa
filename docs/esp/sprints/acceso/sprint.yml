@@ -1,0 +1,13 @@
+id: acceso
+nombre: Acceso
+numero: null
+estado: verificacion-local
+instrucciones: AGENTS.md
+historias:
+  - id: HU-41
+    jira: SCRUM-152
+    titulo: Iniciar sesión con Google
+    estado: implementada-pendiente-publicacion
+    especificacion: hu-41/SPEC.md
+    plan: hu-41/plan.md
+    seguimiento: hu-41/todo.md

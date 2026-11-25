@@ -12,8 +12,10 @@ import { registrarCorreo } from './routes/notificaciones.routes.js';
 import { registrarRutasReuniones } from "./routes/reuniones.routes.js";
 import { registrarEventosJitsi } from "./routes/jitsi.routes.js";
 import Fastify from "fastify";
+import type { GoogleOidc } from "./providers/auth/googleOidc.js";
+import type { EnviarCodigoGoogle } from "./services/auth/authGoogleService.js";
 import { env } from "./config/env.js";
-import { authRoutes, ensureAdminUser, findUserById, limitarPeticiones, tokenRevocado } from "./routes/auth.routes.js";
+import { authRoutes, registrarAuthGoogle, ensureAdminUser, findUserById, limitarPeticiones, tokenRevocado } from "./routes/auth.routes.js";
 import { asistenciaPuertaRoutes, asistenciaRoutes, credencialAsistenciaRoutes } from "./routes/asistencia.routes.js";
 import { clasesRoutes } from "./routes/clases.routes.js";
 import { healthRoutes } from "./routes/health.routes.js";
@@ -21,18 +23,30 @@ import { rutasPendientes } from "./routes/pendientes.routes.js";
 import { registrarAutorizacion } from "./plugins/autorizacion.js";
 import { registrarErrores } from "./plugins/errores.js";
 import { registerHttpPlugins } from "./plugins/http.js";
-import { RegistroCompacto } from "./plugins/registroCompacto.js";
+import { RegistroCompacto, rutaParaLog } from "./plugins/registroCompacto.js";
 import { pool } from "./shared/database.js";
 import { verificarMigraciones } from "./shared/migraciones.js";
 import { ensureRedis } from "./shared/redis.js";
 
-export async function buildApp(opciones: { consultarYoutube?: ConsultarYoutube } = {}) {
+export async function buildApp(opciones: { consultarYoutube?: ConsultarYoutube; googleOidc?: GoogleOidc; enviarCodigoGoogle?: EnviarCodigoGoogle } = {}) {
   const desarrollo = env.NODE_ENV === "development";
   const app = Fastify({
     // En desarrollo, una línea por petición; en producción se mantiene el JSON estructurado.
     ...(desarrollo ? { logController: new RegistroCompacto() } : {}),
     logger: {
       level: env.LOG_LEVEL,
+      serializers: {
+        req: (request) => {
+          const version = request.headers["accept-version"];
+          const remotePort = request.socket?.remotePort;
+          return {
+            method: request.method, url: rutaParaLog(request.url),
+            host: request.host, remoteAddress: request.ip,
+            ...(typeof version === "string" ? { version } : {}),
+            ...(remotePort === undefined ? {} : { remotePort })
+          };
+        }
+      },
       ...(desarrollo
         ? {
             transport: {
@@ -59,6 +73,7 @@ export async function buildApp(opciones: { consultarYoutube?: ConsultarYoutube }
   await ensureRedis();
   await app.register(healthRoutes);
   await app.register(authRoutes);
+  await app.register(registrarAuthGoogle(opciones));
   await app.register(clasesRoutes);
   await app.register(registrarCursos);
   await app.register(registrarPagos);

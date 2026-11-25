@@ -1,7 +1,6 @@
-import type { FastifyInstance, FastifyPluginAsync, FastifyReply } from "fastify";
+import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import { aUsuarioSesion, esquemaLogin, esquemaRegistro } from "../../dto/auth/authDto.js";
-import type { PublicUser } from "../../entities/auth/usuarioPublico.js";
-import type { AuthService } from "../../services/auth/authService.js";
+import { crearRespuestaSesion, type AuthService } from "../../services/auth/authService.js";
 
 // El acceso de cada ruta lo aplica la matriz de backend/src/plugins/permisos.ts.
 
@@ -14,14 +13,9 @@ function responderBloqueo(reply: FastifyReply, segundos: number) {
   });
 }
 
-/** `configuracion` se lee al emitir cada token. */
 export function authController(servicio: AuthService, configuracion: { JWT_EXPIRES_IN: string }): FastifyPluginAsync {
-  function respuestaSesion(app: FastifyInstance, usuario: PublicUser) {
-    const token = app.jwt.sign(servicio.reclamosSesion(usuario), { expiresIn: configuracion.JWT_EXPIRES_IN });
-    return { token, user: usuario, usuario: aUsuarioSesion(usuario) };
-  }
-
   return async (app) => {
+    const respuestaSesion = crearRespuestaSesion(servicio, reclamos => app.jwt.sign(reclamos, { expiresIn: configuracion.JWT_EXPIRES_IN }));
     app.post("/api/auth/registro", async (request, reply) => {
       const resultado = await servicio.registrar(esquemaRegistro.parse(request.body), request.ip);
       if (resultado.tipo === "limite") return reply.header("Retry-After", String(resultado.espera)).code(429).send({
@@ -32,7 +26,7 @@ export function authController(servicio: AuthService, configuracion: { JWT_EXPIR
         code: "CUENTA_YA_REGISTRADA",
         message: "El DNI o el correo que ingresaste ya está registrado. Recupera tu contraseña para ingresar."
       });
-      return reply.code(201).send(respuestaSesion(app, resultado.usuario));
+      return reply.code(201).send(respuestaSesion(resultado.usuario));
     });
 
     app.post("/api/auth/login", async (request, reply) => {
@@ -52,13 +46,17 @@ export function authController(servicio: AuthService, configuracion: { JWT_EXPIR
             message: "Tu cuenta está desactivada. Comunícate con el administrador."
           });
         case "aceptado":
-          return respuestaSesion(app, resultado.usuario);
+          return respuestaSesion(resultado.usuario);
       }
     });
 
     app.post("/api/auth/logout", async (request, reply) => {
-      const payload = await request.jwtVerify<{ exp?: number }>();
-      await servicio.cerrarSesion(tokenDeCabecera(request.headers.authorization), payload.exp);
+      try {
+        await servicio.cerrarSesion(tokenDeCabecera(request.headers.authorization), request.expiracionParaRevocar!);
+      } catch {
+        request.log.error({ codigo: "REVOCACION_NO_CONFIRMADA" }, "No se pudo confirmar el cierre de la sesión.");
+        return reply.code(503).send({ code: "REVOCACION_NO_CONFIRMADA", message: "No pudimos confirmar el cierre en el servidor." });
+      }
       return reply.code(204).send();
     });
 
