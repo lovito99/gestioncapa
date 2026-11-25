@@ -583,3 +583,39 @@ fuera de esta consulta.
 El correo incluye un enlace HTTPS al curso o al historial propio. El destino
 usa la sesión y los permisos existentes. Los comprobantes de pago conservan
 su PDF y su historial. El estado `ENVIADO` registra la aceptación por SMTP.
+
+## HU-19 · Evaluaciones y certificados de aprobación
+
+| Método y ruta | Rol | Contrato |
+| --- | --- | --- |
+| GET /api/cursos/:id/politica-evaluacion | ADMIN | Devuelve `{notaMinima,intentosMaximos}`. Un curso nuevo parte de 14/20 y 2 intentos. |
+| PATCH /api/cursos/:id/politica-evaluacion | ADMIN | Recibe los mismos campos y devuelve los valores guardados para futuras publicaciones. |
+| GET /api/cursos/:id/evaluaciones/gestion | INSTRUCTOR asignado | Devuelve modalidad, videos del curso y evaluaciones del instructor con su clave de autoría. |
+| POST /api/cursos/:id/evaluaciones/gestion | INSTRUCTOR asignado | Crea un borrador y devuelve 201. |
+| PUT /api/cursos/:id/evaluaciones/:evaluacionId | INSTRUCTOR asignado | Guarda cambios en un borrador. |
+| POST /api/cursos/:id/evaluaciones/:evaluacionId/publicar | INSTRUCTOR asignado | Fija preguntas, política y lecciones obligatorias. Repetir la publicación conserva la versión publicada. |
+| GET /api/cursos/:id/evaluaciones | AGREMIADO inscrito con acceso vigente | Devuelve `{titulo,modalidad,lecciones,evaluaciones}` con avance y estado propios. |
+| GET /api/cursos/:id/evaluaciones/:evaluacionId | AGREMIADO inscrito con acceso vigente | Devuelve el resumen y preguntas con IDs, enunciados y opciones sin la clave. |
+| POST /api/cursos/:id/evaluaciones/lecciones/:leccionId/completar | AGREMIADO inscrito con acceso vigente | Registra avance y devuelve `{completada:true}`, también si la lección ya estaba completa. |
+| POST /api/cursos/:id/evaluaciones/:evaluacionId/intentos | AGREMIADO inscrito con acceso vigente | Recibe `{operacionId,respuestas:[{preguntaId,opcionId}]}` con IDs UUID. Devuelve `{nota,aprobado,estado}`. |
+| POST /api/cursos/:id/evaluar-inscripcion | ADMIN | Para un grabado de aprobación publicado, recibe `{agremiadoId}` y devuelve `{codigo,retenida,pagoId?}`. Reintentar recupera la emisión o retención existente. |
+
+El borrador acepta `{titulo,oficial,preguntas:[{enunciado,opciones,correcta}],leccionesIds}`.
+`correcta` es el índice de la opción, empezando por cero. Puede haber una evaluación
+oficial publicada por curso. En grabado requiere seleccionar uno o más videos del
+mismo curso. El cuestionario de salida exige completar todas las lecciones elegidas.
+
+Las evaluaciones privadas usan `Cache-Control: no-store`. El estado de intento
+incluye `mejorNota`, `aprobado`, `intentosUsados`, `intentosRestantes` y `finalizado`.
+Un bloqueo, agotamiento o conflicto al reenviar devuelve 409 con `details.estado`.
+Un envío incompleto o inválido devuelve 422 sin consumir el intento. Repetir la
+misma operación con las mismas respuestas devuelve la nota original y el saldo
+actual.
+
+Los listados administrativos de cierre y certificados añaden `evaluacion` por
+inscripción en cursos de aprobación. Para grabados, `evaluacionIndividual: true`
+indica que la certificación se hace por inscripción. La mejor nota se conserva en
+el PDF y en el documento privado. La verificación pública del QR conserva sus
+campos de vigencia, sin publicar nota ni DNI.
+
+[Especificación de HU-19](esp/sprints/aprendizaje/hu-19/SPEC.md).

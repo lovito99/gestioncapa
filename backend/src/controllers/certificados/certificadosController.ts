@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { anulacionEntrada, cierreEntrada, correccionEntrada, esIdCurso, excepcionEntrada, normalizarCodigo } from '../../dto/certificados/certificadoDto.js';
+import { anulacionEntrada, cierreEntrada, correccionEntrada, esIdCurso, evaluacionInscripcionEntrada, excepcionEntrada, normalizarCodigo } from '../../dto/certificados/certificadoDto.js';
 import type { CertificadosService } from '../../services/certificados/certificadosService.js';
 import { ErrorAplicacion } from '../../shared/errorAplicacion.js';
 
@@ -25,6 +25,11 @@ export function certificadosController(servicio: CertificadosService): FastifyPl
     app.get('/api/cursos/:id/certificados', async (request: ConId) => {
       validarId(request.params.id); return servicio.vistaCierre(request.params.id, request.usuario!, true);
     });
+    app.post('/api/cursos/:id/evaluar-inscripcion', async (request: ConId) => {
+      validarId(request.params.id);
+      const { agremiadoId } = evaluacionInscripcionEntrada.parse(request.body);
+      return servicio.evaluarInscripcion(request.params.id, agremiadoId, request.usuario!);
+    });
     app.post('/api/cursos/:id/excepciones', async (request: ConId, reply) => {
       validarId(request.params.id);
       const datos = excepcionEntrada.parse(request.body);
@@ -36,7 +41,10 @@ export function certificadosController(servicio: CertificadosService): FastifyPl
 
     for (const archivo of [false, true]) app.get(`/api/certificados/:codigo/${archivo ? 'archivo' : 'documento'}`, async (request: ConCodigo, reply) => {
       const certificado = await servicio.documento(codigoDe(request), request.usuario!, archivo);
-      if (archivo) return reply.type('application/pdf').header('Content-Disposition', `attachment; filename="constancia-${certificado.codigo}.pdf"`).send(certificado.archivo);
+      if (archivo) {
+        const nombre = certificado.datos.tipo === 'APROBACION' ? 'certificado' : 'constancia';
+        return reply.type('application/pdf').header('Content-Disposition', `attachment; filename="${nombre}-${certificado.codigo}.pdf"`).send(certificado.archivo);
+      }
       return { ...certificado.datos, codigo: certificado.codigo, estado: certificado.estado, reemplazadoPor: certificado.reemplazadoPor, emitidoEn: certificado.emitidoEn };
     });
 

@@ -45,13 +45,16 @@ export type SesionEntrada = { nombre: string; fecha: string; horaInicio: string;
 export type SesionCurso = SesionEntrada & { id: string; cursoId?: string; estado: 'PROGRAMADA' | 'CANCELADA'; reunion: { identificador: string; estado: string } | null }
 export type AsistenciaCurso = { totalSesiones: number; presentes: number; porcentaje: number; requisitoAsistencia: number; cumpleAsistencia: boolean }
 export type DetalleCurso = Curso & { modulos: ModuloCurso[]; sesiones: SesionCurso[] }
-export type FilaCierre = { agremiado: { id: string; nombre: string }; presentes: number; sesiones: number; porcentaje: number; cumple: boolean }
-export type CierreCurso = { curso: DetalleCurso; requisitoAsistencia: number; filas: FilaCierre[] }
+export type EvaluacionCertificacion = { nota: number | null; aprobado: boolean; avanceCompleto: boolean }
+export type FilaCierre = { agremiado: { id: string; nombre: string }; presentes: number; sesiones: number; porcentaje: number; cumple: boolean;
+  evaluacion?: EvaluacionCertificacion | null }
+export type CierreCurso = { curso: DetalleCurso; requisitoAsistencia: number; filas: FilaCierre[]; evaluacionIndividual?: boolean }
 export type ExcepcionCierre = { agremiadoId: string; motivo: string }
 export type FilaCertificado = { agremiado: { id: string; nombre: string }; cumple: boolean; porExcepcion: boolean;
+  evaluacion?: EvaluacionCertificacion | null;
   entrega?:{estado:'RETENIDA'|'EMITIDA';pagoId:string;estadoPago:'PENDIENTE'|'PAGADO'}|null;
   certificado: { codigo: string; estado: EstadoCertificado; nombre: string } | null }
-export type CertificadosCurso = { curso: DetalleCurso; filas: FilaCertificado[] }
+export type CertificadosCurso = { curso: DetalleCurso; filas: FilaCertificado[]; evaluacionIndividual?: boolean }
 export type CursoEntrada = Pick<Curso, 'titulo' | 'descripcion' | 'instructorId' | 'horasLectivas' | 'modalidad' | 'costo' | 'cupos' | 'tipoCertificado'> & {
   modalidadCobro?: ModalidadCobro; plazoPagoMinutos?: number | null; precioGeneral?: number;
   categoria?: string; fechaInicio?: string | null; fechaFin?: string | null;
@@ -140,6 +143,8 @@ export const cursos = {
   cierre: async (id: string) => (await api.get<CierreCurso>(`/cursos/${id}/cierre`)).data,
   cerrar: async (id: string, excepciones: ExcepcionCierre[]) => (await api.post<{ emitidos: number;retenidos?:number }>(`/cursos/${id}/cerrar`, { excepciones })).data,
   certificados: async (id: string) => (await api.get<CertificadosCurso>(`/cursos/${id}/certificados`)).data,
+  evaluarInscripcion: async (id: string, agremiadoId: string) =>
+    (await api.post<{ codigo: string | null; retenida: boolean; pagoId?: string }>(`/cursos/${id}/evaluar-inscripcion`, { agremiadoId })).data,
   emitirExcepcion: async (id: string, agremiadoId: string, motivo: string) => (await api.post<{ codigo: string|null;retenida?:boolean;pagoId?:string }>(`/cursos/${id}/excepciones`, { agremiadoId, motivo })).data,
   anularCertificado: async (codigo: string, motivo: string) => { await api.post(`/certificados/${encodeURIComponent(codigo)}/anular`, { motivo }) },
   corregirCertificado: async (codigo: string, nombre: string, motivo: string) =>

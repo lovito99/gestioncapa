@@ -16,6 +16,7 @@ import { Entrada, Selector } from '@/components/ui/Entrada'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { Etiqueta, EtiquetaEstadoCurso } from '@/components/ui/Etiqueta'
 import { esApiError, mensajeDeError } from '@/lib/api'
+import { modoDemoActivo } from '@/lib/aulaGrabadaDemo'
 import { cn } from '@/lib/cn'
 import { fechaCorta, rangoHorario } from '@/lib/formato'
 import { CobroCursoFormulario, EditarCobroCurso } from './CobroCursoFormulario'
@@ -170,6 +171,7 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
   const cache = useQueryClient()
   const instructores = useQuery({ queryKey: ['cursos', 'instructores'], queryFn: cursos.instructores })
   const [modulos, cambiarModulos] = useState<ModuloBorrador[]>(() => modulosDe(curso))
+  const [modalidadNueva, cambiarModalidadNueva] = useState<'PRESENCIAL' | 'GRABADO'>('PRESENCIAL')
   const [errorModulos, cambiarErrorModulos] = useState('')
   const [cobro, cambiarCobro] = useState<PoliticaCobro>(() => cobroDe(curso))
   const [erroresCobro, cambiarErroresCobro] = useState<ErroresCobro>({})
@@ -194,7 +196,7 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
       const entrada: CursoEntrada = {
         ...datos,
         // HU-36: la modalidad se calcula por las sesiones; se conserva la planificada
-        modalidad: curso?.modalidad ?? 'PRESENCIAL',
+        modalidad: curso?.modalidad ?? modalidadNueva,
         modalidadCobro: condiciones.modalidadCobro || undefined,
         costo: condiciones.modalidadCobro === 'GRATUITO' ? 0 : condiciones.costo,
         ...(curso && curso.precioGeneral == null ? {} : precioGeneralParaEnviar(condiciones)),
@@ -284,6 +286,7 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
   const errorServidor = guardar.isError && !hayErrores ? mensajeDeError(guardar.error, 'No pudimos guardar el curso.') : null
   const publicado = curso?.estado === 'PUBLICADO'
   const cerrado = curso?.estado === 'CERRADO'
+  const evaluacionIndividual = curso?.modalidad === 'GRABADO' && curso.tipoCertificado === 'APROBACION'
   const estado = (campo: keyof Formulario) => (errors[campo] ? 'error' : 'normal')
 
   return (
@@ -410,7 +413,15 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
               ))}
             </Selector>
           </Campo>
-          <AvisoInfo titulo="La modalidad (presencial, virtual o híbrido) se calcula sola">Se define en cada sesión, en «Programar sesión».</AvisoInfo>
+          {!curso && <Campo etiqueta="Tipo de curso">
+            <Selector value={modalidadNueva} onChange={evento => cambiarModalidadNueva(evento.target.value === 'GRABADO' ? 'GRABADO' : 'PRESENCIAL')}>
+              <option value="PRESENCIAL">Con sesiones</option>
+              <option value="GRABADO">Grabado</option>
+            </Selector>
+          </Campo>}
+          {(curso?.modalidad ?? modalidadNueva) === 'GRABADO'
+            ? <AvisoInfo titulo="Curso grabado">El instructor asignado agrega los videos y prepara el cuestionario de salida desde la ficha del curso.</AvisoInfo>
+            : <AvisoInfo titulo="La modalidad (presencial, virtual o híbrido) se calcula sola">Se define en cada sesión, en «Programar sesión».</AvisoInfo>}
         </fieldset>
 
         {!curso && (
@@ -441,13 +452,15 @@ function FormularioCurso({ curso }: { curso?: DetalleCurso }) {
         bloqueado={guardar.isPending}
       />
 
-      {curso && <SesionesCurso curso={curso} />}
+      {curso && curso.modalidad !== 'GRABADO' && <SesionesCurso curso={curso} />}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+        {curso && !cerrado && !modoDemoActivo &&
+          <Link to={`/admin/cursos/${curso.id}/evaluaciones/configuracion`} className={enlaceSecundario}>Configurar evaluaciones</Link>}
         {/* 2.3 → 2.4: el curso publicado se cierra para emitir los certificados */}
         {publicado && (
-          <Link to={`/admin/cursos/${curso.id}/cerrar`} className={enlaceSecundario}>
-            Cerrar curso
+          <Link to={`/admin/cursos/${curso.id}/${evaluacionIndividual ? 'certificados' : 'cerrar'}`} className={enlaceSecundario}>
+            {evaluacionIndividual ? 'Evaluar inscritos' : 'Cerrar curso'}
           </Link>
         )}
         {cerrado && (

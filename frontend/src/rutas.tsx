@@ -15,6 +15,7 @@ import { CertificadosCursoPagina } from '@/paginas/cursos/cierre/CertificadosCur
 import { DetalleCursoPagina } from '@/paginas/cursos/DetalleCursoPagina'
 import { ReunionesPagina, SalaReunionPagina } from "@/paginas/reuniones/ReunionesPagina"
 import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { Cargando } from '@/components/ui/Estados'
 import { RutaProtegida } from '@/auth/RutaProtegida'
 import { idCursoAulaDemo, modoDemoActivo } from '@/lib/aulaGrabadaDemo'
 import { PaginaConEncabezado, PaginaPublica } from '@/components/layout/Pagina'
@@ -59,6 +60,11 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="clases" replace /> },
       { element: <PaginaConEncabezado />, children: [{ path: 'clases', element: <MisClasesPagina /> }, { path: 'clases/:id/asistencia', element: <AsistenciaPagina /> }, { path: 'clases/:id/puerta', element: <PuertaPagina /> }] },
+      { element: <PaginaConEncabezado />, children: [{
+        path: 'cursos/:id/evaluaciones',
+        hydrateFallbackElement: <Cargando texto="Cargando página…" />,
+        lazy: async () => ({ Component: (await import('@/paginas/cursos/evaluaciones/GestionEvaluacionesPagina')).GestionEvaluacionesPagina }),
+      }] },
       // HU-49: las pantallas de QR (proyección y escaneo) no llevan pie de página
       { element: <PaginaConEncabezado sinPie />, children: [{ path: 'clases/:id/qr', element: <QrAsistenciaPagina /> }] },
     ],
@@ -74,10 +80,26 @@ export const router = createBrowserRouter([
           { path: '/participante/clases', element: <MisClasesParticipantePagina /> },
           { path: '/participante/clases/:id', element: <DetalleClaseParticipantePagina /> },
           { path: '/participante/cursos', element: <MisCursosPagina /> },
+          { path: '/participante/certificados',
+            hydrateFallbackElement: <Cargando texto="Cargando página…" />,
+            lazy: async () => ({ Component: (await import('@/paginas/certificados/MisCertificadosPagina')).MisCertificadosPagina }),
+          },
+          { path: '/cursos/:id/evaluaciones',
+            hydrateFallbackElement: <Cargando texto="Cargando página…" />,
+            lazy: async () => ({ Component: (await import('@/paginas/cursos/evaluaciones/AulaEvaluacionesPagina')).AulaEvaluacionesPagina }),
+          },
+          { path: '/cursos/:id/evaluaciones/:evaluacionId',
+            hydrateFallbackElement: <Cargando texto="Cargando página…" />,
+            lazy: async () => ({ Component: (await import('@/paginas/cursos/evaluaciones/RendicionEvaluacionPagina')).RendicionEvaluacionPagina }),
+          },
           ...(modoDemoActivo ? [{
             path: `/cursos/${idCursoAulaDemo}/aula`,
             lazy: async () => ({ Component: (await import('@/paginas/cursos/AulaGrabadaPagina')).AulaGrabadaPagina }),
-          }] : []),
+          }] : [{
+            path: '/cursos/:id/aula',
+            hydrateFallbackElement: <Cargando texto="Cargando página…" />,
+            lazy: async () => ({ Component: (await import('@/paginas/cursos/evaluaciones/AulaEvaluacionesPagina')).AulaEvaluacionesPagina }),
+          }]),
           // HU-39: QR personal que el encargado escanea en la puerta
           { path: '/participante/mi-qr', element: <MiQrPagina /> },
           // S3 7.x: pago del agremiado (en línea, transferencia BCP o efectivo)
@@ -107,6 +129,10 @@ export const router = createBrowserRouter([
           { path: 'usuarios', element: <UsuariosPagina /> },
           { path: 'cursos/nuevo', element: <CursoFormPagina /> },
           { path: 'cursos/:id/editar', element: <CursoFormPagina /> },
+          { path: 'cursos/:id/evaluaciones/configuracion',
+            hydrateFallbackElement: <Cargando texto="Cargando página…" />,
+            lazy: async () => ({ Component: (await import('@/paginas/cursos/evaluaciones/PoliticaEvaluacionPagina')).PoliticaEvaluacionPagina }),
+          },
           { path: 'cursos/:id/sesiones', element: <SesionesCursoPagina /> },
           { path: 'cursos/:id/sesiones/nueva', element: <ProgramarSesionPagina /> },
           { path: 'cursos/:id/sesiones/:sesionId/editar', element: <ProgramarSesionPagina /> },

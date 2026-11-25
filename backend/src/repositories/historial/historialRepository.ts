@@ -66,6 +66,7 @@ function lectura(consultor: Consultor): HistorialLectura {
     async certificados(usuarioId) {
       return (await consultor.query<CertificadoHistorial>(`select cert.id::text,cert.curso_id::text as "cursoId",cert.codigo,cert.tipo,cert.estado,
       coalesce((cert.datos->>'horasLectivas')::integer,c.horas_lectivas) as "horasLectivas",
+      case when cert.tipo='APROBACION' and jsonb_typeof(cert.datos->'nota')='number' then (cert.datos->>'nota')::float8 end as nota,
       to_char(cert.emitido_en at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"') as "emitidoEn"
       from certificados_curso cert join cursos c on c.id=cert.curso_id
       join users u on u.id=cert.usuario_id

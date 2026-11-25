@@ -1,6 +1,8 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
+import { CursoFormPagina } from './CursoFormPagina'
 import { ETIQUETA_MODALIDAD, ETIQUETA_MODALIDAD_SESION } from './formatoCurso'
 import { ListaSesiones } from './ListaSesiones'
 import { entradaSesion, modalidadDerivada } from '@/servicios/modalidadCurso'
@@ -10,6 +12,14 @@ const base: SesionCurso = { id: '1', nombre: 'Sesión', fecha: '2034-03-10', hor
 const lista = (sesiones: SesionCurso[]) => renderToStaticMarkup(<MemoryRouter><ListaSesiones sesiones={sesiones} /></MemoryRouter>)
 
 describe('HU36-03 modalidad del curso derivada de sus sesiones', () => {
+  it('HU19-05: al crear ofrece Grabado y mantiene Con sesiones como opción inicial', () => {
+    const html = renderToStaticMarkup(<QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={['/admin/cursos/nuevo']}><CursoFormPagina /></MemoryRouter>
+    </QueryClientProvider>)
+    expect(html).toContain('Tipo de curso')
+    expect(html).toContain('<option value="PRESENCIAL" selected="">Con sesiones</option>')
+    expect(html).toContain('<option value="GRABADO">Grabado</option>')
+  })
   it('clasifica por sesiones programadas y conserva la planificada sin ellas', () => {
     expect(modalidadDerivada([], 'GRABADO')).toBe('GRABADO')
     expect(modalidadDerivada(['PRESENCIAL'], 'VIRTUAL')).toBe('PRESENCIAL')

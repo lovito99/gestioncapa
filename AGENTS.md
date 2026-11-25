@@ -30,6 +30,15 @@ workspace. El agente no ejecuta builds ni comandos que los incluyan, como
 invoquen builds. Al entregar cambios, indica si el build queda pendiente de
 ejecución manual; nunca lo declares aprobado sin evidencia.
 
+## Documentación por sprint
+
+Para un sprint nuevo, usa `docs/esp/sprints/<sprint>/` con un `sprint.yml` que
+enlace las historias y un `AGENTS.md` con instrucciones específicas del sprint.
+Guarda el `SPEC.md`, `plan.md` y `todo.md` de cada historia en su propia
+subcarpeta. Consulta esa documentación también al trabajar en el código de la
+historia. Si falta la asignación oficial del sprint, usa un nombre provisional
+y deja el número sin asignar en el manifiesto.
+
 ## Entrega en el chat
 
 Al finalizar cada tarea o funcionalidad, incluye siempre dos campos listos

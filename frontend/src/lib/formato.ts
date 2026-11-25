@@ -3,6 +3,10 @@ import { es } from 'date-fns/locale'
 
 const capitalizar = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1)
 
+export function notaVigesimal(nota: number) {
+  return `${nota.toLocaleString('es-PE', { maximumFractionDigits: 2 })}/20`
+}
+
 /** `2026-10-12` → `Lun 12 oct` */
 export function fechaCorta(fechaIso: string) {
   const texto = format(parseISO(fechaIso), 'EEE d MMM', { locale: es }).replace(/\./g, '')

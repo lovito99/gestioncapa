@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { Campo } from '@/components/ui/Campo'
 import { cn } from '@/lib/cn'
-import type { DetalleCurso } from '@/servicios/cursos'
+import { notaVigesimal } from '@/lib/formato'
+import type { DetalleCurso, EvaluacionCertificacion } from '@/servicios/cursos'
 import { ETIQUETA_MODALIDAD, fechasCurso } from '../formatoCurso'
 
 /** «Evaluación formativa en el aula · Presencial · 24 horas lectivas · 16 nov – 7 dic 2026» */
@@ -11,6 +12,10 @@ export function ResumenCurso({ curso }: { curso: DetalleCurso }) {
       {curso.titulo} · {ETIQUETA_MODALIDAD[curso.modalidad]} · {curso.horasLectivas} horas lectivas · {fechasCurso(curso)}
     </p>
   )
+}
+
+export function NotaEvaluacion({ evaluacion }: { evaluacion?: EvaluacionCertificacion | null }) {
+  return <p className="text-sm text-muted">{evaluacion?.nota == null ? 'Evaluación pendiente' : `Nota: ${notaVigesimal(evaluacion.nota)}`}</p>
 }
 
 const th = 'px-5 py-3 text-left text-xs font-medium tracking-[0.6px] text-muted uppercase'

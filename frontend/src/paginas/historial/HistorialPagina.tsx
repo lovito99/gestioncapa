@@ -14,7 +14,8 @@ import { fechaCorta, rangoFechasCorto } from '@/lib/formato'
 import { CERTIFICADOS_CURSO } from '@/servicios/cursos'
 import { queTeFalta, type Aviso } from './progreso'
 import { IntentosAnteriores } from './IntentosAnteriores'
-import { guardarDescarga, historiales, intervaloEntrega, type Historial, type ResumenAsistencia, type SesionHistorial } from '@/servicios/historial'
+import { guardarDescarga, historiales, useHistorial, type Historial, type ResumenAsistencia, type SesionHistorial } from '@/servicios/historial'
+import { CertificadoHistorialTarjeta } from '../certificados/CertificadoHistorialTarjeta'
 
 type CursoHistorial = Historial['cursos'][number]
 
@@ -32,8 +33,7 @@ export function HistorialPagina() {
   const { usuarioId } = useParams()
   const { usuario } = useAuth()
   const id = usuarioId ?? usuario?.id ?? ''
-  const consulta = useQuery({ queryKey: ['historial', usuario?.id, id], queryFn: () => historiales.obtener(id), enabled: !!id, retry: false,
-    refetchInterval: query => intervaloEntrega(query.state.data) })
+  const consulta = useHistorial(id, usuario?.id)
   const [descargando, cambiarDescargando] = useState(false)
   const [error, cambiarError] = useState('')
   const [anio, cambiarAnio] = useState('')
@@ -130,16 +130,8 @@ function TarjetaCurso({ curso, descargando, onDescargar }: { curso: CursoHistori
     {curso.certificados.filter(cert => cert.estado === 'ANULADO').map(cert => <p key={cert.id} className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
       <Etiqueta tono="peligro">Anulado</Etiqueta> {CERTIFICADOS_CURSO[cert.tipo]} · código {cert.codigo}. No suma horas.
     </p>)}
-    {curso.certificados.filter(cert => cert.estado === 'VALIDO').map(cert => <div key={cert.id} className="flex flex-col gap-2 rounded-lg bg-brand-soft p-3 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-brand">{CERTIFICADOS_CURSO[cert.tipo]}</p>
-        <p className="text-[13px] text-muted">Código {cert.codigo} · {cert.horasLectivas} horas lectivas</p>
-      </div>
-      <div className="flex flex-col items-center gap-2 sm:flex-row-reverse sm:gap-4">
-        <Boton variante="secundario" className="w-full sm:w-auto" disabled={descargando} onClick={() => onDescargar(cert.id)} aria-label={`Descargar certificado ${cert.codigo}`}>Descargar certificado</Boton>
-        <Link to={`/certificados/${encodeURIComponent(cert.codigo)}`} className="text-sm font-semibold text-brand underline">Ver certificado</Link>
-      </div>
-    </div>)}
+    {curso.certificados.filter(cert => cert.estado === 'VALIDO').map(cert => <CertificadoHistorialTarjeta key={cert.id}
+      certificado={cert} descargando={descargando} onDescargar={onDescargar} />)}
   </article>
 }
 
