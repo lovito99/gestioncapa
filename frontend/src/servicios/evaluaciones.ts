@@ -6,7 +6,7 @@ export type LeccionEvaluacion = { id: string; titulo: string; modulo: string; ur
 export type PreguntaAutor = { enunciado: string; opciones: string[]; correcta: number }
 export type EvaluacionEntrada = { titulo: string; oficial: boolean; preguntas: PreguntaAutor[]; leccionesIds: string[] }
 export type EvaluacionAutor = EvaluacionEntrada & { id: string; publicada: boolean }
-export type GestionEvaluaciones = { modalidad: ModalidadCurso; lecciones: LeccionEvaluacion[]; evaluaciones: EvaluacionAutor[] }
+export type GestionEvaluaciones = { modalidad: ModalidadCurso; avanceMedido: boolean; lecciones: LeccionEvaluacion[]; evaluaciones: EvaluacionAutor[] }
 
 export type EstadoEvaluacion = {
   mejorNota: number | null

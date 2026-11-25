@@ -8,6 +8,7 @@ export type CursoEvaluacion = PoliticaEvaluacion & {
   instructorId: string;
   modalidad: ModalidadCurso;
   estado: 'BORRADOR' | 'PUBLICADO' | 'CERRADO';
+  avanceMedido: boolean;
 };
 
 export type PreguntaBorrador = { enunciado: string; opciones: string[]; correcta: number };

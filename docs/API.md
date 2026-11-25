@@ -590,7 +590,7 @@ su PDF y su historial. El estado `ENVIADO` registra la aceptación por SMTP.
 | --- | --- | --- |
 | GET /api/cursos/:id/politica-evaluacion | ADMIN | Devuelve `{notaMinima,intentosMaximos}`. Un curso nuevo parte de 14/20 y 2 intentos. |
 | PATCH /api/cursos/:id/politica-evaluacion | ADMIN | Recibe los mismos campos y devuelve los valores guardados para futuras publicaciones. |
-| GET /api/cursos/:id/evaluaciones/gestion | INSTRUCTOR asignado | Devuelve modalidad, videos del curso y evaluaciones del instructor con su clave de autoría. |
+| GET /api/cursos/:id/evaluaciones/gestion | INSTRUCTOR asignado | Devuelve modalidad, indicador `avanceMedido`, videos del curso y evaluaciones del instructor con su clave de autoría. |
 | POST /api/cursos/:id/evaluaciones/gestion | INSTRUCTOR asignado | Crea un borrador y devuelve 201. |
 | PUT /api/cursos/:id/evaluaciones/:evaluacionId | INSTRUCTOR asignado | Guarda cambios en un borrador. |
 | POST /api/cursos/:id/evaluaciones/:evaluacionId/publicar | INSTRUCTOR asignado | Fija preguntas, política y lecciones obligatorias. Repetir la publicación conserva la versión publicada. |
@@ -602,8 +602,9 @@ su PDF y su historial. El estado `ENVIADO` registra la aceptación por SMTP.
 
 El borrador acepta `{titulo,oficial,preguntas:[{enunciado,opciones,correcta}],leccionesIds}`.
 `correcta` es el índice de la opción, empezando por cero. Puede haber una evaluación
-oficial publicada por curso. En grabado requiere seleccionar uno o más videos del
-mismo curso. El cuestionario de salida exige completar todas las lecciones elegidas.
+oficial publicada por curso. Una salida de un grabado con avance por lecciones
+requiere que el instructor seleccione al menos un video del curso. En modo
+medido, una nueva salida utiliza todos los videos obligatorios configurados.
 
 Las evaluaciones privadas usan `Cache-Control: no-store`. El estado de intento
 incluye `mejorNota`, `aprobado`, `intentosUsados`, `intentosRestantes` y `finalizado`.
@@ -619,3 +620,39 @@ el PDF y en el documento privado. La verificación pública del QR conserva sus
 campos de vigencia, sin publicar nota ni DNI.
 
 [Especificación de HU-19](esp/sprints/aprendizaje/hu-19/SPEC.md).
+
+## HU-17 · Contenido y avance del curso
+
+Las rutas siguientes están bajo `/api/cursos/:id/avance`. Las respuestas usan
+`Cache-Control: private, no-store`. Un colegiado requiere inscripción vigente
+y cumplir las reglas de acceso al contenido del curso. Las fechas son instantes
+ISO 8601 y el aula las presenta en `America/Lima`.
+
+| Método y ruta relativa | Rol | Contrato |
+| --- | --- | --- |
+| GET `/:usuarioId` | AGREMIADO titular | Devuelve `{titulo,modalidad,medido,porcentaje,obligatorias,completadas,unidades}`. Consultar el avance de otro usuario devuelve 403. |
+| GET `/gestion` | ADMIN o INSTRUCTOR asignado | Devuelve `{titulo,modalidad,estado,medido,unidades,leccionesSalida}` para preparar materiales. |
+| PUT `/materiales/:materialId` | INSTRUCTOR asignado | Guarda `{obligatorio,duracionMs}` y devuelve el material. Antes de medir un video se confirma su duración en el navegador. La activación fija la configuración. |
+| POST `/activar` | ADMIN | Activa la medición de un grabado abierto con sus videos obligatorios preparados. Devuelve `{medido:true}`. |
+| POST `/materiales/:materialId/visto` | AGREMIADO | Marca un PDF o enlace y devuelve el progreso. Repetir conserva la primera fecha. Para video devuelve 409. |
+| POST `/materiales/:materialId/reproducir` | AGREMIADO | Inicia o reemplaza la sesión de reproducción de la inscripción. Devuelve `{sesionId,version,duracionMs,vistoMs,posicionMs,completadaEn}`. |
+| POST `/materiales/:materialId/progreso` | AGREMIADO | Recibe `{sesionId,secuencia,desdeMs,hastaMs,posicionMs}`. Devuelve `{vistoMs,posicionMs,completadaEn}`. Tramos discontinuos, fuera de tiempo, fuera de orden o de una sesión sustituida o vencida devuelven 409. |
+
+Cada unidad identifica su módulo y material mediante `id`, `moduloId`,
+`modulo`, `titulo`, `tipo` y `url`. La configuración incluye
+`obligatorio`, `duracionMs` y `version`. La lectura privada agrega
+`vistoMs`, `posicionMs` y `completadaEn`. `vistoMs` corresponde al
+tramo acreditado desde el inicio. `posicionMs` puede retroceder al repasar.
+Cada reporte puede abarcar hasta 10 000 ms. La sesión se vence tras 30 segundos
+sin reportes confirmados. El mismo número de secuencia devuelve el estado
+persistido dentro de la sesión vigente.
+
+En grabados se pondera el porcentaje por la duración de los videos
+obligatorios. La finalización académica se fija al alcanzar el 90 % de cada
+video requerido. En otras modalidades se cuentan las unidades obligatorias
+completadas. El cuestionario nuevo de un grabado medido exige los videos
+obligatorios configurados. Las salidas ya publicadas conservan sus lecciones
+y se reconocen sus finalizaciones históricas. En modo medido, el endpoint
+manual de HU-19 devuelve 409 si se intenta crear una marca nueva de video.
+
+[Especificación de HU-17](esp/sprints/aprendizaje/hu-17/SPEC.md).

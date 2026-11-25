@@ -71,7 +71,7 @@ export function GestionEvaluacionesPagina() {
           <Boton variante="secundario" disabled={guardar.isPending || publicar.isPending} onClick={() => seleccionar(null)}>Volver a la lista</Boton>
         </header>
         <EditorEvaluacion key={edicion} evaluacion={actual} modalidad={consulta.data.modalidad}
-          lecciones={consulta.data.lecciones} guardar={entrada => guardar.mutateAsync(entrada)}
+          lecciones={consulta.data.lecciones} avanceMedido={consulta.data.avanceMedido} guardar={entrada => guardar.mutateAsync(entrada)}
           publicar={actual && !actual.publicada ? () => publicar.mutate(actual.id) : undefined}
           ocupado={guardar.isPending || publicar.isPending} />
       </section>}

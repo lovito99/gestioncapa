@@ -60,6 +60,11 @@ export function crearEvaluacionesService(repositorio: typeof Evaluaciones) {
       }
       return [];
     }
+    if (curso.avanceMedido) {
+      const obligatorias = await repositorio.videosDelCurso(cliente, curso.id, true);
+      if (obligatorias.length === 0) throw new ErrorAplicacion(422, 'LECCIONES_INVALIDAS', 'Prepara los videos obligatorios antes de publicar.');
+      return obligatorias;
+    }
     const ids = new Set(evaluacion.leccionesIds);
     const seleccionadas = (await repositorio.videosDelCurso(cliente, curso.id)).filter(leccion => ids.has(leccion.id));
     if (seleccionadas.length === 0 || seleccionadas.length !== ids.size) {
@@ -100,10 +105,10 @@ export function crearEvaluacionesService(repositorio: typeof Evaluaciones) {
 
     listarGestion(cursoId: string, instructorId: number) {
       return repositorio.transaccion(async cliente => {
-        const { modalidad } = await cursoDelInstructor(cliente, cursoId, instructorId);
-        const lecciones = await repositorio.videosDelCurso(cliente, cursoId);
+        const { modalidad, avanceMedido } = await cursoDelInstructor(cliente, cursoId, instructorId);
+        const lecciones = await repositorio.videosDelCurso(cliente, cursoId, avanceMedido);
         const evaluaciones = await repositorio.listarGestion(cliente, cursoId);
-        return { modalidad, lecciones, evaluaciones: evaluaciones.map(proyectarGestion) };
+        return { modalidad, avanceMedido, lecciones, evaluaciones: evaluaciones.map(proyectarGestion) };
       });
     },
 
@@ -159,12 +164,13 @@ export function crearEvaluacionesService(repositorio: typeof Evaluaciones) {
         if (curso.modalidad !== 'GRABADO' || !salida?.lecciones.some(leccion => leccion.id === leccionId)) {
           throw new ErrorAplicacion(404, 'LECCION_NO_EXISTE', 'No encontramos una lección obligatoria con ese identificador.');
         }
-        if (finalizado) {
+        if (finalizado || curso.avanceMedido) {
           const completadas = await repositorio.leccionesCompletadas(cliente, cursoId, usuarioId);
-          if (!completadas.has(leccionId)) throw new ErrorAplicacion(409, 'RESULTADO_FINALIZADO', 'Tu resultado ya es definitivo.');
-        } else {
-          await repositorio.completarLeccion(cliente, cursoId, usuarioId, salida.id, leccionId);
+          if (completadas.has(leccionId)) return { completada: true };
+          if (curso.avanceMedido) throw new ErrorAplicacion(409, 'VIDEO_REQUIERE_REPRODUCCION', 'Completa esta lección desde el reproductor.');
+          throw new ErrorAplicacion(409, 'RESULTADO_FINALIZADO', 'Tu resultado ya es definitivo.');
         }
+        await repositorio.completarLeccion(cliente, cursoId, usuarioId, salida.id, leccionId);
         return { completada: true };
       });
     },
