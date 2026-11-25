@@ -40,6 +40,8 @@ export type CambioCobro = { modalidadCobro: ModalidadCobro; costo: number; preci
 export type SesionCurso = {
   id: string; cursoId: string; nombre: string; fecha: string; horaInicio: string;
   horaFin: string; lugar: string; estado: "PROGRAMADA" | "CANCELADA"; modalidad: ModalidadSesion;
+  encargadoId?: string | null;
+  qrRotatorio?: boolean | null;
   /** Sala de HU-26; solo para quien gestiona el curso o tiene acceso a él. */
   reunion: { identificador: string; estado: string } | null;
 };

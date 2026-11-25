@@ -3,8 +3,24 @@ import type { Clase } from "../../entities/clases/clase.js";
 import { conClaseBloqueada, obtenerClase } from "../clases/clasesRepository.js";
 import type { ClaseDeParticipante, InscritoConAsistencia } from "../../entities/asistencia/asistencia.js";
 
+import type { OrigenPuerta } from "../../entities/asistencia/asistenciaPuerta.js";
+
 // timestamp_lima es hora local de Lima sin zona; Perú no tiene horario de verano.
-const formatoIsoLima = `'YYYY-MM-DD"T"HH24:MI:SS"-05:00"'`;
+export const formatoIsoLima = `'YYYY-MM-DD"T"HH24:MI:SS"-05:00"'`;
+
+/** Política compartida de matrícula en sesión con acceso vigente al curso. */
+export const accesoInscrito = `(c.curso_id is null or "tieneAccesoCurso"(c.curso_id,e.user_id))`;
+
+export async function insertarAsistencia(consultor: Consultor, claseId: number, usuarioId: string | number,
+  registradoPor: number, origen: OrigenPuerta | "QR") {
+  const resultado = await consultor.query<{ marcaId: string; horaRegistro: string }>(
+    `insert into attendances (class_id, user_id, created_by, origen)
+     values ($1, $2, $3, $4) on conflict (class_id, user_id) do nothing
+     returning id::text as "marcaId", to_char(timestamp_lima, ${formatoIsoLima}) as "horaRegistro"`,
+    [claseId, usuarioId, registradoPor, origen]
+  );
+  return resultado.rows[0] ?? null;
+}
 
 /** Operaciones disponibles mientras la clase está bloqueada para registrar asistencia. */
 export type AsistenciaTransaccion = {
@@ -38,20 +54,13 @@ function transaccion(consultor: Consultor): AsistenciaTransaccion {
     async estaInscrito(claseId, usuarioId) {
       const resultado = await consultor.query(
         `select 1 from enrollments e join classes c on c.id=e.class_id where e.class_id=$1 and e.user_id=$2
-          and (c.curso_id is null or "tieneAccesoCurso"(c.curso_id,$2)) for key share of e`,
+          and ${accesoInscrito} for key share of e`,
         [claseId, usuarioId]
       );
       return resultado.rowCount === 1;
     },
     async registrar(claseId, usuarioId, registradoPor) {
-      const resultado = await consultor.query<{ hora: string }>(
-        `insert into attendances (class_id, user_id, created_by)
-         values ($1, $2, $3)
-         on conflict (class_id, user_id) do nothing
-         returning to_char(timestamp_lima, ${formatoIsoLima}) as hora`,
-        [claseId, usuarioId, registradoPor]
-      );
-      return resultado.rows[0]?.hora ?? null;
+      return (await insertarAsistencia(consultor, claseId, usuarioId, registradoPor, "QR"))?.horaRegistro ?? null;
     },
     async horaDeAsistencia(claseId, usuarioId) {
       const resultado = await consultor.query<{ hora: string }>(
@@ -86,7 +95,7 @@ export function crearAsistenciaRepository(pool: Consultor): AsistenciaRepository
                 to_char(c.fecha, 'YYYY-MM-DD') as fecha,
                 to_char(c.hora_inicio, 'HH24:MI') as "horaInicio",
                 to_char(c.hora_fin, 'HH24:MI') as "horaFin",
-                c.lugar, c.estado,
+                c.lugar, c.estado, c.modalidad, (c.modalidad <> 'VIRTUAL' and c."qrRotatorio") as "qrRotatorio",
                 to_char(a.timestamp_lima, ${formatoIsoLima}) as "miAsistencia"
          from enrollments e
          join classes c on c.id = e.class_id
@@ -96,7 +105,11 @@ export function crearAsistenciaRepository(pool: Consultor): AsistenciaRepository
          order by c.fecha, c.hora_inicio, c.id`,
         [usuarioId]
       );
-      return resultado.rows;
+      return resultado.rows.map(({ modalidad, qrRotatorio, ...clase }) => ({
+        ...clase,
+        ...(modalidad !== undefined && modalidad !== "PRESENCIAL" ? { modalidad } : {}),
+        ...(qrRotatorio === false ? { qrRotatorio } : {})
+      }));
     }
   };
 }

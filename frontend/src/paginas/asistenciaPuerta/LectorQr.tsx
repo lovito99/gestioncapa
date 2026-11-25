@@ -44,20 +44,27 @@ export function LectorQr({ onLeer, pausado }: Props) {
       { preferredCamera: 'environment', highlightScanRegion: false, highlightCodeOutline: true, returnDetailedScanResult: true },
     )
     let cancelada = false
+    let stream: MediaStream | undefined
     // Igual que en EscanearPagina: abrir la cámara directamente conserva el error original
     void (async () => {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera not found')
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } })
+      stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' } } })
       if (cancelada) { stream.getTracks().forEach((pista) => pista.stop()); return }
       elementoVideo.srcObject = stream
       await instancia.start()
     })()
       .then(() => { if (!cancelada) setEstado({ tipo: 'escaneando' }) })
-      .catch((error: unknown) => { if (!cancelada) setEstado({ tipo: 'error', mensaje: mensajeCamara(error) }) })
+      .catch((error: unknown) => {
+        if (cancelada) return
+        instancia.stop()
+        stream?.getTracks().forEach((pista) => pista.stop())
+        setEstado({ tipo: 'error', mensaje: mensajeCamara(error) })
+      })
 
     return () => {
       cancelada = true
       instancia.destroy()
+      stream?.getTracks().forEach((pista) => pista.stop())
     }
   }, [intento])
 

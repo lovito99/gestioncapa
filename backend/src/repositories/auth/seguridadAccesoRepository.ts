@@ -13,6 +13,18 @@ export type SeguridadAccesoRepository = {
   limitarRegistros(direccion: string): Promise<number>;
 };
 
+async function limitarPorMinuto(clave: string, maximo: number) {
+  return Number(await redis.eval(`
+    local total=redis.call('INCR',KEYS[1])
+    if total == 1 then redis.call('EXPIRE',KEYS[1],60) end
+    if total > tonumber(ARGV[1]) then return math.max(1,redis.call('TTL',KEYS[1])) end
+    return 0`, 1, clave, maximo));
+}
+
+export function limitarBusquedaDni(base: string, usuarioId: number) {
+  return limitarPorMinuto(`gestioncapa:${base}:acceso:puerta:dni:${usuarioId}`, 30);
+}
+
 /** `limitePeticiones` se lee en cada llamada; el prefijo separa las claves de cada base de datos. */
 export function crearSeguridadAccesoRepository(configuracion: { DB_NAME: string; limitePeticiones: number }): SeguridadAccesoRepository {
   const prefijo = `gestioncapa:${configuracion.DB_NAME}:acceso:`;
@@ -52,20 +64,12 @@ export function crearSeguridadAccesoRepository(configuracion: { DB_NAME: string;
         redis.call('DEL',KEYS[1]); return 0`, 2, claves.fallos, claves.bloqueo));
     },
     async limitarPeticiones(usuarioId: number) {
-      return Number(await redis.eval(`
-        local total=redis.call('INCR',KEYS[1])
-        if total == 1 then redis.call('EXPIRE',KEYS[1],60) end
-        if total > tonumber(ARGV[1]) then return math.max(1,redis.call('TTL',KEYS[1])) end
-        return 0`, 1, `${prefijo}usuario:${usuarioId}`, configuracion.limitePeticiones));
+      return limitarPorMinuto(`${prefijo}usuario:${usuarioId}`, configuracion.limitePeticiones);
     },
 
     /** Alta pública: acota el trabajo de bcrypt antes de disponer de un usuario. */
     async limitarRegistros(direccion: string) {
-      return Number(await redis.eval(`
-        local total=redis.call('INCR',KEYS[1])
-        if total == 1 then redis.call('EXPIRE',KEYS[1],60) end
-        if total > 10 then return math.max(1,redis.call('TTL',KEYS[1])) end
-        return 0`, 1, `${prefijo}registro:${huella(direccion)}`));
+      return limitarPorMinuto(`${prefijo}registro:${huella(direccion)}`, 10);
     }
   };
 }

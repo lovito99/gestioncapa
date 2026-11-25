@@ -62,6 +62,8 @@ export interface Clase {
   lugar: string
   /** Ausente en respuestas anteriores a HU-36: se interpreta como presencial. */
   modalidad?: ModalidadSesion
+  encargadoId?: string | null
+  qrRotatorio?: boolean
   inscritos: number
   estado: EstadoClase
 }
@@ -76,6 +78,8 @@ export interface ClaseEntrada {
   horaFin: string
   lugar: string
   modalidad: ModalidadSesion
+  encargadoId?: string | null
+  qrRotatorio?: boolean
 }
 
 export interface Participante {
@@ -123,6 +127,8 @@ export interface ClaseParticipante {
   estado: EstadoClase
   /** Fecha-hora ISO 8601 en que registró su asistencia, `null` si aún no la registra */
   miAsistencia: string | null
+  modalidad?: ModalidadSesion
+  qrRotatorio?: boolean
 }
 
 export interface MarcarAsistenciaEntrada {
@@ -175,22 +181,33 @@ export interface MiQr {
 export type RegistroPuertaEntrada = { token: string; participanteId?: never } | { participanteId: string; token?: never }
 
 export interface RegistroPuertaRespuesta {
+  marcaId: string
   participante: AgremiadoPuerta
   /** Fecha-hora ISO 8601 del registro */
   horaRegistro: string
   metodo: 'QR' | 'DNI'
 }
 
-/** Un inscrito cuyo DNI empieza con los dígitos buscados */
+/** Inscrito con DNI coincidente en esta sesión */
 export interface CoincidenciaDni {
   participante: AgremiadoPuerta
   /** Hora en que ya se registró su asistencia, o `null` */
   horaRegistro: string | null
 }
 
-/** Respuesta de `GET /api/clases/:id/asistencia/puerta?dni=` (mínimo 4 dígitos) */
+/** Respuesta de `POST /api/clases/:id/asistencia/puerta/buscar-dni` */
 export interface BusquedaDniRespuesta {
   resultados: CoincidenciaDni[]
+}
+
+export type SesionPuerta = Pick<Clase, 'id' | 'nombre' | 'fecha' | 'horaInicio' | 'lugar' | 'curso'>
+
+export interface ContextoPuerta {
+  clase: SesionPuerta
+  inscritos: number
+  presentes: number
+  recientes: RegistroPuertaRespuesta[]
+  verListaCompleta: boolean
 }
 
 /** Respuesta de `GET /api/health` (ya implementada en el backend) */

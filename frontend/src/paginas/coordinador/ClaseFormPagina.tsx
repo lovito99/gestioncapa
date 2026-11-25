@@ -30,6 +30,8 @@ const esquema = z
     horaInicio: z.string().min(1, 'Ingresa la hora de inicio'),
     horaFin: z.string().min(1, 'Ingresa la hora de fin'),
     lugar: z.string().trim().max(160, 'El lugar admite hasta 160 caracteres'),
+    encargadoId: z.string(),
+    qrRotatorio: z.boolean(),
     modalidad: z.enum(modalidadesSesion, { error: 'Elige si la sesión es presencial, virtual o ambas' }),
   })
   // HU-36: solo la sesión virtual prescinde de un lugar físico.
@@ -40,7 +42,7 @@ const esquema = z
   })
 
 type Formulario = z.infer<typeof esquema>
-const VACIO: Formulario = { cursoId: '', nombre: '', instructorId: '', fecha: '', horaInicio: '', horaFin: '', lugar: '', modalidad: 'PRESENCIAL' }
+const VACIO: Formulario = { cursoId: '', nombre: '', instructorId: '', fecha: '', horaInicio: '', horaFin: '', lugar: '', modalidad: 'PRESENCIAL', encargadoId: '', qrRotatorio: false }
 
 const MENSAJE_INCOMPLETO = 'No se pudo guardar la clase. Completa los campos obligatorios marcados.'
 
@@ -79,6 +81,8 @@ export function ClaseFormPagina() {
         horaFin: clase.data.horaFin,
         lugar: clase.data.modalidad === 'VIRTUAL' ? '' : clase.data.lugar,
         modalidad: clase.data.modalidad ?? 'PRESENCIAL',
+        encargadoId: clase.data.encargadoId ?? '',
+        qrRotatorio: clase.data.qrRotatorio ?? true,
       }
     : { ...VACIO, cursoId: parametros.get('curso') ?? '' }
 
@@ -154,7 +158,9 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cu
         setError('cursoId', { message: 'Selecciona el curso al que pertenece la clase' })
         return
       }
-      guardar.mutate({ ...datos, lugar: datos.modalidad === 'VIRTUAL' ? '' : datos.lugar } satisfies ClaseEntrada, {
+      const { encargadoId, qrRotatorio, ...entrada } = datos
+      const asistencia = entrada.modalidad === 'VIRTUAL' ? {} : { encargadoId: encargadoId || null, qrRotatorio }
+      guardar.mutate({ ...entrada, ...asistencia, lugar: entrada.modalidad === 'VIRTUAL' ? '' : entrada.lugar } satisfies ClaseEntrada, {
         onSuccess: (guardada) => {
           toast.success(id ? 'Clase actualizada.' : `Clase «${guardada.nombre}» creada.`)
           // Si se programó desde «Sesiones del curso», se vuelve al curso para ver la sesión nueva
@@ -281,9 +287,21 @@ function FormularioClase({ id, iniciales, instructores, cargandoInstructores, cu
         {modalidad === 'VIRTUAL' ? (
           <p className="text-sm text-muted-2">Sesión virtual: se creará su sala con el mismo horario.</p>
         ) : (
-          <Campo etiqueta="Lugar" obligatorio error={errors.lugar?.message}>
-            <Entrada placeholder="Ej.: Auditorio principal, piso 2" estado={estado('lugar')} {...register('lugar')} />
-          </Campo>
+          <>
+            <Campo etiqueta="Lugar" obligatorio error={errors.lugar?.message}>
+              <Entrada placeholder="Ej.: Auditorio principal, piso 2" estado={estado('lugar')} {...register('lugar')} />
+            </Campo>
+            <Campo etiqueta="Encargado de asistencia" error={errors.encargadoId?.message}>
+              <Selector estado={estado('encargadoId')} disabled={cargandoInstructores} {...register('encargadoId')}>
+                <option value="">Instructor de la clase</option>
+                {instructores.map((i) => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+              </Selector>
+            </Campo>
+            <label className="flex items-center gap-2 text-sm text-ink">
+              <input type="checkbox" {...register('qrRotatorio')} />
+              Permitir también el QR rotatorio
+            </label>
+          </>
         )}
 
         <div className="mt-6 flex justify-end gap-3 border-t border-line pt-5.25">

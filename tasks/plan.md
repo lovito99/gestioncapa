@@ -933,7 +933,6 @@ Base comprobada `v3.1.0.0.0`. Refactorización sin cambio funcional → nivel
 Prefijos: `test:` (T1), `refactor:` (T2–T6), `docs:` (T7). Commit, etiqueta y
 build los ejecuta el usuario.
 
+## HU-39 · Asistencia presencial con QR personal o DNI
 
-## HU-37 · Agregar lecciones en video a un curso grabado
-
-[Plan de implementación](../docs/esp/sprints/aprendizaje/hu-37/plan.md) en el sprint Aprendizaje.
+[Plan de implementación de HU-39](../docs/esp/sprints/asistencia-presencial/hu-39/plan.md) en el sprint Asistencia presencial.

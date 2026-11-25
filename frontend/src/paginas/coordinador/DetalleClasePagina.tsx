@@ -96,7 +96,7 @@ export function DetalleClasePagina() {
                 <Pencil className="size-4" aria-hidden />
                 Editar clase
               </Link>
-              {usuario?.rol === 'ADMIN' && (
+              {usuario?.rol === 'ADMIN' && c.modalidad !== 'VIRTUAL' && c.qrRotatorio !== false && (
                 <Link
                   to={`${rutaClases}/${c.id}/qr`}
                   className="inline-flex h-10 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-ink"

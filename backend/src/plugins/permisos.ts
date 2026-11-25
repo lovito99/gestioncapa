@@ -119,6 +119,13 @@ export const permisos: Permiso[] = [
   { metodo: "GET", ruta: "/api/clases/:id/qr", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
 
   { metodo: "GET", ruta: "/api/participante/clases", acceso: ["AGREMIADO"] },
+  { metodo: "GET", ruta: "/api/instructor/clases/puerta", acceso: ["INSTRUCTOR"] },
+  { metodo: "GET", ruta: "/api/clases/:id/asistencia/puerta", acceso: ["ADMIN", "INSTRUCTOR"] },
+  { metodo: "POST", ruta: "/api/clases/:id/asistencia/puerta/buscar-dni", acceso: ["ADMIN", "INSTRUCTOR"] },
+  { metodo: "POST", ruta: "/api/clases/:id/asistencia/puerta", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
+  { metodo: "DELETE", ruta: "/api/clases/:id/asistencia/puerta/:marcaId", acceso: ["ADMIN", "INSTRUCTOR"], critica: true },
+  { metodo: "GET", ruta: "/api/participante/mi-qr", acceso: ["AGREMIADO"] },
+  { metodo: "GET", ruta: "/api/participante/mi-qr/pdf", acceso: ["AGREMIADO"] },
   { metodo: "POST", ruta: "/api/asistencia/marcar", acceso: ["AGREMIADO"], critica: true }
 ];
 

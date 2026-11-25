@@ -60,10 +60,10 @@ export function MiQrPagina() {
             <section aria-label="Tu código QR personal" className={`${tarjeta} flex flex-col items-center gap-4 p-6 print:border-0`}>
               <div className="flex flex-col items-center gap-0.5 text-center">
                 <p className="text-base leading-6 font-semibold wrap-anywhere text-ink">{data.nombre}</p>
-                {data.dniParcial && <p className="text-sm text-muted">DNI {data.dniParcial}</p>}
+                <p className="text-sm text-muted">DNI {data.dniParcial ?? 'no registrado'}</p>
               </div>
               <div className="rounded-xl border-2 border-brand bg-white p-3">
-                <QRCodeSVG value={data.token} size={232} level="M" marginSize={0} className="size-58" title={`Código QR personal de ${data.nombre}`} />
+                <QRCodeSVG value={data.token} size={232} level="M" marginSize={4} className="h-auto w-full max-w-58" title={`Código QR personal de ${data.nombre}`} />
               </div>
               {data.habilitado && (
                 <span className="inline-flex items-center gap-1 rounded-md bg-success-soft px-2 py-0.5 text-xs leading-4 font-medium text-success">

@@ -1,10 +1,13 @@
 import type { FastifyInstance } from "fastify";
+import { rutaPuerta } from "../dto/asistencia/asistenciaPuertaDto.js";
 import { cursoDeSesion } from "../repositories/cursos/accesoCursoRepository.js";
 
 /** Protege las sesiones de un curso también cuando se accede a ellas por las rutas de clases. */
 export function registrarAccesoSesiones(app: FastifyInstance) {
   app.addHook("onRoute", (opciones) => {
     if (!opciones.url.startsWith("/api/clases/:id")) return;
+    // Estas rutas aplican su propio permiso por sesión con el encargado efectivo.
+    if ([rutaPuerta, `${rutaPuerta}/buscar-dni`, `${rutaPuerta}/:marcaId`].includes(opciones.url)) return;
     opciones.preHandler = [...[opciones.preHandler ?? []].flat(), async (request, reply) => {
       const { id } = request.params as { id: string };
       if (!/^\d{1,15}$/.test(id) || Number(id) <= 0) return;

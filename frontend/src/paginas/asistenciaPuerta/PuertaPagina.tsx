@@ -1,5 +1,5 @@
 import { Camera, CircleCheck, CircleX, RefreshCw, Search, TriangleAlert, Users, type LucideIcon } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAuth } from '@/auth/useAuth'
@@ -13,24 +13,24 @@ import { cn } from '@/lib/cn'
 import { fechaConAnio, hora12, horaRegistro } from '@/lib/formato'
 import {
   extraerTokenPersonal,
-  MINIMO_DIGITOS_DNI,
+  digitosDni,
+  useContextoPuerta,
   useBuscarPorDni,
   useDeshacerRegistro,
   useRegistrarEnPuerta,
 } from '@/servicios/asistenciaPuerta'
-import { useAsistencia, useClase } from '@/servicios/clases'
-import type { AgremiadoPuerta, Asistencia, CoincidenciaDni } from '@/types/api'
+import type { AgremiadoPuerta, CoincidenciaDni, RegistroPuertaRespuesta } from '@/types/api'
 import { AvisoInfo } from '@/components/ui/Aviso'
 import { LectorQr } from './LectorQr'
 
 type Pestana = 'qr' | 'dni'
 type Registro = ReturnType<typeof useRegistrarEnPuerta>
+type Deshacer = ReturnType<typeof useDeshacerRegistro>
 
 /** Pausa tras cada lectura para que el encargado vea el resultado antes de la siguiente. */
 const PAUSA_ENTRE_LECTURAS_MS = 1500
 /** El mismo QR leído de nuevo en este lapso se ignora (la persona sigue frente a la cámara). */
 const IGNORAR_REPETIDO_MS = 5000
-const ESPERA_BUSQUEDA_MS = 300
 
 /** `09:02 a. m.` → `9:02 a. m.`, como en el diseño */
 const hora = (iso: string) => horaRegistro(iso).replace(/^0/, '')
@@ -40,17 +40,31 @@ const hora = (iso: string) => horaRegistro(iso).replace(/^0/, '')
  * colegiado o lo busca por DNI. Pensada para usarse de pie con el celular (360 px).
  */
 export function PuertaPagina() {
+  const { id = '' } = useParams()
+  return <PuertaDeSesion key={id} id={id} />
+}
+
+function PuertaDeSesion({ id }: { id: string }) {
   const { usuario } = useAuth()
   const rutaClases = useRutaClases()
-  const { id = '' } = useParams()
-  const clase = useClase(id)
-  const asistencia = useAsistencia(id)
+  const contexto = useContextoPuerta(id)
   const registrar = useRegistrarEnPuerta(id)
+  const deshacer = useDeshacerRegistro(id)
   const [pestana, setPestana] = useState<Pestana>('qr')
+  const registrando = registrar.isPending || deshacer.isPending
 
   const cambiarPestana = (nueva: Pestana) => {
+    if (registrando || nueva === pestana) return
     registrar.reset()
     setPestana(nueva)
+  }
+
+  const alNavegarPestanas = (evento: KeyboardEvent<HTMLDivElement>) => {
+    if (registrando || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(evento.key)) return
+    evento.preventDefault()
+    const nueva = evento.key === 'Home' ? 'qr' : evento.key === 'End' ? 'dni' : pestana === 'qr' ? 'dni' : 'qr'
+    cambiarPestana(nueva)
+    evento.currentTarget.querySelector<HTMLButtonElement>(`#pestana-${nueva}`)?.focus()
   }
 
   const volver =
@@ -60,66 +74,55 @@ export function PuertaPagina() {
       <EnlaceVolver to={`${rutaClases}/${id}`}>Volver a la sesión</EnlaceVolver>
     )
 
-  if (clase.isPending) return <Contenedor>{volver}<Cargando texto="Cargando la sesión…" /></Contenedor>
-  if (clase.isError) {
+  if (contexto.isPending) return <Contenedor>{volver}<Cargando texto="Cargando la sesión…" /></Contenedor>
+  if (contexto.isError) {
     return (
       <Contenedor>
         {volver}
-        <ErrorCarga mensaje={mensajeDeError(clase.error, 'No pudimos cargar la sesión.')} onReintentar={clase.refetch} />
+        <ErrorCarga mensaje={mensajeDeError(contexto.error, 'No pudimos cargar la sesión.')} onReintentar={contexto.refetch} />
       </Contenedor>
     )
   }
 
-  const c = clase.data
-  const noDisponible =
-    c.estado === 'CANCELADA'
-      ? 'La sesión está cancelada: no se puede registrar asistencia.'
-      : c.modalidad === 'VIRTUAL'
-        ? 'Esta sesión es solo virtual: la asistencia se registra en la sala virtual.'
-        : null
+  const { clase, inscritos, presentes, recientes, verListaCompleta } = contexto.data
 
   return (
     <Contenedor>
       {volver}
 
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-3">
+      <header className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-1">
           <p className="text-xs leading-4 font-semibold text-brand">Registrar asistencia</p>
-          <h1 className="font-serif text-xl leading-7 font-bold wrap-anywhere text-ink">{c.curso?.titulo ?? c.nombre}</h1>
+          <h1 className="font-serif text-xl leading-7 font-bold wrap-anywhere text-ink">{clase.curso?.titulo ?? clase.nombre}</h1>
           <p className="text-sm leading-5 wrap-anywhere text-muted">
-            {[c.curso ? c.nombre : null, fechaConAnio(c.fecha), hora12(c.horaInicio), c.lugar].filter(Boolean).join(' · ')}
+            {[clase.curso ? clase.nombre : null, fechaConAnio(clase.fecha), hora12(clase.horaInicio), clase.lugar].filter(Boolean).join(' · ')}
           </p>
         </div>
-        {asistencia.data && (
-          <p className="inline-flex shrink-0 items-center gap-2 self-start rounded-lg lg:self-center border border-line bg-white px-3 py-2 text-sm leading-5 font-semibold text-ink" aria-live="polite">
-            <Users className="size-5 text-brand" aria-hidden />
-            {asistencia.data.presentes} de {asistencia.data.inscritos} presentes
-          </p>
-        )}
+        <p className="inline-flex shrink-0 items-center gap-2 self-start rounded-lg lg:self-center border border-line bg-white px-3 py-2 text-sm leading-5 font-semibold text-ink" aria-live="polite">
+          <Users className="size-5 text-brand" aria-hidden />
+          {presentes} de {inscritos} presentes
+        </p>
       </header>
 
-      {noDisponible ? (
-        <AvisoInfo titulo="No disponible">{noDisponible}</AvisoInfo>
-      ) : (
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <div role="tablist" aria-label="Forma de registro" className="flex rounded-lg bg-surface-3 p-1">
-            <BotonPestana activa={pestana === 'qr'} onClick={() => cambiarPestana('qr')} icono={Camera}>
+          <div role="tablist" aria-label="Forma de registro" onKeyDown={alNavegarPestanas} className="flex rounded-lg bg-surface-3 p-1">
+            <BotonPestana codigo="qr" activa={pestana === 'qr'} onClick={() => cambiarPestana('qr')} icono={Camera}>
               Escanear QR
             </BotonPestana>
-            <BotonPestana activa={pestana === 'dni'} onClick={() => cambiarPestana('dni')} icono={Search}>
+            <BotonPestana codigo="dni" activa={pestana === 'dni'} onClick={() => cambiarPestana('dni')} icono={Search}>
               Buscar por DNI
             </BotonPestana>
           </div>
 
-          <div role="tabpanel" className="flex flex-col gap-4">
-            {pestana === 'qr' ? <EscanearQr claseId={id} registrar={registrar} /> : <BuscarDni claseId={id} registrar={registrar} />}
+          <div id="panel-puerta" role="tabpanel" aria-labelledby={`pestana-${pestana}`} className="flex flex-col gap-4">
+            {pestana === 'qr'
+              ? <EscanearQr registrar={registrar} deshacer={deshacer} />
+              : <BuscarDni claseId={id} registrar={registrar} deshacer={deshacer} />}
           </div>
         </div>
-        {/* S3 1.3: en escritorio, los últimos registros acompañan al visor */}
-        {asistencia.data && <UltimosRegistros asistencia={asistencia.data} rutaLista={`${rutaClases}/${id}/asistencia`} />}
-        </div>
-      )}
+        <UltimosRegistros recientes={recientes} rutaLista={verListaCompleta ? `${rutaClases}/${id}/asistencia` : undefined} />
+      </div>
     </Contenedor>
   )
 }
@@ -132,11 +135,14 @@ function Contenedor({ children }: { children: ReactNode }) {
   )
 }
 
-function BotonPestana({ activa, onClick, icono: Icono, children }: { activa: boolean; onClick: () => void; icono: LucideIcon; children: string }) {
+function BotonPestana({ codigo, activa, onClick, icono: Icono, children }: { codigo: Pestana; activa: boolean; onClick: () => void; icono: LucideIcon; children: string }) {
   return (
     <button
       type="button"
       role="tab"
+      id={`pestana-${codigo}`}
+      aria-controls="panel-puerta"
+      tabIndex={activa ? 0 : -1}
       aria-selected={activa}
       onClick={onClick}
       className={cn(
@@ -151,12 +157,7 @@ function BotonPestana({ activa, onClick, icono: Icono, children }: { activa: boo
 }
 
 /** Panel lateral de escritorio con las 4 marcas más recientes (Figma S3 1.3). */
-function UltimosRegistros({ asistencia, rutaLista }: { asistencia: Asistencia; rutaLista: string }) {
-  const recientes = asistencia.registros
-    .filter((r): r is typeof r & { horaRegistro: string } => r.horaRegistro !== null)
-    .sort((a, b) => b.horaRegistro.localeCompare(a.horaRegistro))
-    .slice(0, 4)
-
+function UltimosRegistros({ recientes, rutaLista }: { recientes: RegistroPuertaRespuesta[]; rutaLista?: string }) {
   return (
     <section aria-labelledby="ultimos-registros" className="hidden w-95 shrink-0 flex-col gap-3 rounded-xl border border-line bg-white p-5 lg:flex">
       <h2 id="ultimos-registros" className="text-base leading-6 font-semibold text-ink">Últimos registros</h2>
@@ -165,7 +166,7 @@ function UltimosRegistros({ asistencia, rutaLista }: { asistencia: Asistencia; r
       ) : (
         <ul className="flex flex-col gap-3">
           {recientes.map((r) => (
-            <li key={r.participante.id} className="flex items-center gap-2">
+            <li key={r.marcaId} className="flex items-center gap-2">
               <CircleCheck className="size-4.5 shrink-0 text-success" aria-hidden />
               <span className="min-w-0 flex-1 truncate text-sm leading-5 text-ink">{r.participante.nombre}</span>
               {r.metodo && (
@@ -176,21 +177,25 @@ function UltimosRegistros({ asistencia, rutaLista }: { asistencia: Asistencia; r
           ))}
         </ul>
       )}
-      <hr className="border-line" />
-      <Link
-        to={rutaLista}
-        className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-brand bg-white px-5 text-sm leading-5 font-semibold text-brand hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-      >
-        <Users className="size-4.5" aria-hidden />
-        Ver lista completa
-      </Link>
+      {rutaLista && (
+        <>
+          <hr className="border-line" />
+          <Link
+            to={rutaLista}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-brand bg-white px-5 text-sm leading-5 font-semibold text-brand hover:bg-brand-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+          >
+            <Users className="size-4.5" aria-hidden />
+            Ver lista completa
+          </Link>
+        </>
+      )}
     </section>
   )
 }
 
 // ---------- Escanear el QR personal ----------
 
-function EscanearQr({ claseId, registrar }: { claseId: string; registrar: Registro }) {
+function EscanearQr({ registrar, deshacer }: { registrar: Registro; deshacer: Deshacer }) {
   const { mutate, isPending, isIdle } = registrar
   const [enPausa, setEnPausa] = useState(false)
   const ultimaLectura = useRef({ token: '', en: 0 })
@@ -219,13 +224,13 @@ function EscanearQr({ claseId, registrar }: { claseId: string; registrar: Regist
 
   return (
     <>
-      <LectorQr pausado={isPending || enPausa} onLeer={alLeer} />
+      <LectorQr pausado={isPending || enPausa || deshacer.isPending} onLeer={alLeer} />
       {isIdle ? (
         <AvisoInfo titulo="Listo para escanear">
           Cada lectura se registra sola. Verás el nombre y el DNI parcial para confirmar que es la persona correcta.
         </AvisoInfo>
       ) : (
-        <ResultadoRegistro claseId={claseId} registrar={registrar} />
+        <ResultadoRegistro registrar={registrar} deshacer={deshacer} />
       )}
     </>
   )
@@ -233,57 +238,62 @@ function EscanearQr({ claseId, registrar }: { claseId: string; registrar: Regist
 
 // ---------- Buscar por DNI ----------
 
-function useValorConEspera(valor: string, ms: number) {
-  const [conEspera, setConEspera] = useState(valor)
-  useEffect(() => {
-    const id = window.setTimeout(() => setConEspera(valor), ms)
-    return () => window.clearTimeout(id)
-  }, [valor, ms])
-  return conEspera
-}
-
-function BuscarDni({ claseId, registrar }: { claseId: string; registrar: Registro }) {
+function BuscarDni({ claseId, registrar, deshacer }: { claseId: string; registrar: Registro; deshacer: Deshacer }) {
   const [dni, setDni] = useState('')
-  const dniBuscado = useValorConEspera(dni, ESPERA_BUSQUEDA_MS)
-  const buscar = useBuscarPorDni(claseId, dniBuscado)
-  const activa = dni.length >= MINIMO_DIGITOS_DNI && dniBuscado.length >= MINIMO_DIGITOS_DNI
-  const resultados = activa ? buscar.data?.resultados : undefined
-  const registrandoId = registrar.isPending ? (registrar.variables as { participanteId?: string }).participanteId : undefined
+  const buscar = useBuscarPorDni(claseId)
+  const resultados = buscar.data?.resultados
+  const registrandoId = registrar.isPending ? registrar.variables.participanteId : undefined
+  const ocupada = registrar.isPending || deshacer.isPending
+  const registro = registrar.data
+
+  const enviarBusqueda = (evento: FormEvent<HTMLFormElement>) => {
+    evento.preventDefault()
+    if (dni.length !== digitosDni || buscar.isPending || ocupada) return
+    registrar.reset()
+    buscar.mutate(dni)
+  }
 
   return (
     <>
-      <div className="flex flex-col gap-1.5">
+      <form onSubmit={enviarBusqueda} className="flex flex-col gap-1.5">
         <label htmlFor="dni-colegiado" className="text-sm leading-5 font-semibold text-ink">
           DNI del colegiado
         </label>
-        <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4.5 -translate-y-1/2 text-muted" aria-hidden />
-          <Entrada
-            id="dni-colegiado"
-            type="text"
-            value={dni}
-            onChange={(e) => {
-              registrar.reset()
-              setDni(e.target.value.replace(/\D/g, '').slice(0, 8))
-            }}
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={8}
-            aria-describedby="dni-colegiado-ayuda"
-            className="pl-9.5 sm:h-12 sm:text-base"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4.5 -translate-y-1/2 text-muted" aria-hidden />
+            <Entrada
+              id="dni-colegiado"
+              type="text"
+              value={dni}
+              onChange={(e) => {
+                buscar.reset()
+                registrar.reset()
+                setDni(e.target.value.replace(/\D/g, '').slice(0, digitosDni))
+              }}
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={digitosDni}
+              disabled={ocupada}
+              aria-describedby="dni-colegiado-ayuda"
+              className="pl-9.5 sm:h-12 sm:text-base"
+            />
+          </div>
+          <Boton type="submit" cargando={buscar.isPending} disabled={ocupada || dni.length !== digitosDni}>
+            Buscar DNI
+          </Boton>
         </div>
         <p id="dni-colegiado-ayuda" className="text-sm leading-5 text-muted">
-          Busca mientras escribes. Mínimo {MINIMO_DIGITOS_DNI} dígitos.
+          Ingresa los ocho dígitos del DNI, incluidos los ceros iniciales.
         </p>
-      </div>
+      </form>
 
-      {!registrar.isIdle && !registrar.isPending && <ResultadoRegistro claseId={claseId} registrar={registrar} />}
+      {!registrar.isIdle && !registrar.isPending && <ResultadoRegistro registrar={registrar} deshacer={deshacer} />}
 
-      {activa && buscar.isError && (
+      {buscar.isError && (
         <p role="alert" className="text-sm text-danger">{mensajeDeError(buscar.error, 'No pudimos buscar el DNI. Intenta de nuevo.')}</p>
       )}
-      {activa && buscar.isPending && <Cargando texto="Buscando…" />}
+      {buscar.isPending && <Cargando texto="Buscando…" />}
 
       {resultados && resultados.length === 0 && (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-line bg-white p-6 text-center">
@@ -304,9 +314,10 @@ function BuscarDni({ claseId, registrar }: { claseId: string; registrar: Registr
             {resultados.map((r) => (
               <li key={r.participante.id}>
                 <FilaCoincidencia
-                  coincidencia={r}
+                  coincidencia={registro?.participante.id === r.participante.id
+                    ? { ...r, horaRegistro: registro.horaRegistro } : r}
                   registrando={registrandoId === r.participante.id}
-                  bloqueado={registrar.isPending}
+                  bloqueado={ocupada}
                   onRegistrar={() => registrar.mutate({ participanteId: r.participante.id })}
                 />
               </li>
@@ -388,11 +399,9 @@ function TarjetaResultado({ tipo, titulo, linea, detalle }: { tipo: keyof typeof
   )
 }
 
-function ResultadoRegistro({ claseId, registrar }: { claseId: string; registrar: Registro }) {
-  const deshacer = useDeshacerRegistro(claseId)
-
+function ResultadoRegistro({ registrar, deshacer }: { registrar: Registro; deshacer: Deshacer }) {
   if (registrar.isSuccess) {
-    const { participante, horaRegistro: registrada } = registrar.data
+    const { marcaId, participante, horaRegistro: registrada } = registrar.data
     return (
       <>
         <TarjetaResultado
@@ -405,12 +414,11 @@ function ResultadoRegistro({ claseId, registrar }: { claseId: string; registrar:
           variante="secundario"
           cargando={deshacer.isPending}
           onClick={() =>
-            deshacer.mutate(participante.id, {
+            deshacer.mutate(marcaId, {
               onSuccess: () => {
                 registrar.reset()
                 toast.success(`Se deshizo el registro de ${participante.nombre}.`)
               },
-              onError: (e) => toast.error(mensajeDeError(e, 'No pudimos deshacer el registro.')),
             })
           }
           className="h-12 w-full bg-transparent text-base text-brand ring-0 hover:bg-brand-soft"
@@ -418,6 +426,9 @@ function ResultadoRegistro({ claseId, registrar }: { claseId: string; registrar:
           <RefreshCw className="size-5" aria-hidden />
           Deshacer este registro
         </Boton>
+        {deshacer.isError && deshacer.variables === marcaId && (
+          <p role="alert" className="text-sm text-danger">{mensajeDeError(deshacer.error, 'No pudimos deshacer el registro.')}</p>
+        )}
       </>
     )
   }
@@ -425,7 +436,6 @@ function ResultadoRegistro({ claseId, registrar }: { claseId: string; registrar:
 
   const error = registrar.error
   const participante = esApiError(error) ? (error.details.participante as AgremiadoPuerta | undefined) : undefined
-  const dni = participante ? `DNI ${participante.dniParcial ?? 'no registrado'}` : ''
 
   if (esApiError(error, 'ASISTENCIA_YA_REGISTRADA')) {
     const previa = error.details.horaRegistro as string | undefined
@@ -442,9 +452,8 @@ function ResultadoRegistro({ claseId, registrar }: { claseId: string; registrar:
     return (
       <TarjetaResultado
         tipo="error"
-        titulo="No está inscrito en este curso"
-        linea={participante?.nombre}
-        detalle={[dni, 'Indícale que se inscriba en el catálogo o que consulte con coordinación.'].filter(Boolean).join(' · ')}
+        titulo="No tiene una inscripción vigente"
+        detalle="Pide al colegiado que revise su inscripción o consulte con coordinación."
       />
     )
   }

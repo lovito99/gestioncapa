@@ -1,3 +1,5 @@
+import type { ModalidadSesion } from "../cursos/modalidad.js";
+
 export type Participante = { id: string; nombre: string; email: string };
 export type EstadoAsistencia = "PRESENTE" | "AUSENTE";
 
@@ -19,4 +21,6 @@ export type ClaseDeParticipante = {
   lugar: string;
   estado: string;
   miAsistencia: string | null;
+  modalidad?: ModalidadSesion;
+  qrRotatorio?: boolean;
 };

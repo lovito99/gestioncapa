@@ -1961,7 +1961,6 @@ devuelve resultados. No se instala nada.
 | Plantilla de estructura | Plantillas Fastify+TS en GitHub (NeaDigitra/Fastify-TS-API, gubiar/real-world-fastify, AndresH11/Node-TypeScript-Fastify) | **Componer** solo el patrón | Imponen ORM (Prisma) o clases; se toma la separación controller/service/repository y se adapta a `pg` y al estilo funcional. |
 | Skills | `api-and-interface-design`, `deprecation-and-migration`, `documentation-and-adrs` | **Adoptar** | Guían los contratos entre capas, la migración por fases y el ADR-002. |
 
+## HU-39 · Asistencia presencial con QR personal o DNI
 
-## HU-37 · Agregar lecciones en video a un curso grabado
-
-[Especificación y soluciones existentes](docs/esp/sprints/aprendizaje/hu-37/SPEC.md) en el sprint Aprendizaje.
+[Especificación de HU-39](docs/esp/sprints/asistencia-presencial/hu-39/SPEC.md) en el sprint Asistencia presencial.

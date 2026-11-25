@@ -14,7 +14,7 @@ import { registrarEventosJitsi } from "./routes/jitsi.routes.js";
 import Fastify from "fastify";
 import { env } from "./config/env.js";
 import { authRoutes, ensureAdminUser, findUserById, limitarPeticiones, tokenRevocado } from "./routes/auth.routes.js";
-import { asistenciaRoutes } from "./routes/asistencia.routes.js";
+import { asistenciaPuertaRoutes, asistenciaRoutes, credencialAsistenciaRoutes } from "./routes/asistencia.routes.js";
 import { clasesRoutes } from "./routes/clases.routes.js";
 import { healthRoutes } from "./routes/health.routes.js";
 import { rutasPendientes } from "./routes/pendientes.routes.js";
@@ -70,6 +70,8 @@ export async function buildApp(opciones: { consultarYoutube?: ConsultarYoutube }
   await app.register(registrarAvance);
   await app.register(registrarLecciones(opciones.consultarYoutube));
   await app.register(asistenciaRoutes);
+  await app.register(credencialAsistenciaRoutes);
+  await app.register(asistenciaPuertaRoutes);
   // Al final: solo agrega las rutas del contrato que aún no existen (501).
   await app.register(registrarRutasReuniones);
   await app.register(registrarEventosJitsi);

@@ -27,6 +27,13 @@ interface Presentacion {
 
 /** Textos de 3.3a–3.3g del Figma, por código de error de la API. */
 const POR_CODIGO: Record<string, Presentacion> = {
+  QR_ROTATORIO_DESACTIVADO: {
+    titulo: 'QR rotatorio desactivado',
+    mensaje: () => 'Muestra tu QR personal al encargado o indícale tu DNI.',
+    Icono: Info,
+    tono: 'advertencia',
+    accion: 'ninguna',
+  },
   QR_EXPIRADO: {
     titulo: 'QR expirado',
     mensaje: () => 'El código QR que escaneaste ya venció. Pide al instructor que muestre el código actual y vuelve a escanear.',

@@ -1698,7 +1698,6 @@ Plan: [plan.md](plan.md#t-26--plan-backend-en-capas). Estado: aprobado el 24/11/
   (fallo previo de HU29 por avisos pendientes que dejan otras pruebas); cobertura de asistencia 100 % líneas, 91,7 % ramas.
 - [ ] Build: ejecución manual por el usuario.
 
+## HU-39 · Asistencia presencial con QR personal o DNI
 
-## HU-37 · Agregar lecciones en video a un curso grabado
-
-[Tareas y puntos de control](../docs/esp/sprints/aprendizaje/hu-37/todo.md) en el sprint Aprendizaje.
+[Seguimiento y verificaciones de HU-39](../docs/esp/sprints/asistencia-presencial/hu-39/todo.md) en el sprint Asistencia presencial.

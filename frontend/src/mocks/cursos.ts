@@ -150,7 +150,7 @@ const salaSesion = z.object({ grabacionPrevista: z.boolean(), pantallaPermitida:
   porcentajeMinimo: z.number().int().min(1).max(100) }).strict()
 const esquemaSesion = (fecha: z.ZodType<string>) => z.object({ nombre: titulo, fecha, horaInicio: hora, horaFin: hora, lugar: z.string().trim().max(160).default(''),
   modalidad: z.enum(modalidadesSesion).default('PRESENCIAL'), sede: z.string().trim().max(120).optional(), aula: z.string().trim().max(100).optional(),
-  encargadoId: z.string().optional(), qrRotatorio: z.boolean().optional(), sala: salaSesion.optional() })
+  encargadoId: z.string().nullable().optional(), qrRotatorio: z.boolean().optional(), sala: salaSesion.optional() })
   .refine(v => v.horaFin > v.horaInicio && (v.modalidad === 'VIRTUAL' || v.lugar.length > 0))
   .transform(v => ({ ...v, lugar: v.lugar || 'Aula virtual', ...(v.modalidad === 'VIRTUAL' && { sede: undefined, aula: undefined, encargadoId: undefined, qrRotatorio: undefined }),
     ...(v.modalidad === 'PRESENCIAL' && { sala: undefined }) }))

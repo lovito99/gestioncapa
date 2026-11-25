@@ -3,6 +3,8 @@ import { horaRegistro } from '@/lib/formato'
 import type {
   AgremiadoPuerta,
   BusquedaDniRespuesta,
+  ContextoPuerta,
+  SesionPuerta,
   ErrorApi,
   MiQr,
   RegistroPuertaEntrada,
@@ -36,6 +38,8 @@ const error = (status: number, cuerpo: ErrorApi) => HttpResponse.json(cuerpo, { 
 
 /** Marcas hechas en la puerta por DNI; las demás se tomaron con un QR. */
 const marcasPorDni = new Set<string>()
+const registrosPuerta = new Map<string, RegistroPuertaRespuesta & { claseId: string; actorId: string }>()
+let secuenciaMarca = 0
 
 /** Método con el que se registró una marca existente, para la lista de asistencia. */
 export const metodoDeMarca = (claseId: string, usuarioId: string): 'QR' | 'DNI' =>
@@ -99,14 +103,14 @@ function validarEncargado(request: Request, claseId: string) {
   }
   const clase = clases.find((c) => c.id === claseId)
   if (!clase) return { respuesta: error(404, { code: 'CLASE_NO_EXISTE', message: 'La clase no existe.' }) }
-  if (usuario.rol === 'INSTRUCTOR' && clase.instructor.id !== usuario.id) {
+  if (usuario.rol === 'INSTRUCTOR' && (clase.encargadoId ?? clase.instructor.id) !== usuario.id) {
     return { respuesta: error(403, { code: 'SIN_PERMISO', message: 'Esta clase no está asignada a ti.' }) }
   }
   if (clase.estado === 'CANCELADA') return { respuesta: error(409, { code: 'CLASE_CANCELADA', message: 'La clase está cancelada.' }) }
   if (clase.modalidad === 'VIRTUAL') {
     return { respuesta: error(409, { code: 'SESION_VIRTUAL', message: 'Esta sesión es solo virtual: la asistencia se registra en la sala virtual.' }) }
   }
-  return { clase }
+  return { clase, usuario }
 }
 
 const exigirAgremiado = (request: Request) => {
@@ -114,6 +118,18 @@ const exigirAgremiado = (request: Request) => {
   if (!usuario) return { respuesta: error(401, { code: 'NO_AUTENTICADO', message: 'Tu sesión expiró. Vuelve a iniciar sesión.' }) }
   if (usuario.rol !== 'AGREMIADO') return { respuesta: error(403, { code: 'SIN_PERMISO', message: 'Solo los agremiados tienen QR personal.' }) }
   return { usuario }
+}
+
+const resumenPuerta = ({ id, nombre, fecha, horaInicio, lugar, curso }: SesionPuerta): SesionPuerta =>
+  ({ id, nombre, fecha, horaInicio, lugar, curso })
+
+function buscarInscritos(claseId: string, dni: string, exacto: boolean) {
+  return (inscripciones[claseId] ?? [])
+    .filter(id => exacto ? dniPorUsuario[id] === dni : dniPorUsuario[id]?.startsWith(dni))
+    .flatMap(id => {
+      const participante = agremiado(id)
+      return participante ? [{ participante, horaRegistro: asistencias[claseId]?.[id] ?? null }] : []
+    })
 }
 
 export const handlersAsistenciaPuerta = [
@@ -145,28 +161,55 @@ export const handlersAsistenciaPuerta = [
     return new HttpResponse(pdf, { headers: { 'Content-Type': 'application/pdf' } })
   }),
 
+  http.get(`${API}/instructor/clases/puerta`, ({ request }) => {
+    const usuario = sesion(request)
+    if (!usuario || usuario.rol !== 'INSTRUCTOR') return error(403, { code: 'SIN_PERMISO', message: 'No tienes acceso.' })
+    return HttpResponse.json(clases.filter(clase =>
+      clase.encargadoId === usuario.id && clase.instructor.id !== usuario.id &&
+      clase.modalidad !== 'VIRTUAL' && clase.estado === 'PROGRAMADA').map(resumenPuerta))
+  }),
+
   http.get(`${API}/clases/:id/asistencia/puerta`, async ({ request, params }) => {
+    const claseId = params.id as string
+    const { respuesta, clase, usuario } = validarEncargado(request, claseId)
+    if (respuesta) return respuesta
+    await delay(250)
+    const dni = new URL(request.url).searchParams.get('dni')
+    // Compatibilidad de la simulación con el contrato anterior.
+    if (dni !== null) {
+      if (!new RegExp(`^\\d{${MINIMO_DIGITOS},8}$`).test(dni.trim())) {
+        return error(422, { code: 'VALIDACION', message: 'Revisa el DNI.' })
+      }
+      return HttpResponse.json<BusquedaDniRespuesta>({ resultados: buscarInscritos(claseId, dni.trim(), false) })
+    }
+
+    const inscritos = inscripciones[claseId] ?? []
+    const marcas = asistencias[claseId] ?? {}
+    const recientes = [...registrosPuerta.values()]
+      .filter(r => r.claseId === claseId && marcas[r.participante.id] === r.horaRegistro)
+      .reverse().slice(0, 4).map(({ marcaId, participante, horaRegistro, metodo }) => ({ marcaId, participante, horaRegistro, metodo }))
+    return HttpResponse.json<ContextoPuerta>({
+      clase: resumenPuerta(clase), inscritos: inscritos.length,
+      presentes: inscritos.filter(id => marcas[id]).length, recientes,
+      verListaCompleta: usuario.rol === 'ADMIN' || clase.instructor.id === usuario.id,
+    })
+  }),
+
+  http.post(`${API}/clases/:id/asistencia/puerta/buscar-dni`, async ({ request, params }) => {
     const claseId = params.id as string
     const { respuesta } = validarEncargado(request, claseId)
     if (respuesta) return respuesta
-    await delay(250)
-    const dni = new URL(request.url).searchParams.get('dni')?.trim() ?? ''
-    if (!new RegExp(`^\\d{${MINIMO_DIGITOS},8}$`).test(dni)) {
-      return error(422, { code: 'VALIDACION', message: 'Revisa el DNI.', fields: { dni: `Escribe de ${MINIMO_DIGITOS} a 8 números` } })
+    const cuerpo = await request.json() as { dni?: unknown } | null
+    if (typeof cuerpo?.dni !== 'string' || !/^[0-9]{8}$/.test(cuerpo.dni)) {
+      return error(422, { code: 'DNI_INVALIDO', message: 'Ingresa los ocho dígitos del DNI.' })
     }
-    // Solo inscritos de la clase: a los demás no se les puede registrar asistencia
-    const resultados = (inscripciones[claseId] ?? [])
-      .filter((id) => dniPorUsuario[id]?.startsWith(dni))
-      .flatMap((id) => {
-        const participante = agremiado(id)
-        return participante ? [{ participante, horaRegistro: asistencias[claseId]?.[id] ?? null }] : []
-      })
-    return HttpResponse.json<BusquedaDniRespuesta>({ resultados })
+    await delay(250)
+    return HttpResponse.json<BusquedaDniRespuesta>({ resultados: buscarInscritos(claseId, cuerpo.dni, true) })
   }),
 
   http.post(`${API}/clases/:id/asistencia/puerta`, async ({ request, params }) => {
     const claseId = params.id as string
-    const { respuesta } = validarEncargado(request, claseId)
+    const { respuesta, usuario } = validarEncargado(request, claseId)
     if (respuesta) return respuesta
     await delay(400)
     const entrada = (await request.json()) as Partial<RegistroPuertaEntrada>
@@ -195,7 +238,7 @@ export const handlersAsistenciaPuerta = [
       return error(409, {
         code: 'NO_INSCRITO',
         message: 'Indícale que se inscriba en el catálogo o que consulte con coordinación.',
-        details: { participante },
+        details: { participante: { id } },
       })
     }
     const marcas = (asistencias[claseId] ??= {})
@@ -211,20 +254,33 @@ export const handlersAsistenciaPuerta = [
     marcas[id] = ahora
     if (metodo === 'DNI') marcasPorDni.add(`${claseId}:${id}`)
     else marcasPorDni.delete(`${claseId}:${id}`)
-    return HttpResponse.json<RegistroPuertaRespuesta>({ participante, horaRegistro: ahora, metodo }, { status: 201 })
+    const registro = { marcaId: `puerta-${++secuenciaMarca}`, participante, horaRegistro: ahora, metodo }
+    registrosPuerta.set(registro.marcaId, { ...registro, claseId, actorId: usuario.id })
+    return HttpResponse.json<RegistroPuertaRespuesta>(registro, { status: 201 })
   }),
 
-  http.delete(`${API}/clases/:id/asistencia/puerta/:participanteId`, async ({ request, params }) => {
+  http.delete(`${API}/clases/:id/asistencia/puerta/:marcaId`, async ({ request, params }) => {
     const claseId = params.id as string
-    const { respuesta } = validarEncargado(request, claseId)
+    const { respuesta, usuario } = validarEncargado(request, claseId)
     if (respuesta) return respuesta
     await delay(300)
+    const marcaId = params.marcaId as string
     const marcas = asistencias[claseId]
-    const id = params.participanteId as string
-    if (!marcas?.[id]) {
-      return error(404, { code: 'ASISTENCIA_NO_REGISTRADA', message: 'No hay una asistencia registrada que deshacer.' })
+    // Los identificadores p-N solo se conservan para la simulación histórica.
+    const anterior = marcaId.startsWith('p-')
+    const registro = anterior
+      ? [...registrosPuerta.values()].find(r => r.claseId === claseId && r.participante.id === marcaId && marcas?.[marcaId] === r.horaRegistro)
+      : registrosPuerta.get(marcaId)
+    if (!registro || registro.claseId !== claseId ||
+      marcas?.[registro.participante.id] !== registro.horaRegistro ||
+      (usuario.rol !== 'ADMIN' && registro.actorId !== usuario.id)) {
+      return anterior
+        ? error(404, { code: 'ASISTENCIA_NO_REGISTRADA', message: 'No hay una asistencia registrada que deshacer.' })
+        : error(409, { code: 'MARCA_NO_RECTIFICABLE', message: 'Esta marca ya no se puede deshacer desde la puerta.' })
     }
+    const id = registro.participante.id
     delete marcas[id]
+    registrosPuerta.delete(registro.marcaId)
     marcasPorDni.delete(`${claseId}:${id}`)
     return new HttpResponse(null, { status: 204 })
   }),
