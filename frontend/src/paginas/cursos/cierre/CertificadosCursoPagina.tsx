@@ -97,7 +97,7 @@ export function CertificadosCursoPagina() {
                   <Etiqueta tono={ESTADO[f.certificado.estado].tono}>{ESTADO[f.certificado.estado].texto}</Etiqueta>
                 </span>
               ) : (
-                <span className="text-muted">{f.entrega?.estado === 'RETENIDA' ? (f.entrega.estadoPago === 'PAGADO' ? 'Pago confirmado · En preparación' : 'Retenido por pago') : 'No emitido'}</span>
+                <span className="text-muted">{f.entrega?.estado === 'RETENIDA' ? (f.entrega.estadoPago === 'PAGADO' ? 'Pago confirmado · En preparación' : 'Retenida por pago') : 'No emitido'}</span>
               )}
             </Celda>
             <Celda>
