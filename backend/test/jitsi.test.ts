@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { jwtVerify } from "jose";
-import { emitirCredencialJitsi } from "../src/modules/jitsi/jitsi.servicio.js";
-import { datosReunion } from "../src/modules/reuniones/reuniones.validacion.js";
+import { emitirCredencialJitsi } from "../src/providers/jitsi/credencialJitsi.js";
+import { datosReunion } from "../src/dto/reuniones/reunionDto.js";
 
 test('Credencial Jitsi limitada a una sala, identidad, audiencia y cinco minutos', async () => {
   const configuracion = { jitsiDominio: 'meet.prueba.local', jitsiAplicacion: 'gestioncapa', jitsiSecreto: 'secretoExclusivoDeJitsiConMasDe32Caracteres' };

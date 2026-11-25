@@ -2,7 +2,7 @@ import { sembrarDatos } from "../shared/seed.js";
 import { pool } from "../shared/database.js";
 import { MigracionError, verificarMigraciones } from "../shared/migraciones.js";
 import { env } from "../config/env.js";
-import { reunionesPrueba } from "../modules/reuniones/reuniones.semilla.js";
+import { reunionesPrueba } from "../seeds/reunionesSemilla.js";
 
 try {
   await verificarMigraciones(pool);

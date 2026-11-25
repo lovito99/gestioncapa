@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { modalidadDerivada } from "../src/modules/cursos/modalidadCurso.js";
-import { validarClase } from "../src/modules/clases/clases.validacion.js";
+import { modalidadDerivada } from "../src/entities/cursos/modalidad.js";
+import { validarClase } from "../src/dto/clases/claseDto.js";
 
 const base = { nombre: "Sesión", instructorId: "5", fecha: "2033-06-10", horaInicio: "10:00", horaFin: "11:00" };
 

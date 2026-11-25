@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { randomUUID } from 'node:crypto';
-import * as modelo from '../src/modules/pagos/pagos.modelo.js';
+import * as modelo from '../src/dto/pagos/pagoDto.js';
 
 test('T25-I03: declaración normaliza referencia y exige fecha, clave y carga limitada', () => {
   const entrada = { destinoId:randomUUID(),clave:randomUUID(), referencia:'  ab-123  ', fechaOperacion:'2026-11-15' };

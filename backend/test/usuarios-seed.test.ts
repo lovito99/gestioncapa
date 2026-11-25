@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { usuariosSeed } from "../src/modules/auth/usuarios-seed.js";
+import { usuariosSeed } from "../src/seeds/usuariosSemilla.js";
 
 const admin = {
   ADMIN_NAME: "Administrador",

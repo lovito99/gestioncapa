@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { validarClase } from "../src/modules/clases/clases.validacion.js";
+import { validarClase } from "../src/dto/clases/claseDto.js";
 
 const valida = {
   nombre: "  Primeros auxilios  ",

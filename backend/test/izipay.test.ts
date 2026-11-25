@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { test } from 'node:test';
-import { verificarRespuestaIzipay } from '../src/modules/pagos/izipay.js';
+import { verificarRespuestaIzipay } from '../src/providers/pagos/izipay.js';
 const claveHash = 'solo-clave-de-pruebas-sin-comercio-32';
 const esperado = { transaccionId:'c2c03121-d0a7-42bc-8448-f08fd88c3451',orden:'0000000123',comercio:'COMERCIO-PRUEBA',importeCentimos:15050 };
 const firmar = (cambio: object = {}) => {

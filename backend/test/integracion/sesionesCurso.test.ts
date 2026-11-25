@@ -5,7 +5,7 @@ import { buildApp } from '../../src/app.js';
 import { pool } from '../../src/shared/database.js';
 import { redis } from '../../src/shared/redis.js';
 import { migrar } from '../../src/shared/migraciones.js';
-import { reloj } from '../../src/modules/qr/qr.token.js';
+import { reloj } from '../../src/services/qr/qrToken.js';
 
 let app: FastifyInstance;
 const org = String(Date.now());

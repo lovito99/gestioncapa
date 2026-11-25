@@ -5,18 +5,20 @@ import { pool } from '../../src/shared/database.js';
 import { redis } from '../../src/shared/redis.js';
 import { migrar } from '../../src/shared/migraciones.js';
 import type { FastifyInstance } from 'fastify';
-import { crearObligacion,obtenerPago } from '../../src/modules/pagos/pagos.repositorio.js';
+import { crearObligacion, obtenerPago } from '../../src/repositories/pagos/pagosRepository.js';
 import { randomUUID, createHmac } from 'node:crypto';
 import { env } from '../../src/config/env.js';
-import { iniciarOperacion } from '../../src/modules/pagos/pagos.repositorio.js';
-import { estaInscrito } from '../../src/modules/asistencia/asistencia.repositorio.js';
-import { inscribir } from '../../src/modules/clases/clases.repositorio.js';
-import { liberarRetenidas } from '../../src/modules/certificados/certificados.repositorio.js';
-import { recuperarOperaciones } from '../../src/modules/pagos/pagos.procesador.js';
+import { iniciarOperacion } from '../../src/repositories/pagos/pagosRepository.js';
+import { crearAsistenciaRepository } from '../../src/repositories/asistencia/asistenciaRepository.js';
+import { inscribir } from '../../src/repositories/clases/clasesRepository.js';
+import { liberarRetenidas } from '../../src/routes/certificados.routes.js';
+import { recuperarOperaciones } from '../../src/routes/pagos.routes.js';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { iniciarProcesosCobro } from '../../src/cobro.procesos.js';
-import { vencerReservas } from '../../src/modules/cursos/inscripciones.vencimiento.js';
+import { iniciarProcesosCobro } from '../../src/jobs/procesosCobro.js';
+import { vencerReservas } from '../../src/repositories/cursos/inscripcionesRepository.js';
+const estaInscrito = (claseId: number, usuarioId: number) =>
+  crearAsistenciaRepository(pool).enClaseBloqueada(claseId, (tx) => tx.estaInscrito(claseId, usuarioId));
 
 let app: FastifyInstance;
 const usuarios = new Map<string, { id: string; token: string }>();
@@ -529,9 +531,9 @@ test('HU53-07: termina el proceso durante la consulta Culqi y recupera sin crear
   });
   await pool.query('update "operacionesPago" set "referenciaExterna"=$2 where id=$1', [op.id, referencia]);
   const codigo=String.raw`
-    import { env } from './backend/src/config/env.ts';
-    import { buscarOperacion } from './backend/src/modules/pagos/pagos.repositorio.ts';
-    import { conciliarOperacion } from './backend/src/modules/pagos/pagos.pasarelas.ts';
+    import { env } from './backend/src/config/env.js';
+    import { buscarOperacion } from './backend/src/repositories/pagos/pagosRepository.js';
+    import { conciliarOperacion } from './backend/src/routes/pagos.routes.js';
     Object.assign(env,{culqiHabilitado:true,culqiClaveSecreta:'sk_test_soloPruebas'});
     setInterval(()=>{},1000);
     globalThis.fetch=async()=>{

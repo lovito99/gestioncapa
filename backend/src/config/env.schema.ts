@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { origenCorreoValido } from '../modules/notificaciones/correo.contenido.js';
+import { origenCorreoValido } from '../services/notificaciones/correoContenido.js';
 
 const booleanFromEnv = z.preprocess((value) => {
   if (typeof value !== "string") {

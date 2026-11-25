@@ -1,9 +1,15 @@
 import type { FastifyInstance } from "fastify";
 import { ZodError } from "zod";
+import { ErrorAplicacion } from "../shared/errorAplicacion.js";
 import { camposDeError } from "../shared/validacion.js";
 
 export function registrarErrores(app: FastifyInstance) {
   app.setErrorHandler((error, request, reply) => {
+    if (error instanceof ErrorAplicacion) {
+      request.log.info({ tipo: "negocio", statusCode: error.status, codigo: error.code }, "Solicitud rechazada por una regla");
+      return reply.code(error.status).send({ code: error.code, message: error.message, ...error.extra });
+    }
+
     if (error instanceof ZodError) {
       request.log.warn({ err: error, tipo: "validacion" }, "Solicitud rechazada por datos inválidos");
       return reply.code(422).send({

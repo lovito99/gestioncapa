@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { esquemaPoliticaCobro, aCentimos } from '../src/modules/cursos/cursos.cobro.js';
+import { esquemaPoliticaCobro, aCentimos } from '../src/dto/cursos/cobroDto.js';
 
 test('HU53-01: distingue cobro previo, por certificado y gratuidad', () => {
   for (const modalidadCobro of ['PREVIO', 'CERTIFICADO', 'GRATUITO']) {

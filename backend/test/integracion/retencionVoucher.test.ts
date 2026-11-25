@@ -5,12 +5,12 @@ import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
 import { pool } from '../../src/shared/database.js';
 import { migrar } from '../../src/shared/migraciones.js';
-import { crearObligacion,obtenerPago } from '../../src/modules/pagos/pagos.repositorio.js';
-import * as transferencias from '../../src/modules/pagos/pagos.transferencias.js';
-import { obtenerVoucher,eliminarVouchersVencidos } from '../../src/modules/pagos/pagos.archivos.js';
-import { validarArchivoVoucher } from '../../src/modules/pagos/pagos.voucher.js';
+import { crearObligacion, obtenerPago } from '../../src/repositories/pagos/pagosRepository.js';
+import * as transferencias from '../../src/routes/pagos.routes.js';
+import { obtenerVoucher, eliminarVouchersVencidos } from '../../src/repositories/pagos/vouchersRepository.js';
+import { validarArchivoVoucher } from '../../src/services/pagos/voucherArchivo.js';
 import { crearPdfTexto } from '../../src/shared/pdf.js';
-import { iniciarProcesosCobro } from '../../src/cobro.procesos.js';
+import { iniciarProcesosCobro } from '../../src/jobs/procesosCobro.js';
 
 let cursoId:string;let admin:number;let alumno:number;
 const app=Fastify({logger:false});

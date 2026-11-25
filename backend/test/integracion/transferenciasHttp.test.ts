@@ -7,7 +7,7 @@ import { env } from '../../src/config/env.js';
 import { pool } from '../../src/shared/database.js';
 import { redis } from '../../src/shared/redis.js';
 import { migrar } from '../../src/shared/migraciones.js';
-import { vencerReservas } from '../../src/modules/cursos/inscripciones.vencimiento.js';
+import { vencerReservas } from '../../src/repositories/cursos/inscripcionesRepository.js';
 import { crearPdfTexto } from '../../src/shared/pdf.js';
 
 const voucher={tipo:'application/pdf',contenidoBase64:crearPdfTexto('Voucher ficticio',['Solo pruebas locales.']).toString('base64')};

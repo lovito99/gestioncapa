@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { contenidoCorreo, origenCorreoValido, tiposCorreo } from '../src/modules/notificaciones/correo.contenido.js';
+import { tiposCorreo } from '../src/entities/notificaciones/correo.js';
+import { contenidoCorreo, origenCorreoValido } from '../src/services/notificaciones/correoContenido.js';
 
 test('HU29: las cinco plantillas escapan el contenido y enlazan al recurso protegido', () => {
   for (const tipo of tiposCorreo) {

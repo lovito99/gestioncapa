@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { crearRegistroPasarelas } from '../src/modules/pagos/pasarelas.registro.js';
-import { cotizarImporte } from '../src/modules/pagos/pagos.modelo.js';
+import { crearRegistroPasarelas } from '../src/services/pagos/pasarelasRegistro.js';
+import { cotizarImporte } from '../src/entities/pagos/pago.js';
 
 test('HU54-05: desactivar altas o retirar un adaptador deja disponibles los demás', () => {
   const primero = { medio: 'PRIMERA', ruta: 'primera', altas: () => false, conciliacion: () => true };

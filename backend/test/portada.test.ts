@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { crc32 } from 'node:zlib';
 import sharp from 'sharp';
-import * as portadas from '../src/modules/cursos/portada.js';
+import * as portadas from '../src/providers/cursos/portadaImagen.js';
 
 test('recodifica JPG, PNG y WebP en tres variantes y retira metadatos', async () => {
   for (const formato of ['jpeg', 'png', 'webp'] as const) {

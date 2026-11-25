@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { calcularAsistenciaVirtual } from "../src/modules/reuniones/asistenciaVirtual.js";
+import { calcularAsistenciaVirtual } from "../src/services/reuniones/asistenciaVirtual.js";
 
 const referencia = { inicio: 0, fin: 1000 };
 

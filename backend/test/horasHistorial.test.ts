@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { resumirHoras } from '../src/modules/historial/historial.modelo.js';
+import { resumirHoras } from '../src/services/historial/historialCalculos.js';
 
 test('HU-34: suma cada certificado válido y agrupa por año de emisión en Lima', () => {
   assert.deepEqual(resumirHoras([

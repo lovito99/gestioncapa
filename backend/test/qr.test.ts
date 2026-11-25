@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { DURACION_QR_SEGUNDOS, emitirTokenQr, verificarTokenQr } from "../src/modules/qr/qr.token.js";
+import { DURACION_QR_SEGUNDOS, emitirTokenQr, verificarTokenQr } from "../src/services/qr/qrToken.js";
 
 const SECRETO = "secreto-de-prueba-del-qr-con-32-caracteres";
 // 2026-10-12 10:00:05 en Lima (15:00:05 UTC): 5 s dentro de una ventana.

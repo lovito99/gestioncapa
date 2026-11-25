@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { crearPdfTexto } from '../src/shared/pdf.js';
-import { ocultarDni, resumirAsistencia, type SesionHistorial } from '../src/modules/historial/historial.modelo.js';
+import type { SesionHistorial } from '../src/entities/historial/historial.js';
+import { ocultarDni, resumirAsistencia } from '../src/services/historial/historialCalculos.js';
 
 test('HU-18: DNI expone solo los últimos cuatro dígitos; datos ausentes no se inventan', () => {
   assert.equal(ocultarDni('12345678'), '****5678'); assert.equal(ocultarDni('00001234'), '****1234');

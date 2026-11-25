@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { env } from '../config/env.js';
 import { pool } from '../shared/database.js';
-import { inscribirseEnCurso } from '../modules/cursos/cursos.repositorio.js';
+import { inscribirseEnCurso } from '../routes/cursos.routes.js';
 
 if (env.NODE_ENV !== 'test' || env.DB_NAME !== 'gestioncapa_e2e') throw new Error('La fixture HU53 requiere la base exclusiva de E2E.');
 try {

@@ -1,7 +1,7 @@
 import { buildApp } from "./app.js";
 import { env } from "./config/env.js";
 import { MigracionError } from "./shared/migraciones.js";
-import { iniciarProcesosCobro } from './cobro.procesos.js';
+import { iniciarProcesosCobro } from './jobs/procesosCobro.js';
 
 let app: Awaited<ReturnType<typeof buildApp>>;
 

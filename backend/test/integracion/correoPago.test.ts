@@ -5,12 +5,12 @@ import { randomUUID } from 'node:crypto';
 import { env } from '../../src/config/env.js';
 import { pool } from '../../src/shared/database.js';
 import { migrar } from '../../src/shared/migraciones.js';
-import { confirmarOperacion, crearObligacion, iniciarOperacion, registrarEfectivo, obtenerPago } from '../../src/modules/pagos/pagos.repositorio.js';
-import { enviarNotificacionesPago } from '../../src/modules/pagos/pagos.correo.js';
-import { inscribirseEnCurso } from '../../src/modules/cursos/cursos.repositorio.js';
+import { confirmarOperacion, crearObligacion, iniciarOperacion, registrarEfectivo, obtenerPago } from '../../src/repositories/pagos/pagosRepository.js';
+import { enviarNotificacionesPago } from '../../src/routes/pagos.routes.js';
+import { inscribirseEnCurso } from '../../src/routes/cursos.routes.js';
 import { buildApp } from '../../src/app.js';
 import { redis } from '../../src/shared/redis.js';
-import { procesarColaCorreo } from '../../src/modules/notificaciones/correo.envio.js';
+import { procesarColaCorreo } from '../../src/routes/notificaciones.routes.js';
 
 const mensajes:string[]=[];
 const conexiones=new Set<Socket>();

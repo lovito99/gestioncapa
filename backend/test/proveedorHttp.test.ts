@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { solicitarProveedor } from '../src/modules/pagos/proveedorHttp.js';
+import { solicitarProveedor } from '../src/providers/pagos/proveedorHttp.js';
 
 test('HU53-07: distingue rechazo definitivo de tarjeta y resultado de red incierto', async () => {
   const rechazo=(async()=>new Response(JSON.stringify({object:'error',type:'card_error',code:'card_declined'}),{status:402})) as typeof fetch;

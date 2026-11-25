@@ -1752,3 +1752,211 @@ Playwright con el SDK y la petición de sesión sustituidos. El ensayo contra
 el sandbox oficial de Izipay queda pendiente de un comercio de prueba.
 [Plan](tasks/plan.md#hu-54--plan-de-implementación) ·
 [Seguimiento](tasks/todo.md#hu-54--tareas-de-implementación)
+
+# T-26 · Backend en capas por módulo (MVC + SOLID)
+
+Estado: **implementada en los 15 componentes** con capas globales; build y commits manuales pendientes.
+
+> **Cambio de decisión (24/11/2026).** Tras los pilotos, el usuario pidió carpetas
+> **globales por capa** (`src/controllers/<componente>/`, `src/dto/<componente>/`…)
+> en lugar de capas dentro de cada módulo, y migrar todos los módulos. Se añadieron
+> `providers/` (integraciones externas), `routes/` (composición), `seeds/` y `jobs/`.
+> La estructura y las reglas vigentes están en [docs/arquitecturaBackend.md](docs/arquitecturaBackend.md);
+> las secciones siguientes conservan la propuesta original como registro.
+Fecha: 24/11/2026, America/Lima. Base local: `cf21d8e`, etiqueta `v3.1.0.0.0`.
+Plan: [tasks/plan.md](tasks/plan.md#t-26--plan-backend-en-capas) ·
+Seguimiento: [tasks/todo.md](tasks/todo.md#t-26--tareas-backend-en-capas).
+`T-26` es un identificador de trabajo provisional (T-25 ya existe); falta la clave de Jira.
+
+## Objetivo y caso de uso
+
+Como equipo de desarrollo, queremos que cada módulo del backend separe sus
+responsabilidades en capas fijas (controlador, DTO, servicio, repositorio y
+entidad), para poder probar las reglas de negocio sin base de datos, añadir
+módulos nuevos con una plantilla conocida y cambiar SQL o HTTP sin tocar la
+lógica. El usuario final no percibe cambios: el contrato HTTP se mantiene.
+
+MVC en una API JSON: **Modelo** = entidades + servicios + repositorios;
+**Vista** = forma de la respuesta JSON (DTO de salida); **Controlador** =
+manejadores Fastify. No se introducen plantillas HTML.
+
+Decisiones confirmadas por el usuario (24/11/2026):
+
+1. Capas **por módulo**: `src/modules/<modulo>/{controllers,dto,services,repositories,entities}`.
+2. Carpetas **en inglés**; funciones, variables y mensajes siguen en español.
+3. Alcance de esta entrega: **base común + dos pilotos (`usuarios`, `asistencia`)
+   + plan de migración y crecimiento** para los otros 13 módulos.
+
+## Estado comprobado e inconsistencias
+
+| # | Hallazgo | Evidencia |
+|---|---|---|
+| I-1 | Nombres de capa mezclados: `*.rutas.ts`/`*.routes.ts`, `*.servicio.ts`/`*.service.ts` | `asistencia.routes.ts`, `cursos.rutas.ts`, `auth.service.ts`, `registro.servicio.ts` |
+| I-2 | SQL dentro de rutas (controladores) | `usuarios.rutas.ts` 20 consultas y transacciones; `reuniones.rutas.ts` 9; `pagos.rutas.ts` 4; `cursos.rutas.ts` 2; `correo.rutas.ts` 2; `certificados.rutas.ts` 1 |
+| I-3 | SQL en servicios y reglas en repositorios | `asistencia.service.ts` consulta curso cerrado; `asistencia.repositorio.ts` calcula PRESENTE/AUSENTE |
+| I-4 | Cinco ayudantes de transacción duplicados y `Consultor` definido en `clases` | `transaccion` (cursos), `conTransaccion` (reuniones), `conClaseBloqueada`, `conInstructorBloqueado`, `conPago` |
+| I-5 | Errores de dominio duplicados y ayudantes de respuesta locales | `ErrorPago`, `ErrorCertificado`, `ErrorHistorial`; `error`/`enviarError` en 3 rutas |
+| I-6 | Ciclos entre módulos | `cursos ↔ clases`, `cursos ↔ pagos` |
+| I-7 | `pool` global importado directamente: la lógica no se prueba sin PostgreSQL (incumple DIP) | 40 archivos con consultas |
+| I-8 | Semillas y procesos mezclados con código de ejecución | `*.semilla.ts` en módulos; `src/cobro.procesos.ts` en la raíz |
+| I-9 | El script de cobertura depende de la estructura plana | `test:cobertura` usa `src/modules/asistencia/*.ts` |
+| I-10 | Integración local no ejecutable hoy: 5432/6379 ocupados por contenedores de otro proyecto (`28P01`) | 0/189 pruebas de integración; 383/383 unitarias y tipos OK |
+| I-11 | Petición de «hacer commit» frente a AGENTS.md | Se respeta AGENTS.md: el agente prepara Summary/Description y el usuario hace commit |
+
+## Arquitectura objetivo
+
+```
+backend/src/
+  app.ts                      registra <modulo>.module.ts en el orden actual
+  shared/                     database, transaccion, errorAplicacion, validacion, redis…
+  plugins/                    autorización, permisos, errores, http (sin cambios de contrato)
+  modules/<modulo>/
+    <modulo>.module.ts        raíz de composición: repositorio(pool) → servicio → controlador
+    controllers/              HTTP: lee la solicitud, valida con DTO, llama al servicio, responde
+    dto/                      esquemas Zod de entrada, tipos inferidos y forma de salida
+    services/                 reglas y casos de uso; dependencias recibidas por parámetro
+    repositories/             SQL con pg; sin reglas de negocio ni Fastify
+    entities/                 tipos de dominio (sin dependencias)
+```
+
+Reglas de dependencia (se verifican con una prueba de arquitectura):
+
+| Capa | Puede importar | No puede importar |
+|---|---|---|
+| controllers | dto, services (tipos y fábrica), shared, plugins (tipos) | repositories, `pg`, `shared/database` |
+| services | entities, dto (tipos), `import type` de repositories, shared (errores) | `fastify`, `pg`, `shared/database`, controllers |
+| repositories | entities, shared (database, transaccion) | `fastify`, services, controllers, dto |
+| dto | `zod`, entities | todo lo demás |
+| entities | nada (solo tipos) | todo |
+
+Aplicación de SOLID:
+
+- **S**: cada capa tiene un solo motivo de cambio (HTTP, regla, SQL, forma de datos).
+- **O**: un módulo nuevo se añade con un archivo `*.module.ts` y una línea en `app.ts`.
+- **L**: los repositorios falsos de las pruebas cumplen el mismo tipo que los reales.
+- **I**: cada servicio declara solo los métodos de repositorio que usa.
+- **D**: los servicios reciben repositorios, reloj, verificador de QR y secretos
+  por parámetro (`crearXService(deps)`); solo `*.module.ts` conoce `pool` y `env`.
+
+Estilo: funciones fábrica en lugar de clases ni contenedor de inyección, siguiendo
+el estilo funcional del repositorio:
+
+```ts
+// services/usuariosService.ts
+export function crearUsuariosService(deps: { repositorio: UsuariosRepository; cifrar: (clave: string) => Promise<string> }) {
+  return {
+    async crear(datos: AltaUsuarioDto, actorId: number) {
+      return deps.repositorio.enTransaccion(async (tx) => {
+        await tx.bloquearGestion();
+        if (!(await tx.esAdminActivo(actorId))) throw new ErrorAplicacion(403, 'SIN_PERMISO', 'No tienes permiso para gestionar usuarios.');
+        // …
+      });
+    }
+  };
+}
+```
+
+Nombres: archivos `camelCase` sin guiones bajos (`usuariosController.ts`,
+`usuarioDto.ts`, `usuariosService.ts`, `usuariosRepository.ts`, `usuario.ts`);
+raíz del módulo con el estilo de punto ya usado (`usuarios.module.ts`).
+Columnas SQL (`password_hash`, `class_id`) se conservan y se convierten a alias.
+
+## Criterios de aceptación
+
+- **CA-1 Estructura.** `usuarios` y `asistencia` contienen solo `controllers/`,
+  `dto/`, `services/`, `repositories/`, `entities/` y `<modulo>.module.ts`; los
+  archivos planos anteriores desaparecen y nada los importa.
+- **CA-2 Dependencias.** `test/arquitectura.test.ts` falla si un módulo migrado
+  rompe la tabla de reglas, y pasa con ambos pilotos.
+- **CA-3 Contrato HTTP intacto.** Mismas rutas, métodos, códigos de estado,
+  `code`, `message`, `fields` y cabeceras (`Cache-Control` de usuarios).
+  `usuariosCppp`, `asistencia`, `permisos`, `roles`, `rolesCppp`,
+  `sesionesCurso`, `modalidadSesion`, `sesionesVirtuales`, `certificados` y
+  `cobroCurso` pasan sin modificar sus aserciones (solo se ajusta un import).
+- **CA-4 Reglas probadas sin BD.** Pruebas unitarias con repositorios falsos cubren:
+  *usuarios*: actor no admin → 403, cuenta propia → 409 `CUENTA_PROPIA`,
+  correo duplicado → 409 `CORREO_REGISTRADO`, usuario inexistente → 404,
+  la respuesta no incluye la clave, la auditoría registra anterior/nuevo y motivo;
+  *asistencia*: QR inválido 422, expirado 410, de otra clase 409, clase inexistente
+  404, cancelada 409, virtual 409, curso cerrado 409, no inscrito 403,
+  repetida 409 con hora, QR que vence al bloquear 410, instructor ajeno 403,
+  resumen presentes/ausentes.
+- **CA-5 Base común.** `ErrorAplicacion` responde `{code,message}` con su estado
+  mediante el manejador de errores existente; `conTransaccion` hace commit,
+  rollback y libera el cliente; `Consultor` vive en `shared/database.ts`.
+- **CA-6 Sin regresiones ni dependencias nuevas.** `npm run typecheck -w backend`
+  y `npm test -w backend` en verde; `package.json` sin paquetes nuevos;
+  `test:cobertura` sigue midiendo asistencia con umbral 60 %.
+- **CA-7 Crecimiento documentado.** Guía `docs/arquitecturaBackend.md`
+  (estructura, reglas, plantilla de módulo nuevo, plan por fases) y
+  ADR-002; README actualizado.
+- **CA-8 Convenciones.** Ningún nombre nuevo con guion bajo; sin cambios en
+  migraciones ni en variables de entorno.
+
+## Comandos
+
+```bash
+npm run typecheck -w backend                 # tipos (permitido)
+npm test -w backend                          # unitarias, incluye arquitectura
+node --import tsx --test --test-concurrency=1 backend/test/integracion/<x>.test.ts  # integración (requiere T0)
+npm run test:cobertura -w backend            # cobertura de asistencia
+npm run build                                # SOLO el usuario, manual
+```
+
+## Estrategia de pruebas
+
+- Prueba de arquitectura (unitaria, sin BD) como función de aptitud.
+- Pruebas unitarias nuevas por servicio con repositorios falsos (`node:test`).
+- Las pruebas de integración existentes actúan como red de caracterización:
+  se ejecutan antes y después de cada migración y no cambian sus aserciones.
+- Ciclo por tarea: prueba nueva en rojo → implementación → verde → integración.
+
+## Límites
+
+- **Siempre:** conservar el contrato HTTP y la matriz de permisos; mover sin
+  reescribir el SQL; una tarea a la vez con pruebas verdes; nombres sin `_`.
+- **Preguntar antes:** instalar paquetes (p. ej. `dependency-cruiser`), cambiar
+  contenedores o puertos de Docker, cambiar SQL o migraciones, migrar módulos
+  fuera de los pilotos.
+- **Nunca:** commit, push, tag, PR ni build por el agente; borrar o debilitar
+  pruebas; cambiar respuestas de la API como efecto lateral.
+
+## Fuera de alcance
+
+Migración de los 13 módulos restantes (queda planificada), romper los ciclos
+`cursos ↔ clases/pagos`, unificar `ErrorPago`/`ErrorCertificado`/`ErrorHistorial`,
+ORM o query builder, contenedor de inyección, cambios en el frontend.
+
+## Preguntas abiertas
+
+1. **Entorno de integración (bloquea la verificación CA-3).** ¿Autorizas
+   levantar `gestioncapa-postgres` y `gestioncapa-redis` en puertos alternos
+   (`POSTGRES_PORT=55432 REDIS_PORT=56379 docker compose up -d --wait`) y
+   ejecutar la integración con `DB_PORT=55432` y `REDIS_URL` en esos puertos,
+   sin tocar los contenedores del otro proyecto? Alternativa: los detienes tú.
+2. Clave de Jira para sustituir `T-26`.
+3. ¿Aceptas `providers/` como sexta carpeta opcional para integraciones externas
+   (pasarelas, SMTP, Jitsi) cuando se migren `pagos`, `notificaciones` y `jitsi`?
+
+## Soluciones existentes
+
+Canales consultados el 24/11/2026: repositorio (`rg`), registro npm
+(`npm view`, solo lectura), búsqueda web de GitHub y documentación de Fastify,
+Astryx CLI 0.7.16, skills instaladas (`~/.agents/agent-skills`, `~/.claude/skills`).
+**No consultados:** GitHub CLI (`gh` no instalado; los repositorios hallados por
+búsqueda web no se inspeccionaron a fondo) y servidores MCP del proyecto (no hay
+`.mcp.json`; ningún MCP disponible cubre arquitectura de backend).
+Astryx no aplica: es de interfaz y `astryx search "backend architecture"` no
+devuelve resultados. No se instala nada.
+
+| Capacidad | Candidatos evaluados | Decisión | Justificación |
+|---|---|---|---|
+| Transacción común | `conTransaccion` de `reuniones.repositorio.ts`; `transaccion` de cursos | **Extender** | Ya probado en producción; se mueve a `shared/transaccion.ts` aceptando el pool por parámetro. Sin dependencias. Los demás ayudantes se reemplazan en sus fases. |
+| Tipo `Consultor` | `clases.repositorio.ts` | **Adoptar** (mover) | Se traslada a `shared/database.ts`; `clases` lo reexporta hasta su fase. |
+| Errores de dominio → HTTP | `plugins/errores.ts`; `@fastify/sensible` `httpErrors` (ya instalado, MIT); `ErrorPago`/`ErrorCertificado` | **Extender** | `httpErrors` usa mensajes genéricos que no coinciden con los mensajes en español del contrato; se añade `ErrorAplicacion(status, code, message)` y se trata en el manejador existente. |
+| Validación DTO | `zod` 4 (ya instalado, MIT); `fastify-type-provider-zod` 7.0.0 (MIT, 06/2026, peer `@fastify/swagger`) | **Adoptar `zod`**; descartar el type provider | El type provider cambia el formato de los errores 400/422 y rompería CA-3. `shared/validacion.ts` ya da los mensajes por campo. |
+| Inyección de dependencias | `awilix` 14.0.0 y `@fastify/awilix` 8.3.2 (MIT, activos); `inversify` 8.3.0 (MIT); `tsyringe` 4.10.0 (MIT, sin publicar desde 04/2025) | **Construir** (fábricas + `*.module.ts`) | Con 15 módulos funcionales, la composición manual es explícita y no añade dependencias. `inversify`/`tsyringe` exigen decoradores y `reflect-metadata`. Revisar `@fastify/awilix` si el grafo crece. |
+| Registro de módulos | `@fastify/autoload` 6.6.0 (MIT, 0 deps) | **No adoptar** | `app.ts` depende del orden (`reuniones` y `pendientes` al final); la carga por carpetas lo volvería implícito. |
+| Verificar reglas de capas | `dependency-cruiser` 18.9.0 (MIT, 18 deps); `eslint-plugin-boundaries` 7.4.4 (MIT, requiere ESLint, que el backend no usa); `madge` 8.0.0 (MIT, sin publicar desde 08/2024) | **Construir ahora**; proponer `dependency-cruiser` en la fase de cierre | Una prueba `node:test` que lee los `import` basta para dos pilotos y no añade dependencias. Para los ciclos de todo el backend, `dependency-cruiser` es la mejor opción (pide autorización). |
+| Plantilla de estructura | Plantillas Fastify+TS en GitHub (NeaDigitra/Fastify-TS-API, gubiar/real-world-fastify, AndresH11/Node-TypeScript-Fastify) | **Componer** solo el patrón | Imponen ORM (Prisma) o clases; se toma la separación controller/service/repository y se adapta a `pg` y al estilo funcional. |
+| Skills | `api-and-interface-design`, `deprecation-and-migration`, `documentation-and-adrs` | **Adoptar** | Guían los contratos entre capas, la migración por fases y el ADR-002. |

@@ -29,20 +29,20 @@ brecha, incluso cuando ya existe una parte de una etapa posterior.
 
 | ID | Estado | Evidencia y brecha | Etapa |
 |---|---|---|---|
-| RF-01 | Implementado | `backend/src/modules/auth`: bcrypt, login JWT y logout con revocación en Redis | 1 |
+| RF-01 | Implementado | `backend/src/*/auth`: bcrypt, login JWT y logout con revocación en Redis | 1 |
 | RF-02 | Pendiente | Faltan recuperación por correo, token de un uso y actualización real del perfil | 2 |
 | RF-03 | Implementado | `backend/src/plugins/permisos.ts`, guard y rutas protegidas; Agremiado visible, códigos heredados conservados | 1 |
 | RF-04 | Pendiente | No hay CRUD persistente completo de usuarios, desactivación y cambios de rol auditados | 2 |
 | RF-05 | Parcial | HU-43 verifica elegibilidad y tarifa con padrón vigente cuando se habilita la política. Falta aprobación del CPPP y conexión operativa con el padrón autorizado. | 2 |
 | RF-06 | Pendiente | Falta gestión real de sedes y provincias | 2 |
 | RF-07 | Implementado | `/` y `/capacitaciones`; `GET /api/publico/cursos` sin token, paginado, solo publicados vigentes | 1 |
-| RF-08 | Parcial | `backend/src/modules/cursos`: creación, publicación, módulos, materiales, horas, cupos y certificados; edición de la UI aún necesita persistencia completa | 3 |
+| RF-08 | Parcial | `backend/src/*/cursos`: creación, publicación, módulos, materiales, horas, cupos y certificados; edición de la UI aún necesita persistencia completa | 3 |
 | RF-09 | Parcial | Categorías fijas de Sprint 2 en `cursos.categorias.ts`; falta gestión HU-15 y etiquetas | 3 |
 | RF-10 | Implementado | Catálogo paginado, búsqueda sin tildes, modalidad y categoría; pruebas `catalogo.test.ts` | 1/3 |
 | RF-11 | Parcial | Transacción y bloqueo de última plaza; HU-16 añade reserva pendiente para cursos con costo y HU-43 guarda la tarifa confirmada. Faltan habilitación del padrón y validación operativa del pago. | 2/5 |
 | RF-12 | Implementado | Sesiones por curso, horarios y rechazo de solapamientos; pruebas `sesionesCurso` y `solapamiento` | 3 |
 | RF-13 | Parcial | Programación de clases existente; faltan avisos persistentes y correo al cancelar/reprogramar | 3 |
-| RF-14 | Implementado | `backend/src/modules/qr`, QR firmado rotatorio de 30 segundos | 3 |
+| RF-14 | Implementado | `backend/src/*/qr`, QR firmado rotatorio de 30 segundos | 3 |
 | RF-15 | Implementado | Registro móvil y persistencia por colegiado/sesión; pruebas de asistencia | 3 |
 | RF-16 | Parcial | Consulta de administración/coordinador; instructor todavía necesita autorización por sesión propia | 3 |
 | RF-17 | Parcial | HU-26: sala de espera, políticas guardadas, expulsión sin reingreso y vigilancia de pantalla verificadas en Jitsi local ([evidencia](esp/sesionesVirtuales.md)); falta despliegue en el servidor del CPPP con HTTPS | 7 |
@@ -59,7 +59,7 @@ brecha, incluso cuando ya existe una parte de una etapa posterior.
 | RF-28 | Parcial | Historial descarga archivos almacenados con permisos; falta emisor oficial PDF/QR y firma autorizada del Decano | 6 |
 | RF-29 | Implementado | HU-20: verificación pública persistente de válido, anulado o reemplazado, sin DNI ni nota | 6 |
 | RF-30 | Implementado | HU-20: anulación persistente con motivo y auditoría | 6 |
-| RF-31 | Parcial | Historial real de cursos, sesiones y archivos en `backend/src/modules/historial`; HU-53 separa deuda/inscripción/entrega con módulo real local; sandboxes pendientes | 8 |
+| RF-31 | Parcial | Historial real de cursos, sesiones y archivos en `backend/src/*/historial`; HU-53 separa deuda/inscripción/entrega con módulo real local; sandboxes pendientes | 8 |
 | RF-32 | Pendiente | Falta definir y persistir cómputo de horas acumuladas válidas HU-34 | 8 |
 | RF-33 | Parcial | Listado restringido de colegiados en historial; faltan búsqueda por nombre/DNI y paginación en servidor | 8 |
 | RF-34 | Pendiente | PDF individual no sustituye reportes agregados de inscritos, asistencia, pagos y certificados en PDF/Excel | 8 |

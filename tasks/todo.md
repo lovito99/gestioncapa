@@ -1626,3 +1626,74 @@ pendiente para las tareas que se prueban con un proveedor sustituido.
 | T54-08 | `improve: reutilizar el pago en línea desde el historial` | Reusa desglose y recuperación junto a la consulta de pagos pasados y constancias. Regresiones en Vitest e integración. |
 | T54-09 | `test: verificar pagos en línea y medios manuales en navegador` | Prueba pago en línea, transferencia con voucher y continuidad de efectivo. Checkout simulado con API y PostgreSQL reales. |
 | T54-10 | `docs: documentar activación y reversión del pago en línea` | Actualiza el contrato API, variables, verificación y procedimiento de operación. Se revisó el diff documental. |
+
+# T-26 · Tareas backend en capas
+
+Plan: [plan.md](plan.md#t-26--plan-backend-en-capas). Estado: aprobado el 24/11/2026; T0–T8 implementadas. Build y commits: manuales del usuario.
+
+## Preparación documental
+- [x] Especificación, inconsistencias y criterios de aceptación en `SPEC.md`.
+- [x] Soluciones existentes evaluadas (repositorio, npm, web/GitHub, Astryx, skills).
+- [x] Plan y desglose de tareas.
+- [x] Aprobación del usuario y respuesta a las preguntas abiertas.
+
+## Base
+- [x] T0: integración local en puertos alternos (requiere autorización) y línea base.
+  - Acepta: 189 pruebas de integración ejecutadas; los fallos previos, si los hay, quedan registrados.
+- [x] T1: `test/arquitectura.test.ts` con el verificador de capas.
+  - Acepta: rechaza `pg` en controladores, `fastify` en servicios, imports de servicios en repositorios y cualquier import en entidades; acepta `import type` de repositorios en servicios.
+  - Verifica: `npm test -w backend` (rojo y luego verde).
+- [x] T2: `ErrorAplicacion`, `conTransaccion`, `Consultor` y `esViolacionUnica` en `shared`.
+  - Acepta: el manejador devuelve el estado, `code` y `message` del error; la transacción hace commit/rollback y siempre libera el cliente.
+  - Verifica: unitarias, `npm run typecheck -w backend`.
+
+### Punto de control: base común
+- [x] Unitarias y tipos en verde; ningún comportamiento cambiado.
+
+## Piloto 1: usuarios
+- [x] T3: entidad, DTO, repositorio y servicio con pruebas unitarias (actor no admin, cuenta propia, correo duplicado, inexistente, auditoría, sin clave en la respuesta).
+- [x] T4: controlador, `usuarios.module.ts`, `app.ts`; eliminar `usuarios.rutas.ts`; módulo en la prueba de arquitectura.
+  - Verifica: integración `usuariosCppp`, `roles`, `rolesCppp`, `permisos` sin cambiar aserciones.
+
+### Punto de control: primer piloto
+- [x] Patrón aplicado en asistencia con la aprobación general del plan («implementa»); queda a revisión del usuario.
+
+## Piloto 2: asistencia
+- [x] T5: entidad, DTO, repositorio y servicio con dependencias inyectadas y pruebas de todos los rechazos.
+- [x] T6: controlador, `asistencia.module.ts`, `app.ts`; eliminar archivos planos; ajustar `cobroCurso.test.ts` y `test:cobertura`.
+  - Verifica: integración `asistencia`, `cobroCurso`, `sesionesCurso`, `modalidadSesion`, `sesionesVirtuales`, `certificados`; cobertura ≥ 60 %.
+
+### Punto de control: suite completa
+- [x] Unitarias, tipos e integración completas en verde.
+
+## Cierre
+- [x] T7: `docs/arquitecturaBackend.md`, `docs/decisions/002-capasBackend.md` y README.
+- [x] T8: simplificación, revisión de calidad y seguridad, DoD, versión `v3.1.0.0.1` y mensajes de commit.
+- [ ] Build: ejecución manual por el usuario.
+
+## Evidencia T-26 (24/11/2026)
+
+- Entorno: Postgres y Redis de gestioncapa en 55432/56379 (5432/6379 ocupados por otro proyecto);
+  integración con `DB_PORT=55432 REDIS_URL=redis://:…@localhost:56379`.
+- Línea base: tipos OK; 383/383 unitarias; integración 369/376 + 7/7 de HU43 con `NODE_ENV=test`.
+- Final: tipos OK; 418/418 unitarias (35 nuevas: arquitectura 12, usuarios 9, asistencia 11, transacción 2, VAL-05 1);
+  integración 370/377 + 7/7 de HU43 con `NODE_ENV=test`; cobertura de asistencia 98,7 % líneas, 90,7 % ramas.
+- Mutaciones (5) detectadas por las pruebas unitarias.
+- Revisión: se detectó y corrigió que el id del actor llega como texto (bigint de pg) y anulaba CUENTA_PROPIA;
+  prueba de regresión en `usuariosCppp.test.ts`.
+- Hallazgos previos ajenos: HU43 exige `NODE_ENV=test`; HU29 `correoPago` intermitente (la cola no filtra por curso);
+  `roles.test.ts` deja un bloqueo de 15 min en Redis al repetirse; `findUserById` devuelve `id` texto con tipo number.
+- Build: pendiente de ejecución manual por el usuario.
+
+## Ampliación: capas globales y migración completa (24/11/2026)
+- [x] Reestructurar a carpetas globales por capa (`src/<capa>/<componente>/`) con `routes/` como composición.
+- [x] F2 `qr`, `health`, `pendientes`, `jitsi`, `historial`, `notificaciones`.
+- [x] F3 `auth`.
+- [x] F4 `reuniones`, `clases` (modalidad compartida con cursos en `entities/cursos`).
+- [x] F5 `cursos` (servicio de inscripción separado del SQL).
+- [x] F6 `pagos`, `certificados` (`ErrorPago` hereda de `ErrorAplicacion`; `ErrorCertificado` eliminado).
+- [x] F7 parcial: semillas en `src/seeds/`, procesos en `src/jobs/`, `src/modules` eliminado.
+- [ ] F7 pendiente: `dependency-cruiser` (requiere autorización) y `.archify` desactualizado.
+- Evidencia final: tipos OK; 497/497 unitarias; integración 376/377 con `NODE_ENV=test`
+  (fallo previo de HU29 por avisos pendientes que dejan otras pruebas); cobertura de asistencia 100 % líneas, 91,7 % ramas.
+- [ ] Build: ejecución manual por el usuario.

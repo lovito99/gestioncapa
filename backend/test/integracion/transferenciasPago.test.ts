@@ -3,8 +3,8 @@ import { before,after,test } from 'node:test';
 import { randomUUID } from 'node:crypto';
 import { pool } from '../../src/shared/database.js';
 import { migrar } from '../../src/shared/migraciones.js';
-import { crearObligacion,obtenerPago,registrarEfectivo,confirmarOperacion,iniciarOperacion } from '../../src/modules/pagos/pagos.repositorio.js';
-import { ofrecerTransferencia,declararTransferencia,revisarTransferencia,listarTransferencias } from '../../src/modules/pagos/pagos.transferencias.js';
+import { crearObligacion, obtenerPago, registrarEfectivo, confirmarOperacion, iniciarOperacion } from '../../src/repositories/pagos/pagosRepository.js';
+import { ofrecerTransferencia, declararTransferencia, revisarTransferencia, listarTransferencias } from '../../src/routes/pagos.routes.js';
 
 let cursoId:string;
 let alumno:number;

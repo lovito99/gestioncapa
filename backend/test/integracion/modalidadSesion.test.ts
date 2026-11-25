@@ -6,8 +6,9 @@ import { pool } from '../../src/shared/database.js';
 import { redis } from '../../src/shared/redis.js';
 import { migrar } from '../../src/shared/migraciones.js';
 import { env } from '../../src/config/env.js';
-import { emitirTokenQr, reloj } from '../../src/modules/qr/qr.token.js';
-import { validarAlcance, type CursoEmision } from '../../src/modules/certificados/certificados.repositorio.js';
+import { emitirTokenQr, reloj } from '../../src/services/qr/qrToken.js';
+import type { CursoEmision } from '../../src/entities/certificados/certificado.js';
+import { validarAlcance } from '../../src/services/certificados/certificadosService.js';
 
 let app: FastifyInstance;
 const prefijo = `hu36${Date.now()}`;

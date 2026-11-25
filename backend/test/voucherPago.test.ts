@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { crearPdfTexto } from '../src/shared/pdf.js';
-import { validarArchivoVoucher,normalizarNumeroOperacion,entradaRecepcionEfectivo } from '../src/modules/pagos/pagos.voucher.js';
+import { validarArchivoVoucher } from '../src/services/pagos/voucherArchivo.js';
+import { normalizarNumeroOperacion } from '../src/repositories/pagos/vouchersRepository.js';
+import { entradaRecepcionEfectivo } from '../src/dto/pagos/pagoDto.js';
 
 const pdf={tipo:'application/pdf',contenidoBase64:crearPdfTexto('Voucher de prueba',['Sin movimiento bancario.']).toString('base64')};
 test('HU32-02: admite PDF/PNG privados y rechaza tipo falso, SVG, base64 inválido y tamaño excesivo',()=>{

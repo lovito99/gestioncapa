@@ -1,5 +1,5 @@
 import { env } from '../../src/config/env.js';
-import { emitirTokenQr, reloj } from '../../src/modules/qr/qr.token.js';
+import { emitirTokenQr, reloj } from '../../src/services/qr/qrToken.js';
 import { writeFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';

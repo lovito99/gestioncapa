@@ -509,9 +509,12 @@ Frameworks y librerias usadas:
 Estructura:
 
 - `backend/src/config`: configuracion y variables de entorno
-- `backend/src/modules`: modulos funcionales como auth y health
+- `backend/src/controllers`, `dto`, `services`, `repositories`, `entities` y
+  `providers`: capas globales con una carpeta por componente; `backend/src/routes`
+  las compone (ver [arquitectura del backend](docs/arquitecturaBackend.md))
+- `backend/src/seeds` y `backend/src/jobs`: datos de demostración y procesos periodicos
 - `backend/src/plugins`: plugins de Fastify
-- `backend/src/shared`: conexiones compartidas como Postgres y Redis
+- `backend/src/shared`: conexiones compartidas como Postgres y Redis, errores de aplicacion y transacciones
 
 ### Frontend
 

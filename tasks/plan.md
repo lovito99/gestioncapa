@@ -841,3 +841,94 @@ Izipay sin esos campos recibe 409 y debe actualizarse junto con la API.
 La versión propuesta, si la base de publicación efectiva sigue siendo esa,
 es `v4.0.0.0.0`. Si se entrega solo la planificación por separado, la
 documentación corresponde al nivel **Interno** sobre la misma base.
+
+# T-26 · Plan backend en capas
+
+Especificación: [SPEC.md](../SPEC.md#t-26--backend-en-capas-por-módulo-mvc--solid).
+Estado: **aprobado e implementado (T0–T8)**; fases F2–F7 pendientes.
+
+## Resumen
+
+Se crea la base común (errores, transacción, prueba de arquitectura) y se
+migran por completo dos pilotos de bajo acoplamiento: `usuarios` (sin
+dependientes; peor caso de SQL en la ruta) y `asistencia` (tiene servicio con
+reglas ricas y concurrencia). Después queda el plan por fases para los 13
+módulos restantes.
+
+## Decisiones de arquitectura
+
+- Fábricas `crearXRepository(consultor)`, `crearXService(deps)` y
+  `xController(servicio): FastifyPluginAsync`; `<modulo>.module.ts` las compone
+  y exporta el mismo nombre que hoy usa `app.ts` (`registrarUsuarios`, `asistenciaRoutes`).
+- Las transacciones las abre el repositorio (`enTransaccion`) y las reglas que
+  ocurren dentro de ellas las decide el servicio. El SQL se copia sin reescribir.
+- Los servicios lanzan `ErrorAplicacion`; los controladores no capturan errores.
+  El manejador global lo traduce a `{code,message}` con el mismo estado de hoy.
+- `asistencia` recibe por parámetro `obtenerClase`/`conClaseBloqueada` de
+  `clases`, `verificarTokenQr`, `reloj` y `QR_SECRET`, para probarse sin BD.
+- Sin dependencias nuevas, sin cambios de SQL, migraciones ni contrato HTTP.
+
+## Grafo de dependencias
+
+```
+T0 entorno integración (usuario) ─┐
+T1 prueba de arquitectura ────────┼─► T3 usuarios: servicio+repo ─► T4 usuarios: controlador+wiring ─┐
+T2 base común (errores, tx) ──────┘                                                                ├─► T7 documentación ─► T8 limpieza y revisión
+                                  └─► T5 asistencia: servicio+repo ─► T6 asistencia: controlador+wiring ┘
+```
+
+T3–T4 y T5–T6 son independientes entre sí; se harán en secuencia para revisar un
+piloto completo antes de repetir el patrón.
+
+## Tareas
+
+| # | Tarea | Tamaño | Archivos | Verificación |
+|---|---|---|---|---|
+| T0 | Levantar Postgres/Redis de gestioncapa en puertos alternos y medir la línea base de integración | — | ninguno (Docker, con autorización) | 189 pruebas de integración en verde, o fallos previos registrados |
+| T1 | Verificador de capas `test/arquitectura.test.ts` con módulos falsos en memoria; lista de módulos migrados vacía | S | `test/arquitectura.test.ts`, `test/apoyo/capas.ts` | rojo → verde con muestras válidas e inválidas |
+| T2 | `ErrorAplicacion`, manejo en `plugins/errores.ts`, `shared/transaccion.ts`, `Consultor` y `esViolacionUnica` en `shared/database.ts` | M | `shared/errorAplicacion.ts`, `shared/transaccion.ts`, `shared/database.ts`, `plugins/errores.ts`, `clases.repositorio.ts` (reexporta), `test/errores.test.ts`, `test/transaccion.test.ts` | unitarias y tipos |
+| T3 | `usuarios`: entidad, DTO, repositorio y servicio con pruebas unitarias del servicio | M | `entities/usuario.ts`, `dto/usuarioDto.ts`, `repositories/usuariosRepository.ts`, `services/usuariosService.ts`, `test/usuariosService.test.ts` | rojo → verde; la ruta antigua sigue activa |
+| T4 | `usuarios`: controlador, `usuarios.module.ts`, `app.ts`; elimina `usuarios.rutas.ts`; añade el módulo a la prueba de arquitectura | M | `controllers/usuariosController.ts`, `usuarios.module.ts`, `app.ts`, `usuarios.rutas.ts` (borrar), `test/arquitectura.test.ts` | arquitectura rojo → verde; integración `usuariosCppp`, `roles`, `rolesCppp`, `permisos` |
+| T5 | `asistencia`: entidad, DTO, repositorio (incluye la consulta de curso cerrado) y servicio con dependencias inyectadas y pruebas | M | `entities/asistencia.ts`, `dto/asistenciaDto.ts`, `repositories/asistenciaRepository.ts`, `services/asistenciaService.ts`, `test/asistenciaService.test.ts` | rojo → verde |
+| T6 | `asistencia`: controlador, `asistencia.module.ts`, `app.ts`; elimina los 3 archivos planos; ajusta el import de `cobroCurso.test.ts` y la ruta de `test:cobertura` | M | `controllers/asistenciaController.ts`, `asistencia.module.ts`, `app.ts`, `package.json`, `test/integracion/cobroCurso.test.ts`, `test/arquitectura.test.ts` | arquitectura; integración `asistencia`, `cobroCurso`, `sesionesCurso`, `modalidadSesion`, `sesionesVirtuales`, `certificados`; `test:cobertura` ≥ 60 % |
+| T7 | Guía `docs/arquitecturaBackend.md` (reglas, plantilla de módulo, plan por fases), ADR-002 y estructura del README | S | 3 documentos | revisión de enlaces y de las reglas frente a la prueba |
+| T8 | Simplificación, revisión de calidad y seguridad (DoD y checklist), versión y mensajes de commit | S | solo lo tocado | unitarias, tipos e integración completas |
+
+Puntos de control: tras T2 (base común), tras T4 (primer piloto completo,
+revisión humana del patrón antes de repetirlo) y tras T6 (suite completa).
+
+## Plan de migración y crecimiento (fases posteriores, no incluidas)
+
+Cada fase reutiliza la plantilla de T3–T4, añade el módulo a la prueba de
+arquitectura y verifica con su integración. Orden por dependencias y riesgo:
+
+| Fase | Módulos | Motivo | Riesgo principal |
+|---|---|---|---|
+| F2 | `health`, `pendientes`, `qr`, `historial`, `jitsi`, `notificaciones` | Sin dependencias entrantes problemáticas | `notificaciones` usa SMTP: va a `providers/` si se aprueba |
+| F3 | `auth` (incluye `seguridadAcceso`, registro y semilla de usuarios) | Superficie de seguridad | Bloqueo, revocación y límites: revisión de seguridad obligatoria |
+| F4 | `clases`, `reuniones` | `reuniones` tiene SQL en rutas; `clases` lo usan asistencia y cursos | Bloqueos por clase/instructor y solapamiento |
+| F5 | `cursos` | El más grande; rompe `cursos ↔ clases` con funciones inyectadas | Portadas, catálogo público y cobro |
+| F6 | `pagos`, `certificados` | Rompe `cursos ↔ pagos`; las pasarelas (estrategia) pasan a `providers/` | Dinero: conciliación, avisos IPN, vencimientos |
+| F7 | Cierre | `app.ts` solo importa `*.module.ts`; unificar `ErrorPago`/`ErrorCertificado`/`ErrorHistorial`; mover semillas a `src/seeds/` y `cobro.procesos.ts` a `src/jobs/`; `dependency-cruiser` en CI (con autorización); actualizar `.archify` | Rutas de import en pruebas y documentación |
+
+Crecimiento: todo módulo nuevo nace con la plantilla de la guía, se añade a
+la prueba de arquitectura en su primera tarea y registra sus rutas en
+`plugins/permisos.ts`, como hoy.
+
+## Riesgos y mitigaciones
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| No hay integración local (I-10) | Alto: CA-3 no se puede demostrar | T0 antes de T4; sin T0 no se marca el piloto como hecho |
+| Lanzar errores dentro de `conClaseBloqueada` cambia el commit por rollback | Medio | Hoy los rechazos no escriben nada; se comprueba que el ayudante haga rollback y se cubre con MAR-06/07 |
+| Cambio sutil de mensajes o cabeceras | Alto | Mensajes copiados literalmente; las pruebas de integración comparan `code` y estado; prueba unitaria de `ErrorAplicacion` |
+| Concurrencia en asistencia (5 escaneos simultáneos) | Alto | El SQL `on conflict` y el bloqueo de clase no cambian; MAR-03 debe pasar |
+| El verificador de imports por expresión regular pasa por alto un caso | Bajo | Pruebas del verificador con muestras inválidas; `dependency-cruiser` en F7 |
+| Desfase de `dist/` y `server.js` | Bajo | El build lo ejecuta el usuario; `server.js` ya detecta `dist` desactualizado |
+
+## Versionado previsto
+
+Base comprobada `v3.1.0.0.0`. Refactorización sin cambio funcional → nivel
+**Interno**: `v3.1.0.0.1` para la entrega completa de T-26. `package.json` no cambia.
+Prefijos: `test:` (T1), `refactor:` (T2–T6), `docs:` (T7). Commit, etiqueta y
+build los ejecuta el usuario.

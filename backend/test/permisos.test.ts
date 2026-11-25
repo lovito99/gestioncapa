@@ -3,7 +3,7 @@ import { createHmac } from "node:crypto";
 import { after, before, describe, test } from "node:test";
 import jwt from "@fastify/jwt";
 import Fastify, { type FastifyInstance } from "fastify";
-import { rutasPendientes } from "../src/modules/pendientes/pendientes.routes.js";
+import { rutasPendientes } from "../src/routes/pendientes.routes.js";
 import { registrarAutorizacion, type Rol } from "../src/plugins/autorizacion.js";
 import { permisos } from "../src/plugins/permisos.js";
 

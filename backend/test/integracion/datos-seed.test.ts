@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { after, before, beforeEach, describe, test } from "node:test";
 import { Pool } from "pg";
 import { env } from "../../src/config/env.js";
-import type { EnvSeed } from "../../src/modules/auth/usuarios-seed.js";
+import type { EnvSeed } from "../../src/seeds/usuariosSemilla.js";
 import { pool } from "../../src/shared/database.js";
 import { migrar } from "../../src/shared/migraciones.js";
 import { sembrarDatos } from "../../src/shared/seed.js";

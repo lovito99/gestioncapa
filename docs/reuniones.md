@@ -8,8 +8,8 @@ reescriben usuarios, autenticación ni asistencia QR.
 
 | Ruta | Contenido |
 | --- | --- |
-| `backend/src/modules/reuniones` | Validación, persistencia y API de negocio |
-| `backend/src/modules/jitsi` | Firma de credenciales Jitsi |
+| `backend/src/*/reuniones` y `backend/src/routes/reuniones.routes.ts` | Validación, persistencia y API de negocio |
+| `backend/src/providers/jitsi` y `backend/src/*/jitsi` | Firma de credenciales y eventos de Jitsi |
 | `backend/migraciones/0005-reunionesVirtuales.sql` | Reuniones, participantes y outbox |
 | `frontend/src/paginas/reuniones` | Listado, creación y sala propia |
 | `frontend/src/servicios/salaJitsi.ts` | Conexión y pistas de lib-jitsi-meet |

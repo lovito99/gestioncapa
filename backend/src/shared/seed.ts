@@ -1,10 +1,10 @@
-import { sembrarHistorial } from "../modules/historial/historial.semilla.js";
-import { sembrarCursos } from "../modules/cursos/cursos.semilla.js";
-import { sembrarReuniones } from "../modules/reuniones/reuniones.semilla.js";
+import { sembrarHistorial } from "../seeds/historialSemilla.js";
+import { sembrarCursos } from "../seeds/cursosSemilla.js";
+import { sembrarReuniones } from "../seeds/reunionesSemilla.js";
 import type { Pool } from "pg";
 import { env } from "../config/env.js";
-import { sembrarUsuarios } from "../modules/auth/auth.service.js";
-import type { EnvSeed } from "../modules/auth/usuarios-seed.js";
+import { sembrarUsuarios } from "../seeds/usuariosSemilla.js";
+import type { EnvSeed } from "../seeds/usuariosSemilla.js";
 import { pool } from "./database.js";
 
 const MARIA = "maria.quispe@demo.cpppregion-cusco.com";

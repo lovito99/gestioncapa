@@ -40,3 +40,11 @@ test('HU-35: alta con bcrypt, edición y desactivación auditadas; sesión antig
   assert.equal((await pedir('admin','PUT',`/api/usuarios/${usuarios.get('admin')!.id}`,{...cambio,rol:'agremiado'})).statusCode,409);
   assert.equal((await pedir('admin','POST','/api/usuarios',{...datos,email:`${randomUUID()}@prueba.local`,rol:'coordinador'})).statusCode,422);
 });
+test('T-26: el administrador no puede retirarse su propio rol aunque su correo no cambie',async () => {
+  const admin=usuarios.get('admin')!;
+  const {email}=(await pool.query<{email:string}>('select email from users where id=$1',[admin.id])).rows[0]!;
+  const respuesta=await pedir('admin','PUT',`/api/usuarios/${admin.id}`,{nombre:'admin',email,rol:'agremiado',activo:true,motivo:'Autodegradación'});
+  assert.equal(respuesta.statusCode,409,respuesta.body);
+  assert.equal(respuesta.json().code,'CUENTA_PROPIA');
+  assert.equal((await pool.query('select role from users where id=$1',[admin.id])).rows[0]!.role,'admin');
+});

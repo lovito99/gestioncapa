@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, beforeEach, describe, test } from "node:test";
 import type { FastifyInstance } from "fastify";
 import { buildApp } from "../../src/app.js";
-import { sembrarUsuarios } from "../../src/modules/auth/auth.service.js";
+import { sembrarUsuarios } from "../../src/seeds/usuariosSemilla.js";
 import { pool } from "../../src/shared/database.js";
 import { migrar } from "../../src/shared/migraciones.js";
 import { redis } from "../../src/shared/redis.js";
