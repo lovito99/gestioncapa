@@ -677,6 +677,7 @@ ISO 8601 y el aula las presenta en `America/Lima`.
 | --- | --- | --- |
 | GET `/:usuarioId` | AGREMIADO titular | Devuelve `{titulo,modalidad,medido,porcentaje,obligatorias,completadas,unidades}`. Consultar el avance de otro usuario devuelve 403. |
 | GET `/gestion` | ADMIN o INSTRUCTOR asignado | Devuelve `{titulo,modalidad,estado,medido,unidades,leccionesSalida}` para preparar materiales. |
+| GET `/materiales/:materialId` | AGREMIADO | Consulta el material con los permisos de la inscripción del actor. En una lección bloqueada devuelve `403 LECCION_BLOQUEADA` y `details: {leccionId,titulo}` de la lección pendiente que debe terminar. |
 | PUT `/materiales/:materialId` | INSTRUCTOR asignado | Guarda `{obligatorio,duracionMs}` y devuelve el material. Antes de medir un video se confirma su duración en el navegador. La activación fija la configuración. |
 | POST `/activar` | ADMIN | Activa la medición de un grabado abierto con sus videos obligatorios preparados. Devuelve `{medido:true}`. |
 | POST `/materiales/:materialId/visto` | AGREMIADO | Marca un PDF o enlace y devuelve el progreso. Repetir conserva la primera fecha. Para video devuelve 409. |
@@ -688,6 +689,12 @@ Cada unidad identifica su módulo y material mediante `id`, `moduloId`,
 `obligatorio`, `duracionMs` y `version`. La lectura privada agrega
 `vistoMs`, `posicionMs` y `completadaEn`. `vistoMs` corresponde al
 tramo acreditado desde el inicio. `posicionMs` puede retroceder al repasar.
+En un grabado medido, los videos obligatorios se habilitan por orden de módulo y material.
+En el resumen tienen `url: null` y `bloqueo` con el primer requisito pendiente
+o con valor `null` si están habilitados. La consulta individual entrega la fuente
+autorizada. Iniciar o reportar reproducción de una lección bloqueada devuelve
+también `403 LECCION_BLOQUEADA`. La ficha del alumno y el listado de
+evaluaciones reservan esas fuentes para la consulta individual.
 Cada reporte puede abarcar hasta 10 000 ms. La sesión se vence tras 30 segundos
 sin reportes confirmados. El mismo número de secuencia devuelve el estado
 persistido dentro de la sesión vigente.
@@ -697,10 +704,14 @@ obligatorios. La finalización académica se fija al alcanzar el 90 % de cada
 video requerido. En otras modalidades se cuentan las unidades obligatorias
 completadas. El cuestionario nuevo de un grabado medido exige los videos
 obligatorios configurados. Las salidas ya publicadas conservan sus lecciones
-y se reconocen sus finalizaciones históricas. En modo medido, el endpoint
-manual de HU-19 devuelve 409 si se intenta crear una marca nueva de video.
+y se reconocen sus finalizaciones históricas. Cuando el curso pasa a modo medido,
+el detalle de la salida y los intentos nuevos también exigen completar todos los
+videos de la secuencia medida. En ese caso, devolver una operación histórica
+idéntica recupera su nota sin consumir otro intento. El endpoint manual de HU-19
+devuelve 409 si se intenta crear una marca nueva de video en modo medido.
 
-[Especificación de HU-17](esp/sprints/aprendizaje/hu-17/SPEC.md).
+[Especificación de HU-17](esp/sprints/aprendizaje/hu-17/SPEC.md) ·
+[Especificación de HU-55](esp/sprints/aprendizaje/hu-55/SPEC.md).
 
 ## HU-37 · Lecciones complementarias de YouTube
 

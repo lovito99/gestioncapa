@@ -1706,3 +1706,8 @@ Plan: [plan.md](plan.md#t-26--plan-backend-en-capas). Estado: aprobado el 24/11/
 ## HU-41 · Iniciar sesión con Google
 
 [Tareas y puntos de control](../docs/esp/sprints/acceso/hu-41/todo.md) en el sprint Acceso.
+
+## HU-55 · Lecciones en orden en un curso grabado
+
+[Tareas y verificaciones](../docs/esp/sprints/aprendizaje/hu-55/todo.md)
+en el sprint Aprendizaje.

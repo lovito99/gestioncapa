@@ -15,6 +15,9 @@ export function avanceController(servicio: AvanceService): FastifyPluginAsync {
     app.get<Curso>('/api/cursos/:id/avance/gestion', request =>
       servicio.gestion(idAvance.parse(request.params.id), request.usuario!)
     );
+    app.get<Unidad>('/api/cursos/:id/avance/materiales/:materialId', request =>
+      servicio.obtenerMaterial(idAvance.parse(request.params.id), idAvance.parse(request.params.materialId), request.usuario!)
+    );
     app.post<Unidad>('/api/cursos/:id/avance/materiales/:materialId/visto', request =>
       servicio.marcarVisto(idAvance.parse(request.params.id), idAvance.parse(request.params.materialId), request.usuario!)
     );

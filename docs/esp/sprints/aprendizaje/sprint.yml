@@ -25,3 +25,10 @@ historias:
     especificacion: hu-37/SPEC.md
     plan: hu-37/plan.md
     seguimiento: hu-37/todo.md
+  - id: HU-55
+    jira: SCRUM-215
+    titulo: Lecciones en orden en un curso grabado
+    estado: implementada-pendiente-build
+    especificacion: hu-55/SPEC.md
+    plan: hu-55/plan.md
+    seguimiento: hu-55/todo.md

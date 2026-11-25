@@ -67,7 +67,7 @@ export function crearCursosService(deps: CursosServiceDeps) {
 
   async function cursoAutorizado(id: string, usuario: Actor) {
     if (!idCurso.safeParse(id).success) throw cursoNoExiste();
-    const curso = await cursos.obtenerCurso(id, usuario.id);
+    const curso = await cursos.obtenerCurso(id, usuario.id, usuario.role === 'agremiado');
     if (!curso) throw cursoNoExiste();
     if (!puedeConsultarCurso(curso, usuario)) throw accesoCursoDenegado();
     return curso;

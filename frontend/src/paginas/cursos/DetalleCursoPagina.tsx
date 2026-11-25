@@ -213,7 +213,9 @@ function Modulo({ cursoId, modulo, puedeAgregar }: { cursoId: string; modulo: Mo
   return <li className="min-w-0 space-y-3 rounded-xl border border-line bg-white p-4">
     <h3 className="text-lg font-semibold">{modulo.orden}. {modulo.titulo}</h3>
     {modulo.materiales.length === 0 ? <p className="text-sm text-muted">Aún no hay material en este módulo.</p> : <ul className="space-y-2">{modulo.materiales.map(material => <li key={material.id}>
-      {material.tipo === 'PDF' ? <button disabled={descargando} className="text-left text-brand underline" onClick={() => void descargar(material.id)}>Descargar PDF: {material.titulo}</button> : <a className="text-brand underline" href={material.url!} target="_blank" rel="noopener noreferrer">{material.tipo === 'VIDEO' ? 'Video' : 'Enlace'}: {material.titulo} <span className="sr-only">(abre otra pestaña)</span></a>}
+      {material.tipo === 'PDF' ? <button disabled={descargando} className="text-left text-brand underline" onClick={() => void descargar(material.id)}>Descargar PDF: {material.titulo}</button> :
+        material.url ? <a className="text-brand underline" href={material.url} target="_blank" rel="noopener noreferrer">{material.tipo === 'VIDEO' ? 'Video' : 'Enlace'}: {material.titulo} <span className="sr-only">(abre otra pestaña)</span></a> :
+          <Link className="text-brand underline" to={`/cursos/${cursoId}/aula`}>Ver en el aula: {material.titulo}</Link>}
     </li>)}</ul>}
     {puedeAgregar && <form onSubmit={e => void guardar(e)} className="border-t border-line pt-4">
       <fieldset disabled={ocupado} className="grid min-w-0 gap-3 sm:grid-cols-2">

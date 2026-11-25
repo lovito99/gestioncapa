@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { alcanzaUmbral, intervaloAcreditable, resumirAvance, type ConfiguracionUnidad, type ReporteReproduccion } from '../../entities/avance/avance.js';
+import {
+  alcanzaUmbral, bloqueosLecciones, esVideoObligatorio, intervaloAcreditable, resumirAvance, usaSecuencia,
+  type ConfiguracionUnidad, type CursoAvance, type MaterialAvance, type ReporteReproduccion
+} from '../../entities/avance/avance.js';
 import type * as Avance from '../../repositories/avance/avanceRepository.js';
 import { ErrorAplicacion } from '../../shared/errorAplicacion.js';
 
@@ -35,9 +38,20 @@ export function crearAvanceService(repositorio: typeof Avance) {
     return unidad;
   }
 
+  async function validarSecuencia(cliente: Cliente, curso: CursoAvance, unidad: MaterialAvance, titular: string) {
+    if (!usaSecuencia(curso) || !esVideoObligatorio(unidad)) return;
+    const unidades = await repositorio.listarAvance(cliente, curso.id, titular);
+    const bloqueo = bloqueosLecciones(unidades).get(unidad.id);
+    if (bloqueo) {
+      throw new ErrorAplicacion(403, 'LECCION_BLOQUEADA', `Completa ${bloqueo.titulo} para habilitar esta lección.`,
+        { details: bloqueo });
+    }
+  }
+
   async function videoDelColegiado(cliente: Cliente, cursoId: string, materialId: string, usuarioId: string) {
     const curso = await cursoDelColegiado(cliente, cursoId, usuarioId, true);
     const unidad = await unidadExistente(cliente, cursoId, materialId);
+    await validarSecuencia(cliente, curso, unidad, usuarioId);
     if (!unidad.duracionMs || (curso.modalidad === 'GRABADO' && !curso.medido)) {
       throw new ErrorAplicacion(409, 'VIDEO_SIN_MEDICION', 'Esta lección aún no está preparada para guardar avance.');
     }
@@ -51,6 +65,16 @@ export function crearAvanceService(repositorio: typeof Avance) {
         const curso = await cursoDelColegiado(cliente, cursoId, titularId);
         const unidades = await repositorio.listarAvance(cliente, cursoId, titularId);
         return resumirAvance(curso, unidades);
+      });
+    },
+
+    obtenerMaterial(cursoId: string, materialId: string, actor: Actor) {
+      return repositorio.transaccion(async cliente => {
+        const titular = String(actor.id);
+        const curso = await cursoDelColegiado(cliente, cursoId, titular);
+        const unidad = await unidadExistente(cliente, cursoId, materialId);
+        await validarSecuencia(cliente, curso, unidad, titular);
+        return unidad;
       });
     },
 

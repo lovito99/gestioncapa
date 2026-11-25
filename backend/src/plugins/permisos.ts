@@ -26,6 +26,7 @@ export const permisos: Permiso[] = [
   { metodo: 'PUT', ruta: '/api/cursos/:id/lecciones/:leccionId/estado', acceso: ['AGREMIADO'], critica: true },
   { metodo: 'GET', ruta: '/api/cursos/:id/avance/:usuarioId', acceso: ['AGREMIADO'] },
   { metodo: 'GET', ruta: '/api/cursos/:id/avance/gestion', acceso: ['ADMIN', 'INSTRUCTOR'] },
+  { metodo: 'GET', ruta: '/api/cursos/:id/avance/materiales/:materialId', acceso: ['AGREMIADO'] },
   { metodo: 'POST', ruta: '/api/cursos/:id/avance/materiales/:materialId/visto', acceso: ['AGREMIADO'], critica: true },
   { metodo: 'PUT', ruta: '/api/cursos/:id/avance/materiales/:materialId', acceso: ['INSTRUCTOR'], critica: true },
   { metodo: 'POST', ruta: '/api/cursos/:id/avance/activar', acceso: ['ADMIN'], critica: true },
