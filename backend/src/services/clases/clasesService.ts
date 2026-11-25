@@ -45,6 +45,10 @@ export function crearClasesService({ repositorio, configuracion }: ClasesService
     if (!(await repositorio.esInstructorActivo(resultado.datos.instructorId))) {
       throw errorValidacion({ instructorId: "El instructor seleccionado no existe" });
     }
+    const { encargadoId } = resultado.datos;
+    if (encargadoId && !(await repositorio.esInstructorActivo(Number(encargadoId)))) {
+      throw errorValidacion({ encargadoId: "Selecciona un instructor activo para la asistencia." });
+    }
     return resultado.datos;
   }
 
@@ -170,6 +174,9 @@ export function crearClasesService({ repositorio, configuracion }: ClasesService
       if (clase.estado === "CANCELADA") throw claseCancelada();
       if (clase.modalidad === "VIRTUAL") {
         throw new ErrorAplicacion(409, "SESION_VIRTUAL", "Esta sesión es solo virtual: la asistencia se registra en la sala virtual, no con QR.");
+      }
+      if (clase.qrRotatorio === false) {
+        throw new ErrorAplicacion(409, "QR_ROTATORIO_DESACTIVADO", "El QR rotatorio está desactivado para esta sesión.");
       }
       const ahora = reloj.ahora();
       const { token, expiraEnMs } = emitirTokenQr(clase.id, ahora, configuracion.QR_SECRET);

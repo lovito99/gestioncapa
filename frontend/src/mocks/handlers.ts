@@ -148,6 +148,8 @@ function guardar(entrada: ClaseEntrada, id?: string) {
     horaFin: entrada.horaFin,
     lugar: entrada.modalidad === 'VIRTUAL' && !entrada.lugar?.trim() ? 'Aula virtual' : entrada.lugar.trim(),
     modalidad: entrada.modalidad ?? 'PRESENCIAL',
+    ...(entrada.encargadoId !== undefined ? { encargadoId: entrada.encargadoId } : {}),
+    ...(entrada.qrRotatorio !== undefined ? { qrRotatorio: entrada.qrRotatorio } : {}),
   }
   if (id) {
     const clase = clases.find((c) => c.id === id)
@@ -371,6 +373,7 @@ export const handlers = [
     if (usuario.rol !== 'ADMIN' && clase.instructor.id !== usuario.id) return sinPermiso('Esta clase no está asignada a ti.')
     if (clase.estado === 'CANCELADA') return claseCancelada()
     if (clase.modalidad === 'VIRTUAL') return error(409, { code: 'SESION_VIRTUAL', message: 'Esta sesión es solo virtual: la asistencia se registra en la sala virtual, no con QR.' })
+    if (clase.qrRotatorio === false) return error(409, { code: 'QR_ROTATORIO_DESACTIVADO', message: 'El QR rotatorio está desactivado para esta sesión.' })
     // El token cambia en cada "ventana" de 30 s, igual que lo haría el servidor real
     const ahora = Date.now()
     const ventana = Math.floor(ahora / (DURACION_QR * 1000))
@@ -391,7 +394,7 @@ export const handlers = [
     await delay(300)
     const mias: ClaseParticipante[] = clases
       .filter((c) => inscripciones[c.id]?.includes(usuario.id))
-      .map(({ id, nombre, instructor, fecha, horaInicio, horaFin, lugar, estado }) => ({
+      .map(({ id, nombre, instructor, fecha, horaInicio, horaFin, lugar, estado, modalidad, qrRotatorio }) => ({
         id,
         nombre,
         instructor,
@@ -400,6 +403,8 @@ export const handlers = [
         horaFin,
         lugar,
         estado,
+        modalidad,
+        qrRotatorio,
         miAsistencia: asistencias[id]?.[usuario.id] ?? null,
       }))
     return HttpResponse.json(mias)
@@ -434,6 +439,7 @@ export const handlers = [
     if (!clase) return claseNoExiste()
     if (clase.estado === 'CANCELADA') return claseCancelada()
     if (clase.modalidad === 'VIRTUAL') return error(409, { code: 'SESION_VIRTUAL', message: 'Esta sesión es solo virtual: tu asistencia se registra al conectarte a la sala.' })
+    if (clase.qrRotatorio === false) return error(409, { code: 'QR_ROTATORIO_DESACTIVADO', message: 'El QR rotatorio está desactivado para esta sesión.' })
     if (!inscripciones[clase.id]?.includes(usuario.id)) {
       return error(403, {
         code: 'NO_INSCRITO',

@@ -47,6 +47,9 @@ export function crearAsistenciaService({ repositorio, verificarQr }: AsistenciaS
         if (clase.modalidad === "VIRTUAL") {
           throw new ErrorAplicacion(409, "SESION_VIRTUAL", "Esta sesión es solo virtual: tu asistencia se registra al conectarte a la sala.");
         }
+        if (clase.qrRotatorio === false) {
+          throw new ErrorAplicacion(409, "QR_ROTATORIO_DESACTIVADO", "El QR rotatorio está desactivado para esta sesión.");
+        }
         if (await tx.cursoCerrado(claseId)) throw new ErrorAplicacion(409, "CURSO_CERRADO", "El curso ya está cerrado y no admite nuevas asistencias.");
         if (!(await tx.estaInscrito(claseId, usuarioId))) {
           throw new ErrorAplicacion(403, "NO_INSCRITO", "No estás inscrito(a) en esta clase. Pide al administrador que te inscriba.");

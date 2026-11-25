@@ -1,22 +1,21 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '@/auth/useAuth'
 import { api } from '@/lib/api'
 import { claves } from '@/servicios/clases'
-import type { BusquedaDniRespuesta, MiQr, RegistroPuertaEntrada, RegistroPuertaRespuesta } from '@/types/api'
+import type { BusquedaDniRespuesta, ContextoPuerta, MiQr, RegistroPuertaEntrada, RegistroPuertaRespuesta, SesionPuerta } from '@/types/api'
 
-/** La búsqueda por DNI empieza con este número de dígitos (diseño S3 1.4). */
-export const MINIMO_DIGITOS_DNI = 4
+export const digitosDni = 8
 
-const clavesPuerta = {
-  miQr: ['participante', 'mi-qr'] as const,
-  busqueda: (claseId: string, dni: string) => ['clases', claseId, 'puerta', dni] as const,
-  todasBusquedas: (claseId: string) => ['clases', claseId, 'puerta'] as const,
-}
+const rutaPuerta = (claseId: string) => `/clases/${claseId}/asistencia/puerta`
+const clavePuerta = (claseId: string) => [...claves.clase(claseId), 'puerta'] as const
 
-/** HU-39: QR personal del agremiado. El token es permanente; la próxima sesión puede cambiar. */
 export function useMiQr() {
+  const { usuario } = useAuth()
   return useQuery({
-    queryKey: clavesPuerta.miQr,
-    queryFn: async () => (await api.get<MiQr>('/participante/mi-qr')).data,
+    queryKey: ['participante', 'mi-qr', usuario?.id],
+    queryFn: async ({ signal }) => (await api.get<MiQr>('/participante/mi-qr', { signal })).data,
+    enabled: Boolean(usuario),
+    gcTime: 0,
   })
 }
 
@@ -24,7 +23,7 @@ export async function descargarMiQr() {
   return (await api.get<Blob>('/participante/mi-qr/pdf', { responseType: 'blob' })).data
 }
 
-/** El QR personal es el token suelto; aceptamos también una URL con `?qr=` por si se imprime como enlace. */
+/** El contenido de la credencial es un token; se conserva la lectura de enlaces impresos en demostración. */
 export function extraerTokenPersonal(texto: string) {
   const limpio = texto.trim()
   try {
@@ -34,46 +33,63 @@ export function extraerTokenPersonal(texto: string) {
   }
 }
 
-/** Inscritos de la clase cuyo DNI empieza con `dni`. Solo consulta desde el mínimo de dígitos. */
-export function useBuscarPorDni(claseId: string, dni: string) {
+export function useContextoPuerta(claseId: string) {
+  const { usuario } = useAuth()
   return useQuery({
-    queryKey: clavesPuerta.busqueda(claseId, dni),
-    queryFn: async () =>
-      (await api.get<BusquedaDniRespuesta>(`/clases/${claseId}/asistencia/puerta`, { params: { dni } })).data,
-    enabled: dni.length >= MINIMO_DIGITOS_DNI,
-    placeholderData: keepPreviousData,
+    queryKey: [...clavePuerta(claseId), usuario?.id],
+    queryFn: async ({ signal }) => (await api.get<ContextoPuerta>(rutaPuerta(claseId), { signal })).data,
+    enabled: Boolean(claseId && usuario),
+    refetchInterval: 10_000,
+    gcTime: 0,
     retry: false,
   })
 }
 
-/** Tras registrar o deshacer, se actualizan el contador, la lista y las búsquedas abiertas. */
+export function useSesionesDelegadas() {
+  const { usuario } = useAuth()
+  return useQuery({
+    queryKey: [...claves.misClases, 'puerta', usuario?.id],
+    queryFn: async ({ signal }) => (await api.get<SesionPuerta[]>('/instructor/clases/puerta', { signal })).data,
+    enabled: Boolean(usuario),
+    gcTime: 0,
+  })
+}
+
+export function useBuscarPorDni(claseId: string) {
+  return useMutation({
+    gcTime: 0,
+    retry: false,
+    mutationFn: async (dni: string) =>
+      (await api.post<BusquedaDniRespuesta>(`${rutaPuerta(claseId)}/buscar-dni`, { dni }, { timeout: 15000 })).data,
+  })
+}
+
 function useRefrescarAsistencia(claseId: string) {
   const queryClient = useQueryClient()
   return () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: claves.asistencia(claseId) }),
-      queryClient.invalidateQueries({ queryKey: clavesPuerta.todasBusquedas(claseId) }),
+      queryClient.invalidateQueries({ queryKey: clavePuerta(claseId) }),
     ])
 }
 
-/** Registra la asistencia en la puerta con el QR personal o eligiendo al inscrito de la búsqueda. */
 export function useRegistrarEnPuerta(claseId: string) {
   const refrescar = useRefrescarAsistencia(claseId)
   return useMutation({
+    gcTime: 0,
     retry: false,
     mutationFn: async (entrada: RegistroPuertaEntrada) =>
-      (await api.post<RegistroPuertaRespuesta>(`/clases/${claseId}/asistencia/puerta`, entrada, { timeout: 15000 })).data,
+      (await api.post<RegistroPuertaRespuesta>(rutaPuerta(claseId), entrada, { timeout: 15000 })).data,
     onSuccess: refrescar,
   })
 }
 
-/** «Deshacer este registro»: borra la marca recién hecha por error. */
 export function useDeshacerRegistro(claseId: string) {
   const refrescar = useRefrescarAsistencia(claseId)
   return useMutation({
     retry: false,
-    mutationFn: async (participanteId: string) => {
-      await api.delete(`/clases/${claseId}/asistencia/puerta/${encodeURIComponent(participanteId)}`)
+    mutationFn: async (marcaId: string) => {
+      await api.delete(`${rutaPuerta(claseId)}/${encodeURIComponent(marcaId)}`, { timeout: 15000 })
     },
     onSuccess: refrescar,
   })

@@ -39,11 +39,22 @@ const esquemaClase = z.object({
     .pipe(z.string().regex(formatoHora, "Ingresa una hora válida (HH:mm)")),
   lugar: z.preprocess(valor => typeof valor === "string" ? valor.trim() : valor ?? "",
     z.string({ error: "Ingresa el lugar" }).max(largoMaximo, `El lugar admite hasta ${largoMaximo} caracteres`)),
+  encargadoId: z.union([z.string(), z.number()])
+    .transform(String)
+    .refine((id) => /^\d{1,15}$/.test(id) && Number(id) > 0, "Selecciona un encargado válido")
+    .nullable()
+    .optional(),
+  qrRotatorio: z.boolean().optional(),
   modalidad: z.enum(modalidadesSesion, { error: "Elige si la sesión es presencial, virtual o ambas" })
 }).superRefine((datos, contexto) => {
   // Solo la sesión virtual prescinde de un lugar físico.
   if (datos.modalidad !== "VIRTUAL" && !datos.lugar) contexto.addIssue({ code: "custom", path: ["lugar"], message: "Ingresa el lugar" });
-}).transform(datos => ({ ...datos, lugar: datos.lugar || lugarVirtual })).refine(
+}).transform(({ encargadoId, qrRotatorio, ...datos }) => ({
+  ...datos,
+  lugar: datos.lugar || lugarVirtual,
+  ...(encargadoId !== undefined ? { encargadoId } : {}),
+  ...(qrRotatorio !== undefined ? { qrRotatorio } : {})
+})).refine(
   (datos) => !formatoHora.test(datos.horaInicio)
     || !formatoHora.test(datos.horaFin)
     || datos.horaFin > datos.horaInicio,

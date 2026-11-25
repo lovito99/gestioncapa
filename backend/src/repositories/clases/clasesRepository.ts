@@ -18,6 +18,8 @@ type FilaClase = {
   lugar: string;
   modalidad: ModalidadSesion;
   curso_id: string | null;
+  encargadoId: string | null;
+  qrRotatorio: boolean;
   inscritos: number;
   estado: EstadoClase;
 };
@@ -29,6 +31,8 @@ const SELECT_CLASE = `
          to_char(c.hora_inicio, 'HH24:MI') as hora_inicio,
          to_char(c.hora_fin, 'HH24:MI') as hora_fin,
          c.lugar, c.modalidad, c.curso_id::text as curso_id, c.estado,
+         case when c.modalidad <> 'VIRTUAL' then c."encargadoAsistenciaId"::text end as "encargadoId",
+         (c.modalidad <> 'VIRTUAL' and c."qrRotatorio") as "qrRotatorio",
          (select count(*)::int from enrollments e where e.class_id = c.id) as inscritos
   from classes c
   join users u on u.id = c.instructor_id
@@ -43,6 +47,10 @@ const aClase = (fila: FilaClase): Clase => ({
   horaFin: fila.hora_fin,
   lugar: fila.lugar,
   modalidad: fila.modalidad,
+  // El contrato anterior ya implica instructor a cargo y QR rotatorio habilitado.
+  ...(fila.modalidad !== "VIRTUAL" && (fila.encargadoId !== null || !fila.qrRotatorio)
+    ? { encargadoId: fila.encargadoId, qrRotatorio: fila.qrRotatorio }
+    : {}),
   inscritos: fila.inscritos,
   estado: fila.estado
 });
@@ -105,7 +113,8 @@ export async function conInstructorBloqueado<T>(instructorId: number, trabajo: (
 
   try {
     await cliente.query("begin");
-    await cliente.query("select 1 from users where id = $1 for update", [instructorId]);
+    // Excluye otra programación del mismo instructor y permite la FK del actor de asistencia.
+    await cliente.query("select 1 from users where id = $1 for no key update", [instructorId]);
     const resultado = await trabajo(cliente);
     await cliente.query("commit");
     return resultado;
@@ -136,12 +145,16 @@ export async function conClaseBloqueada<T>(claseId: number, trabajo: (consultor:
   }
 }
 
-export async function insertarClase(datos: DatosClase, consultor: Consultor) {
+export async function insertarClase(datos: DatosClase, consultor: Consultor, cursoId?: string) {
   const resultado = await consultor.query<{ id: string }>(
-    `insert into classes (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar, modalidad)
-     values ($1, $2, $3, $4, $5, $6, $7)
+    `insert into classes (nombre, instructor_id, fecha, hora_inicio, hora_fin, lugar, modalidad,
+                         "encargadoAsistenciaId", "qrRotatorio", curso_id)
+     values ($1, $2, $3, $4, $5, $6, $7,
+             case when $7::varchar = 'VIRTUAL' then null else $8::bigint end,
+             case when $7::varchar = 'VIRTUAL' then true else coalesce($9, true) end, $10)
      returning id`,
-    [datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar, datos.modalidad]
+    [datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar,
+     datos.modalidad, datos.encargadoId ?? null, datos.qrRotatorio ?? null, cursoId ?? null]
   );
   return Number(resultado.rows[0]!.id);
 }
@@ -150,9 +163,13 @@ export async function insertarClase(datos: DatosClase, consultor: Consultor) {
 export async function actualizarClase(id: number, datos: DatosClase, consultor: Consultor) {
   const resultado = await consultor.query(
     `update classes
-     set nombre = $2, instructor_id = $3, fecha = $4, hora_inicio = $5, hora_fin = $6, lugar = $7, modalidad = $8, updated_at = now()
+     set nombre = $2, instructor_id = $3, fecha = $4, hora_inicio = $5, hora_fin = $6, lugar = $7, modalidad = $8,
+         "encargadoAsistenciaId" = case when $8::varchar <> 'VIRTUAL' and $9 then $10::bigint else "encargadoAsistenciaId" end,
+         "qrRotatorio" = case when $8::varchar <> 'VIRTUAL' then coalesce($11, "qrRotatorio") else "qrRotatorio" end,
+         updated_at = now()
      where id = $1 and estado = 'PROGRAMADA'`,
-    [id, datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar, datos.modalidad]
+    [id, datos.nombre, datos.instructorId, datos.fecha, datos.horaInicio, datos.horaFin, datos.lugar,
+     datos.modalidad, datos.encargadoId !== undefined, datos.encargadoId ?? null, datos.qrRotatorio ?? null]
   );
   return resultado.rowCount === 1;
 }

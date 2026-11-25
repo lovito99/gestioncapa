@@ -12,6 +12,8 @@ export type Clase = {
   horaFin: string;
   lugar: string;
   modalidad: ModalidadSesion;
+  encargadoId?: string | null;
+  qrRotatorio?: boolean;
   inscritos: number;
   estado: EstadoClase;
 };
@@ -27,4 +29,6 @@ export type DatosClase = {
   lugar: string;
   /** HU-36: dónde se dicta la sesión. */
   modalidad: ModalidadSesion;
+  encargadoId?: string | null;
+  qrRotatorio?: boolean;
 };

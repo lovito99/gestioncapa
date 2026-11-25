@@ -34,7 +34,7 @@ function valoresIniciales(curso: DetalleCurso, sesion?: SesionCurso): Valores {
   const aula = sesion.aula ?? (sede ? sesion.lugar.slice(0, -sede.length).replace(/,\s*$/, '') : sesion.modalidad === 'VIRTUAL' ? '' : sesion.lugar)
   return {
     modalidad: sesion.modalidad, fecha: sesion.fecha, horaInicio: sesion.horaInicio, horaFin: sesion.horaFin, sede, aula,
-    encargadoId: sesion.encargadoId ?? curso.instructorId, qrRotatorio: sesion.qrRotatorio ?? false, sala: { ...SALA_POR_DEFECTO, ...sesion.sala },
+    encargadoId: sesion.encargadoId ?? curso.instructorId, qrRotatorio: sesion.qrRotatorio ?? true, sala: { ...SALA_POR_DEFECTO, ...sesion.sala },
   }
 }
 
@@ -100,7 +100,7 @@ function Formulario({ curso, sesion, numero, encargados, cargandoEncargados }: {
       nombre: sesion?.nombre.trim() || `Sesión ${numero}`,
       fecha: v.fecha, horaInicio: v.horaInicio, horaFin: v.horaFin, modalidad: v.modalidad,
       lugar: presencial ? `${v.aula.trim()}, ${v.sede}` : '',
-      ...(presencial && { sede: v.sede, aula: v.aula.trim(), encargadoId: v.encargadoId, qrRotatorio: v.qrRotatorio }),
+      ...(presencial && { sede: v.sede, aula: v.aula.trim(), encargadoId: v.encargadoId === curso.instructorId ? null : v.encargadoId, qrRotatorio: v.qrRotatorio }),
       ...(virtual && { sala: v.sala }),
     })
   }

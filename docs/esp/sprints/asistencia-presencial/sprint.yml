@@ -1,0 +1,13 @@
+id: asistencia-presencial
+nombre: Asistencia presencial
+numero: null
+estado: verificacion-local
+instrucciones: AGENTS.md
+historias:
+  - id: HU-39
+    jira: SCRUM-150
+    titulo: Asistencia presencial con QR personal o DNI
+    estado: implementada-pendiente-publicacion
+    especificacion: hu-39/SPEC.md
+    plan: hu-39/plan.md
+    seguimiento: hu-39/todo.md

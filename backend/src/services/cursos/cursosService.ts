@@ -194,6 +194,8 @@ export function crearCursosService(deps: CursosServiceDeps) {
       const validacion = validarClase({ ...cuerpo, instructorId: curso.instructorId });
       if (!validacion.ok) throw new ErrorAplicacion(422, "VALIDACION", "Completa los datos de la sesión.", { fields: validacion.fields });
       const resultado = await sesiones.programarSesion(curso.id, validacion.datos, usuario.id);
+      if ("encargadoNoValido" in resultado) throw new ErrorAplicacion(422, "VALIDACION", "Selecciona un instructor activo para la asistencia.",
+        { fields: { encargadoId: "Selecciona un instructor activo para la asistencia." } });
       if (resultado.noDisponible) throw error(409, "CURSO_NO_DISPONIBLE", "El curso o su instructor ya no están disponibles para programar sesiones.");
       if (resultado.conflicto) {
         throw new ErrorAplicacion(409, "CONFLICTO_HORARIO", `El instructor ya tiene la clase «${resultado.conflicto.nombre}» en ese horario. Elige otro horario.`,

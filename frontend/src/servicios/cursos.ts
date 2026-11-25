@@ -40,9 +40,9 @@ export type SalaSesion = { grabacionPrevista: boolean; pantallaPermitida: boolea
  * `encargadoId`, `qrRotatorio` y `sala` son los campos nuevos del diseño S3 6.1 (opcionales).
  */
 export type SesionEntrada = { nombre: string; fecha: string; horaInicio: string; horaFin: string; lugar: string; modalidad: ModalidadSesion
-  sede?: string; aula?: string; encargadoId?: string; qrRotatorio?: boolean; sala?: SalaSesion }
+  sede?: string; aula?: string; encargadoId?: string | null; qrRotatorio?: boolean; sala?: SalaSesion }
 /** `reunion` solo llega a quien gestiona el curso o tiene acceso a él (HU-36). */
-export type SesionCurso = SesionEntrada & { id: string; cursoId?: string; estado: 'PROGRAMADA' | 'CANCELADA'; reunion: { identificador: string; estado: string } | null }
+export type SesionCurso = Omit<SesionEntrada, 'qrRotatorio'> & { id: string; cursoId?: string; qrRotatorio?: boolean | null; estado: 'PROGRAMADA' | 'CANCELADA'; reunion: { identificador: string; estado: string } | null }
 export type AsistenciaCurso = { totalSesiones: number; presentes: number; porcentaje: number; requisitoAsistencia: number; cumpleAsistencia: boolean }
 export type DetalleCurso = Curso & { modulos: ModuloCurso[]; sesiones: SesionCurso[] }
 export type EvaluacionCertificacion = { nota: number | null; aprobado: boolean; avanceCompleto: boolean }

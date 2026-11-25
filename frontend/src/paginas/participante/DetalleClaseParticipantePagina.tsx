@@ -53,6 +53,10 @@ export function DetalleClaseParticipantePagina() {
                   <CircleCheck className="size-4 shrink-0" aria-hidden />
                   Asistencia registrada a las {horaRegistro(clase.miAsistencia)}
                 </p>
+              ) : clase.modalidad === 'VIRTUAL' ? (
+                <p className="text-sm text-muted">Tu asistencia se registra al participar en la sala virtual.</p>
+              ) : clase.qrRotatorio === false ? (
+                <p className="text-sm text-muted">Muestra tu QR personal al encargado o indícale tu DNI al llegar.</p>
               ) : (
                 <p className="px-0.5 text-sm leading-[22.75px] text-muted">
                   Cuando el instructor muestre el código QR en clase, toca el botón para registrar tu asistencia.
@@ -63,16 +67,16 @@ export function DetalleClaseParticipantePagina() {
         </div>
       </div>
 
-      {clase && clase.estado !== 'CANCELADA' && !clase.miAsistencia && (
+      {clase && clase.estado !== 'CANCELADA' && clase.modalidad !== 'VIRTUAL' && !clase.miAsistencia && (
         // Barra fija abajo: el botón queda al alcance del pulgar aunque se haga scroll
         <div className="sticky bottom-0 border-t border-transparent bg-page/90 px-4 pt-4 pb-4 backdrop-blur-[2px] sm:px-10">
           <div className="mx-auto max-w-160">
             <Link
-              to={`/participante/clases/${clase.id}/escanear`}
+              to={clase.qrRotatorio === false ? '/participante/mi-qr' : `/participante/clases/${clase.id}/escanear`}
               className="flex h-14 w-full items-center justify-center gap-2.5 rounded-lg bg-brand text-base font-medium text-white hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
             >
               <ScanQrCode className="size-5" aria-hidden />
-              Marcar asistencia
+              {clase.qrRotatorio === false ? 'Abrir Mi QR' : 'Marcar asistencia'}
             </Link>
           </div>
         </div>

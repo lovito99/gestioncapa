@@ -36,7 +36,7 @@ export type InscripcionesRepository = {
 const padronVigente = `r.id=1 and r."validadoEn"<=statement_timestamp()
   and r."vigenteHasta">statement_timestamp() and exists(select 1 from "padronCppp")`;
 
-async function consultarAfiliacion(conexion: Consultor, dni: string, usuarioId: number) {
+export async function consultarAfiliacion(conexion: Consultor, dni: string, usuarioId: number) {
   return (await conexion.query<Afiliacion>(
     `select p.habilitado, p."usuarioIdVerificado"=$2 as vinculado
      from "controlPadronCppp" r left join "padronCppp" p on p.dni=$1
