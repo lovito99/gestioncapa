@@ -153,6 +153,43 @@ de sesión que el login. DNI/correo duplicados devuelven `409 CUENTA_YA_REGISTRA
 los errores por campo usan `422 VALIDACION`. Consulta [el contrato completo](esp/registro.md).
 
 
+## HU-41 · Iniciar sesión con Google
+
+El navegador usa el origen del frontend y el proxy de `/api`.
+Los POST de Google exigen el `Origin` de GestionCapa. Las respuestas usan
+`Cache-Control: no-store` y `Referrer-Policy: no-referrer`.
+
+| Método y ruta (prefijo `/api/auth/google`) | Datos | Resultado |
+| --- | --- | --- |
+| `GET /estado` | — | `{ habilitado }` y, cuando procede, cookie de navegador. |
+| `POST /iniciar` | `{ curso? }` | `{ intento, url }` y cookie de navegador. `curso` acepta un identificador o `null`. |
+| `GET /callback` | Consulta de Google con `state` y `code` o `error`. | 303 a `/login/google`. Un retorno vencido lleva solo el indicador `resultado=vencido`. |
+| `POST /continuar` | `{ intento }` | Estado del flujo o sesión de GestionCapa. |
+| `POST /vincular` | `{ intento, password }` | Vínculo tras confirmar la contraseña local y sesión HU-02. |
+| `POST /enviar-codigo` | `{ intento }` | 204 cuando se confirma el envío del código. |
+| `POST /verificar-correo` | `{ intento, codigo }` | Siguiente paso después de confirmar el buzón externo. |
+| `POST /registrar` | `{ intento, dni, nombres, apellidos, celular, aceptaPrivacidad }` | Alta y sesión de agremiado. El correo lo fija el servidor. |
+| `POST /cancelar` | `{ intento }` | 204 si se cancela o ya no está disponible. 409 si la confirmación de cuenta ya está en curso. |
+
+- Las respuestas de continuación indican `paso` y `curso`. Los pasos son
+  `pendiente` mientras se procesa el retorno, `verificarCorreo` con
+  `codigoEnviado`, `vincular` o `registro` con el correo, y `sesion`
+  con la respuesta habitual `LoginRespuesta`.
+- Google permite entrar a agremiados activos. El guard verifica el rol
+  actual y el vínculo usa emisor y sujeto. Para una cuenta existente sin
+  vínculo, la coincidencia de correo exige confirmar la contraseña local.
+  Si el correo es de terceros, primero se verifica el control del buzón.
+- El código vale cinco minutos y admite cinco comprobaciones. Reenviar
+  invalida el código anterior. También hay límites por destinatario e IP.
+  Cuenta, vínculo y auditoría usan una transacción. Cancelación y confirmación
+  compiten en Redis antes de la escritura.
+- `POST /api/auth/logout` verifica el JWT local firmado y vigente, revoca
+  ese token y devuelve 204. La operación admite una credencial de un usuario
+  cuyo estado o rol cambió. Si falla Redis, responde
+  `503 REVOCACION_NO_CONFIRMADA`.
+- Configuración del proxy, cliente web y retorno de publicación en el
+  [plan de HU-41](esp/sprints/acceso/hu-41/plan.md).
+
 ## HU-16: inscripción en línea
 
 `POST /api/cursos/:id/inscribirme` conserva `201` para una nueva inscripción y

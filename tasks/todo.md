@@ -1701,3 +1701,8 @@ Plan: [plan.md](plan.md#t-26--plan-backend-en-capas). Estado: aprobado el 24/11/
 ## HU-39 · Asistencia presencial con QR personal o DNI
 
 [Seguimiento y verificaciones de HU-39](../docs/esp/sprints/asistencia-presencial/hu-39/todo.md) en el sprint Asistencia presencial.
+
+
+## HU-41 · Iniciar sesión con Google
+
+[Tareas y puntos de control](../docs/esp/sprints/acceso/hu-41/todo.md) en el sprint Acceso.

@@ -19,7 +19,7 @@ api.interceptors.response.use(
   (error: AxiosError) => {
     const url = error.config?.url ?? ''
     // Un 401 al entrar es un error de credenciales; al salir, la sesión ya se cierra igual.
-    const esAcceso = url.includes('/auth/login') || url.includes('/auth/logout')
+    const esAcceso = url.includes('/auth/login') || url.includes('/auth/logout') || url.startsWith('/auth/google/')
     if (error.response?.status === 401 && !esAcceso) {
       sesion.expirar()
       window.location.assign(loginDelCursoActual(window.location.pathname,window.location.search))

@@ -5,7 +5,7 @@ export type Metodo = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 export type Permiso = {
   metodo: Metodo;
   ruta: string;
-  acceso: "publico" | "autenticado" | Rol[];
+  acceso: "publico" | "autenticado" | "revocarSesion" | Rol[];
   /** Acción que crea, modifica o registra datos de negocio. */
   critica?: boolean;
 };
@@ -102,7 +102,16 @@ export const permisos: Permiso[] = [
   { metodo: "GET", ruta: "/health", acceso: "publico" },
   { metodo: "GET", ruta: "/api/health", acceso: "publico" },
   { metodo: "POST", ruta: "/api/auth/login", acceso: "publico" },
-  { metodo: "POST", ruta: "/api/auth/logout", acceso: "autenticado" },
+  { metodo: "POST", ruta: "/api/auth/logout", acceso: "revocarSesion" },
+  { metodo: "GET", ruta: "/api/auth/google/estado", acceso: "publico" },
+  { metodo: "GET", ruta: "/api/auth/google/callback", acceso: "publico" },
+  { metodo: "POST", ruta: "/api/auth/google/iniciar", acceso: "publico" },
+  { metodo: "POST", ruta: "/api/auth/google/continuar", acceso: "publico" },
+  { metodo: "POST", ruta: "/api/auth/google/vincular", acceso: "publico" },
+  { metodo: "POST", ruta: "/api/auth/google/registrar", acceso: "publico" },
+  { metodo: "POST", ruta: "/api/auth/google/enviar-codigo", acceso: "publico" },
+  { metodo: "POST", ruta: "/api/auth/google/verificar-correo", acceso: "publico" },
+  { metodo: "POST", ruta: "/api/auth/google/cancelar", acceso: "publico" },
   { metodo: "GET", ruta: "/api/auth/me", acceso: "autenticado" },
 
   { metodo: "GET", ruta: "/api/instructores", acceso: rolesGestionClases },

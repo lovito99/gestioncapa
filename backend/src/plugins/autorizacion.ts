@@ -21,6 +21,7 @@ export type BuscarUsuario = (id: number) => Promise<UsuarioAutenticado | null>;
 declare module "fastify" {
   interface FastifyRequest {
     usuario?: UsuarioAutenticado;
+    expiracionParaRevocar?: number;
   }
 }
 
@@ -29,6 +30,17 @@ const noAutenticado = (reply: FastifyReply) =>
     code: "NO_AUTENTICADO",
     message: "Tu sesión expiró. Vuelve a iniciar sesión."
   });
+
+/** El cierre solo necesita la credencial. Puede revocar aunque la cuenta cambie. */
+const requerirSesionParaRevocar: preHandlerAsyncHookHandler = async (request, reply) => {
+  try {
+    const jwt = await request.jwtVerify<{ sub: string; exp: number }>();
+    if (!jwt.sub || !Number.isFinite(jwt.exp)) return noAutenticado(reply);
+    request.expiracionParaRevocar = jwt.exp;
+  } catch {
+    return noAutenticado(reply);
+  }
+};
 
 /**
  * Crea el guard de roles: sin sesión válida → 401, rol incorrecto → 403.
@@ -39,11 +51,13 @@ export function crearGuard(buscarUsuario: BuscarUsuario, controles: ControlesAcc
   return (...roles: Rol[]): preHandlerAsyncHookHandler =>
     async function guard(request: FastifyRequest, reply: FastifyReply) {
       let id: number;
+      let metodo: string | undefined;
 
       try {
         // Rechaza token ausente, expirado o con otra firma.
-        const payload = await request.jwtVerify<{ sub: string }>();
+        const payload = await request.jwtVerify<{ sub: string; metodo?: string }>();
         id = Number(payload.sub);
+        metodo = payload.metodo;
       } catch {
         return noAutenticado(reply);
       }
@@ -52,7 +66,7 @@ export function crearGuard(buscarUsuario: BuscarUsuario, controles: ControlesAcc
       if (controles.tokenRevocado && await controles.tokenRevocado(token)) return noAutenticado(reply);
       const usuario = Number.isInteger(id) ? await buscarUsuario(id) : null;
 
-      if (!usuario) {
+      if (!usuario || (metodo === "google" && usuario.role !== "agremiado")) {
         return noAutenticado(reply);
       }
 
@@ -100,7 +114,8 @@ export function registrarAutorizacion(app: FastifyInstance, buscarUsuario: Busca
         continue;
       }
 
-      const guard = permiso.acceso === "autenticado" ? requerirRol() : requerirRol(...permiso.acceso);
+      const guard = permiso.acceso === "revocarSesion" ? requerirSesionParaRevocar
+        : permiso.acceso === "autenticado" ? requerirRol() : requerirRol(...permiso.acceso);
       opciones.preHandler = [guard, ...[opciones.preHandler ?? []].flat()];
       return;
     }

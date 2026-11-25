@@ -59,6 +59,10 @@ const envSchema = z.object({
   REDIS_URL: requerida((s) => s.url("debe ser una URL, por ejemplo redis://:clave@localhost:6379")),
   JWT_SECRET: requerida((s) => s.min(32, "debe tener al menos 32 caracteres")),
   limitePeticiones: z.coerce.number().int().min(1).max(10000).default(300),
+  googleHabilitado: booleanFromEnv.default(false),
+  googleClienteId: z.string().trim().max(512).optional(),
+  googleClienteSecreto: z.string().trim().max(1024).optional(),
+  googleProxyConfiable: z.preprocess(valor => valor === "" ? undefined : valor, z.union([z.ipv4(), z.ipv6()]).optional()),
   JWT_EXPIRES_IN: z.string().default("1d"),
   // Firma los tokens del QR de asistencia; distinto de JWT_SECRET.
   QR_SECRET: requerida((s) => s.min(32, "debe tener al menos 32 caracteres")),
@@ -128,6 +132,17 @@ export class EnvError extends Error {
 
 export function parseEnv(source: Record<string, string | undefined>): Env {
   const result = envSchema.superRefine((configuracion, contexto) => {
+    if (configuracion.googleHabilitado) {
+      for (const nombre of ["googleClienteId", "googleClienteSecreto"] as const) {
+        const valor = configuracion[nombre];
+        if (!valor || esValorDeEjemplo(valor)) {
+          contexto.addIssue({ code: "custom", path: [nombre], message: "configura el cliente web antes de habilitar Google" });
+        }
+      }
+      if (!origenCorreoValido(configuracion.FRONTEND_URL, configuracion.NODE_ENV !== "production")) {
+        contexto.addIssue({ code: "custom", path: ["FRONTEND_URL"], message: "Google requiere el origen HTTPS del frontend sin ruta ni credenciales" });
+      }
+    }
     if(configuracion.correoSinTlsParaPruebas&&(configuracion.NODE_ENV!=='test'||!['127.0.0.1','localhost'].includes(configuracion.correoServidor??''))) contexto.addIssue({code:'custom',path:['correoSinTlsParaPruebas'],message:'solo se permite SMTP sin TLS en loopback de pruebas'});
     if(configuracion.correoHabilitado) {
       for(const nombre of ['correoServidor','correoRemitente',...(configuracion.correoSinTlsParaPruebas?[]:['correoUsuario','correoClave'] as const)] as const) {

@@ -1,4 +1,4 @@
-import type { DatosRegistro } from "../../dto/auth/authDto.js";
+import { aUsuarioSesion, type DatosRegistro } from "../../dto/auth/authDto.js";
 import { randomUUID } from "node:crypto";
 import type { PublicUser, ReclamosSesion } from "../../entities/auth/usuarioPublico.js";
 import type { SeguridadAccesoRepository } from "../../repositories/auth/seguridadAccesoRepository.js";
@@ -29,7 +29,7 @@ export function crearAuthService({ usuarios, acceso, claves, configuracion }: Au
       if (bloqueado > 0) return { tipo: "bloqueado", segundos: bloqueado };
 
       const cuenta = await usuarios.buscarPorEmail(email.toLowerCase());
-      if (!cuenta || !(await claves.comparar(password, cuenta.password_hash))) {
+      if (!cuenta?.password_hash || !(await claves.comparar(password, cuenta.password_hash))) {
         const espera = await acceso.registrarFalloLogin(email);
         return espera > 0 ? { tipo: "bloqueado", segundos: espera } : { tipo: "credencialesInvalidas" };
       }
@@ -50,8 +50,8 @@ export function crearAuthService({ usuarios, acceso, claves, configuracion }: Au
     },
 
     /** Cada token lleva un identificador propio para poder revocarlo sin afectar otras sesiones. */
-    reclamosSesion(usuario: PublicUser): ReclamosSesion {
-      return { sub: String(usuario.id), email: usuario.email, jti: randomUUID() };
+    reclamosSesion(usuario: PublicUser, metodo?: "google"): ReclamosSesion {
+      return { sub: String(usuario.id), email: usuario.email, jti: randomUUID(), ...(metodo ? { metodo } : {}) };
     },
 
     cerrarSesion(token: string, expiracion?: number) {
@@ -71,3 +71,9 @@ export function crearAuthService({ usuarios, acceso, claves, configuracion }: Au
 }
 
 export type AuthService = ReturnType<typeof crearAuthService>;
+
+export function crearRespuestaSesion(servicio: Pick<AuthService, "reclamosSesion">, firmar: (reclamos: ReclamosSesion) => string) {
+  return (usuario: PublicUser, metodo?: "google") => ({
+    token: firmar(servicio.reclamosSesion(usuario, metodo)), user: usuario, usuario: aUsuarioSesion(usuario)
+  });
+}

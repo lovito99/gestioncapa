@@ -8,7 +8,7 @@ export type PublicUser = {
 
 /** Fila usada solo para validar credenciales. */
 export type CredencialesUsuario = PublicUser & {
-  password_hash: string;
+  password_hash: string | null;
   active: boolean;
 };
 
@@ -16,4 +16,4 @@ export type CredencialesUsuario = PublicUser & {
 export type NuevoDocente = { dni: string; nombres: string; apellidos: string; email: string; celular: string };
 
 /** Datos que se firman en el token de sesión; `jti` permite revocar ese token. */
-export type ReclamosSesion = { sub: string; email: string; jti: string };
+export type ReclamosSesion = { sub: string; email: string; jti: string; metodo?: "google" };

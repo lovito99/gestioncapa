@@ -11,6 +11,7 @@ export const esquemaRegistro = z.object({
   password: z.string({ error: 'Ingresa tu contraseña.' }).min(8, 'La contraseña debe tener al menos 8 caracteres.').refine(valor => Buffer.byteLength(valor, 'utf8') <= 72, 'La contraseña debe ocupar como máximo 72 bytes.'),
   aceptaPrivacidad: z.literal(true, 'Debes aceptar el aviso de privacidad para crear tu cuenta.')
 }).strict();
+export const esquemaRegistroGoogle = esquemaRegistro.omit({ email: true, password: true });
 export type DatosRegistro = z.infer<typeof esquemaRegistro>;
 
 export const esquemaLogin = z.object({

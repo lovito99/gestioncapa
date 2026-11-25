@@ -281,6 +281,27 @@ la aprobación de otro integrante. Detalles en [docs/calidad.md](docs/calidad.md
 
 ### Datos simulados (MSW)
 
+### Acceso con Google (HU-41)
+
+`googleHabilitado` está apagado por defecto. Para habilitarlo, configura
+`googleClienteId` y `googleClienteSecreto` solo en backend, aplica la
+migración `0048-identidadGoogle.sql` y registra en Google Cloud la URI
+exacta `<FRONTEND_URL>/api/auth/google/callback`. El navegador usa
+`/api` en su mismo origen. Producción requiere HTTPS. El primer acceso
+con correo externo necesita el transporte SMTP de GestionCapa.
+
+Excluye la consulta del callback en los registros de proxies y
+observabilidad. En Nginx, una opción es una ubicación exacta
+`location = /api/auth/google/callback` con `access_log off;` y el
+mismo reenvío, host y cabeceras de `location /`. Aplica el filtro en
+todas las entradas que puedan ver el callback.
+
+Si Fastify recibe tráfico desde un proxy local, configura
+`googleProxyConfiable` con su IP solo cuando el borde sobrescriba
+`X-Real-IP` y los puertos de los procesos queden accesibles únicamente
+desde proxies autorizados. Si queda vacío se usa la IP de la conexión
+directa. [Plan de publicación](docs/esp/sprints/acceso/hu-41/plan.md)
+
 Sin backend, `npm run dev:demo` usa datos simulados con MSW (`VITE_USE_MOCKS=true` en `frontend/.env.demo`). Usuarios de prueba en ese modo:
 
 | Rol | Correo | Contrasena |

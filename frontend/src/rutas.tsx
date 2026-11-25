@@ -39,6 +39,7 @@ import { MisCursosPagina } from '@/paginas/participante/MisCursosPagina'
 import { MiQrPagina } from '@/paginas/participante/MiQrPagina'
 import { PagarCursoPagina } from '@/paginas/pagos/PagarCursoPagina'
 import { PuertaPagina } from '@/paginas/asistenciaPuerta/PuertaPagina'
+import { AccesoGooglePagina } from '@/paginas/AccesoGooglePagina'
 import { SinPermisoPagina } from '@/paginas/SinPermisoPagina'
 
 export const router = createBrowserRouter([
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
   // HU-40: enlace corto que se comparte por WhatsApp; Express agrega su vista previa (HU-51).
   { path: '/c/:id', element: <PaginaPublica><PaginaPublicaCursoPagina /></PaginaPublica> },
   { path: '/login', element: <LoginPagina /> },
+  { path: '/login/google', element: <AccesoGooglePagina /> },
   { path: '/registro', element: <RegistroPagina /> },
   { path: '/recuperar', element: <RecuperarPagina /> },
   // Públicas: el QR del certificado lleva aquí sin pedir sesión

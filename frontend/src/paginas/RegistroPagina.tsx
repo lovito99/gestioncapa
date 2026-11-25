@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Eye, EyeOff } from 'lucide-react'
 import { useState, type InputHTMLAttributes, type Ref } from 'react'
 import { useForm } from 'react-hook-form'
@@ -43,38 +44,54 @@ export function RegistroPagina() {
   const ubicacion=useLocation()
   const curso=cursoDeBusqueda(ubicacion.search)
   const registro = useRegistro()
+  if (usuario) return <Navigate to={destinoTrasAcceso(ubicacion.search, undefined, '/catalogo')} replace />
+
+  return <FormularioCrearCuenta curso={curso} crear={async datos => iniciar(await registro.mutateAsync(datos))} />
+}
+
+export function FormularioCrearCuenta({ curso, correoGoogle, crear, cancelar }: {
+  curso: string | null
+  correoGoogle?: string
+  crear: (datos: Formulario) => Promise<void>
+  cancelar?: () => void
+}) {
+  const [errorRegistro, setErrorRegistro] = useState<unknown>(null)
   const {
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitted },
-  } = useForm<Formulario>({ resolver: zodResolver(esquema) })
+    formState: { errors, isSubmitted, isSubmitting },
+  } = useForm<Formulario>({
+    resolver: zodResolver(correoGoogle ? esquema.extend({ password: z.string() }) : esquema),
+    defaultValues: correoGoogle ? { email: correoGoogle, password: '' } : {},
+  })
 
-  if (usuario) return <Navigate to={destinoTrasAcceso(ubicacion.search,undefined,'/catalogo')} replace />
+  const enviar = handleSubmit(async datos => {
+    setErrorRegistro(null)
+    try {
+      await crear(datos)
+    } catch (error) {
+      setErrorRegistro(error)
+      if (!esApiError(error)) return
+      for (const [campo, mensaje] of Object.entries(error.fields)) {
+        if (campo in esquema.shape) setError(campo as keyof Formulario, { message: mensaje })
+      }
+    }
+  })
 
-  const enviar = handleSubmit((datos) =>
-    registro.mutate(datos, {
-      onSuccess: iniciar,
-      onError: (error) => {
-        if (!esApiError(error)) return
-        for (const [campo, mensaje] of Object.entries(error.fields)) {
-          if (campo in esquema.shape) setError(campo as keyof Formulario, { message: mensaje })
-        }
-      },
-    }),
-  )
-
-  const yaRegistrado = esApiError(registro.error, 'CUENTA_YA_REGISTRADA')
+  const yaRegistrado = esApiError(errorRegistro, 'CUENTA_YA_REGISTRADA')
   const hayErroresDeCampo = isSubmitted && Object.keys(errors).length > 0
   const errorGeneral =
-    registro.error && !yaRegistrado && !esApiError(registro.error, 'VALIDACION') ? registro.error.message : null
+    !yaRegistrado && esApiError(errorRegistro) && errorRegistro.code !== 'VALIDACION' ? errorRegistro.message : null
   const estado = (campo: keyof Formulario) => (errors[campo] ? 'error' : 'normal')
 
   return (
     <PaginaPublica>
       <div className="mx-auto w-full max-w-140 px-4 py-8 sm:py-10">
-        <EnlaceVolver to={accesoConCurso('/login',curso)}>Volver a iniciar sesión</EnlaceVolver>
-        <h1 className="mt-4 text-2xl leading-8 font-bold text-ink">Crear cuenta</h1>
+        {cancelar
+          ? <Boton variante="secundario" onClick={cancelar}>Volver a iniciar sesión</Boton>
+          : <EnlaceVolver to={accesoConCurso('/login', curso)}>Volver a iniciar sesión</EnlaceVolver>}
+        <h1 className="mt-4 text-2xl leading-8 font-bold text-ink">{correoGoogle ? 'Completa tu registro' : 'Crear cuenta'}</h1>
         <p className="mt-1 text-sm text-muted">Regístrate con tu DNI para inscribirte en los cursos del CPPP.</p>
 
         <form
@@ -117,7 +134,7 @@ export function RegistroPagina() {
           </div>
 
           <Campo etiqueta="Correo electrónico" obligatorio error={errors.email?.message}>
-            <Entrada type="email" autoComplete="email" placeholder="nombre@correo.com" estado={estado('email')} {...register('email')} />
+            <Entrada type="email" autoComplete="email" placeholder="nombre@correo.com" estado={estado('email')} readOnly={Boolean(correoGoogle)} {...register('email')} />
           </Campo>
 
           <Campo etiqueta="Celular" obligatorio error={errors.celular?.message}>
@@ -132,14 +149,14 @@ export function RegistroPagina() {
             />
           </Campo>
 
-          <Campo etiqueta="Contraseña" obligatorio error={errors.password?.message} ayuda="Mínimo 8 caracteres.">
+          {!correoGoogle && <Campo etiqueta="Contraseña" obligatorio error={errors.password?.message} ayuda="Mínimo 8 caracteres.">
             <EntradaContrasena
               autoComplete="new-password"
               placeholder="Mínimo 8 caracteres"
               estado={estado('password')}
               {...register('password')}
             />
-          </Campo>
+          </Campo>}
 
           <div>
             <label className="flex items-start gap-2.5 text-sm text-ink">
@@ -165,7 +182,7 @@ export function RegistroPagina() {
             )}
           </div>
 
-          <Boton type="submit" cargando={registro.isPending} className="h-12 w-full sm:h-10">
+          <Boton type="submit" cargando={isSubmitting} className="h-12 w-full sm:h-10">
             Crear cuenta
           </Boton>
         </form>
