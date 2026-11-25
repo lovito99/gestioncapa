@@ -656,3 +656,36 @@ y se reconocen sus finalizaciones históricas. En modo medido, el endpoint
 manual de HU-19 devuelve 409 si se intenta crear una marca nueva de video.
 
 [Especificación de HU-17](esp/sprints/aprendizaje/hu-17/SPEC.md).
+
+## HU-37 · Lecciones complementarias de YouTube
+
+Rutas bajo `/api/cursos/:id/lecciones`. Requieren autenticación y devuelven
+`Cache-Control: private, no-store`. Las escribe el instructor asignado al
+curso grabado abierto. El colegiado accede con su inscripción vigente.
+El video requiere acceso gratuito dentro del curso.
+
+| Método y ruta relativa | Rol | Contrato |
+| --- | --- | --- |
+| GET `/` | INSTRUCTOR asignado, AGREMIADO inscrito | Devuelve `{revision,puedeGestionar,lecciones}`. Las filas se ordenan por `orden` y proyectan el estado de la inscripción. |
+| POST `/` | INSTRUCTOR asignado | Recibe `{moduloId,titulo,url,operacionId}`. Guarda una lección al final y devuelve 201. La misma operación y datos recuperan la misma lección. |
+| PUT `/orden` | INSTRUCTOR asignado | Recibe `{revision,ids}` con todas las lecciones del curso. Devuelve `{revision,lecciones}`. Una revisión anterior devuelve 409. |
+| PUT `/:leccionId/pdf` | INSTRUCTOR asignado | Recibe `{contenidoBase64}` con un PDF válido de hasta 5 MB. Guarda o reemplaza el PDF y devuelve `{tienePdf:true}`. |
+| GET `/:leccionId/pdf` | INSTRUCTOR asignado, AGREMIADO inscrito | Valida el acceso vigente y descarga el PDF como archivo adjunto. |
+| PUT `/:leccionId/estado` | AGREMIADO inscrito | Recibe `{estado:'EN_CURSO' \| 'COMPLETADA'}`. Devuelve el estado guardado y `completadaEn`. La finalización requiere haber abierto la lección. |
+
+Cada lección devuelve `id`, `moduloId`, `modulo`, `titulo`, `orden`,
+`youtubeId`, `duracionSegundos`, `tienePdf`, `estado` y `completadaEn`.
+Los metadatos vencidos o de un video indisponible devuelven `null` para
+`youtubeId` y `duracionSegundos`. La marca de HU-37 corresponde al
+seguimiento propio del aula. HU-17 y HU-19 mantienen sus criterios académicos.
+
+Configura `youtubeClaveApi` como secreto de servidor con acceso restringido a
+YouTube Data API v3. El alta consulta un video no listado por ID. Los videos
+inválidos devuelven 422 y los fallos temporales del proveedor, 503. El
+servidor revisa los metadatos por lotes en segundo plano, regenera los vigentes
+y depura los caducados a los 30 días de su última verificación. Los cursos
+con cobro previo conservan su flujo de contenido existente. Incorporar
+una nueva lección de YouTube requiere un curso gratuito para el video y sin
+inscripciones vigentes que hayan contratado acceso previo.
+
+[Especificación HU-37](esp/sprints/aprendizaje/hu-37/SPEC.md).

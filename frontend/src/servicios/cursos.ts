@@ -161,7 +161,10 @@ export function useCursosParaClase() {
 }
 
 export async function descargarMaterialPdf(cursoId: string, moduloId: string, materialId: string) {
-  const archivo = await cursos.descargar(cursoId, moduloId, materialId)
+  guardarDescargaPdf(await cursos.descargar(cursoId, moduloId, materialId))
+}
+
+export function guardarDescargaPdf(archivo: Blob) {
   const url = URL.createObjectURL(archivo)
   const enlace = document.createElement('a')
   enlace.href = url

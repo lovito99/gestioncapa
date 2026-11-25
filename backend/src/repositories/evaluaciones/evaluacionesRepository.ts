@@ -54,6 +54,7 @@ export async function videosDelCurso(cliente: Consultor, cursoId: string, medido
     `select material.id::text,material.titulo,modulo.titulo as modulo,material.url
      from modulos_curso modulo join materiales_curso material on material.modulo_id=modulo.id
      where modulo.curso_id=$1 and material.tipo='VIDEO'
+       and not exists(select 1 from "leccionesYoutube" l where l."materialVideoId"=material.id)
        and (not $2 or (material.obligatorio and material."duracionMs" is not null))
      order by modulo.orden,material.id`, [cursoId, medidos]
   );

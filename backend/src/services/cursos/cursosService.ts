@@ -1,3 +1,4 @@
+import { esEnlaceYoutube } from '../../entities/lecciones/youtube.js';
 import type { UsuarioAutenticado } from "../../plugins/autorizacion.js";
 import { ErrorAplicacion } from "../../shared/errorAplicacion.js";
 import { validarClase } from "../../dto/clases/claseDto.js";
@@ -214,6 +215,9 @@ export function crearCursosService(deps: CursosServiceDeps) {
       if (curso.instructorId !== String(usuario.id)) throw error(403, "SIN_PERMISO", "Solo el instructor asignado puede agregar material a este curso.");
       if (!idCurso.safeParse(moduloId).success || !curso.modulos.some((m) => m.id === moduloId)) throw error(404, "MODULO_NO_EXISTE", "El módulo no pertenece a este curso.");
       const datos = esquemaMaterial.parse(cuerpo);
+      if (curso.modalidad === 'GRABADO' && datos.tipo === 'VIDEO' && esEnlaceYoutube(datos.url)) {
+        throw error(422, 'YOUTUBE_REQUIERE_LECCION', 'Usa «Agregar lección de YouTube» para verificar el enlace y su duración.');
+      }
       const material = await cursos.guardarMaterial(curso.id, moduloId!, usuario.id, datos);
       if (!material) throw error(403, "SIN_PERMISO", "No tienes permiso para agregar material a este módulo.");
       return { ...material, titulo: datos.titulo, tipo: datos.tipo, url: datos.tipo === "PDF" ? null : datos.url };

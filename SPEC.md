@@ -1960,3 +1960,8 @@ devuelve resultados. No se instala nada.
 | Verificar reglas de capas | `dependency-cruiser` 18.9.0 (MIT, 18 deps); `eslint-plugin-boundaries` 7.4.4 (MIT, requiere ESLint, que el backend no usa); `madge` 8.0.0 (MIT, sin publicar desde 08/2024) | **Construir ahora**; proponer `dependency-cruiser` en la fase de cierre | Una prueba `node:test` que lee los `import` basta para dos pilotos y no añade dependencias. Para los ciclos de todo el backend, `dependency-cruiser` es la mejor opción (pide autorización). |
 | Plantilla de estructura | Plantillas Fastify+TS en GitHub (NeaDigitra/Fastify-TS-API, gubiar/real-world-fastify, AndresH11/Node-TypeScript-Fastify) | **Componer** solo el patrón | Imponen ORM (Prisma) o clases; se toma la separación controller/service/repository y se adapta a `pg` y al estilo funcional. |
 | Skills | `api-and-interface-design`, `deprecation-and-migration`, `documentation-and-adrs` | **Adoptar** | Guían los contratos entre capas, la migración por fases y el ADR-002. |
+
+
+## HU-37 · Agregar lecciones en video a un curso grabado
+
+[Especificación y soluciones existentes](docs/esp/sprints/aprendizaje/hu-37/SPEC.md) en el sprint Aprendizaje.

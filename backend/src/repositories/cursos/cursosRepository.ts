@@ -1,16 +1,24 @@
 import type { PoolClient } from 'pg';
 import { pool } from '../../shared/database.js';
 import { conTransaccion } from '../../shared/transaccion.js';
+import { ErrorAplicacion } from '../../shared/errorAplicacion.js';
 import { categoriasCatalogo, type CambioCobro, type Curso, type FiltroCatalogo, type NuevoCurso, type NuevoMaterial } from '../../entities/cursos/curso.js';
 import { conPortada, type DatosPortada, type PortadaProcesada } from '../../entities/cursos/portada.js';
 import { listarSesiones } from './sesionesCursoRepository.js';
 import { columnaPortada, guardarPortada } from './portadasRepository.js';
 
 export async function actualizarCobro(id: string, datos: CambioCobro) {
-  return (await pool.query(`update cursos set "modalidadCobro"=$2::varchar,costo=$3,"plazoPagoMinutos"=$4,"versionCobro"="versionCobro"+1,
-    "precioGeneral"=case when $2::varchar='GRATUITO' then 0 else coalesce($6, nullif("precioGeneral",0)) end
-    where id=$1 and estado<>'CERRADO' and "versionCobro"=$5`,
-  [id, datos.modalidadCobro, datos.costo, datos.plazoPagoMinutos, datos.versionCobro, datos.precioGeneral ?? null])).rowCount;
+  return transaccion(async cliente => {
+    await cliente.query('select id from cursos where id=$1 for update', [id]);
+    if (datos.modalidadCobro === 'PREVIO' &&
+        (await cliente.query('select 1 from "leccionesYoutube" where "cursoId"=$1 limit 1', [id])).rowCount) {
+      throw new ErrorAplicacion(409, 'YOUTUBE_REQUIERE_ACCESO_GRATUITO', 'El curso tiene lecciones de YouTube y debe mantener video de acceso gratuito.');
+    }
+    return (await cliente.query(`update cursos set "modalidadCobro"=$2::varchar,costo=$3,"plazoPagoMinutos"=$4,"versionCobro"="versionCobro"+1,
+      "precioGeneral"=case when $2::varchar='GRATUITO' then 0 else coalesce($6, nullif("precioGeneral",0)) end
+      where id=$1 and estado<>'CERRADO' and "versionCobro"=$5`,
+    [id, datos.modalidadCobro, datos.costo, datos.plazoPagoMinutos, datos.versionCobro, datos.precioGeneral ?? null])).rowCount;
+  });
 }
 
 type FilaCurso = Curso & { portadaDatos: DatosPortada };
@@ -40,7 +48,9 @@ export async function obtenerCurso(id: string, usuarioId?: number) {
   const modulos = (await pool.query<{ id: string; titulo: string; orden: number }>('select id::text,titulo,orden from modulos_curso where curso_id=$1 order by orden', [id])).rows;
   const materiales = (await pool.query<{ id: string; moduloId: string; titulo: string; tipo: string; url: string | null }>(`
     select a.id::text,a.modulo_id::text as "moduloId",a.titulo,a.tipo,a.url from materiales_curso a
-    join modulos_curso m on m.id=a.modulo_id where m.curso_id=$1 order by a.id`, [id])).rows;
+    join modulos_curso m on m.id=a.modulo_id where m.curso_id=$1
+    and not exists(select 1 from "leccionesYoutube" l where l."materialVideoId"=a.id or l."materialPdfId"=a.id)
+    order by a.id`, [id])).rows;
   const miInscripcion=usuarioId===undefined ? null : await obtenerMiInscripcion(id,usuarioId);
   const estadoInscripcion=miInscripcion?.estado ?? curso.estadoInscripcion;
   return { ...conPortada(curso),estadoInscripcion,inscrito:!!curso.inscrito && estadoInscripcion!=='CANCELADA',miInscripcion,
@@ -89,7 +99,8 @@ export async function publicarCurso(id: string) {
 }
 export async function obtenerArchivo(cursoId: string, moduloId: string, materialId: string) {
   return (await pool.query<{ archivo: Buffer }>(`select a.archivo from materiales_curso a join modulos_curso m on m.id=a.modulo_id
-    where m.curso_id=$1 and m.id=$2 and a.id=$3 and a.tipo='PDF'`, [cursoId, moduloId, materialId])).rows[0]?.archivo;
+    where m.curso_id=$1 and m.id=$2 and a.id=$3 and a.tipo='PDF'
+      and not exists(select 1 from "leccionesYoutube" l where l."materialPdfId"=a.id)`, [cursoId, moduloId, materialId])).rows[0]?.archivo;
 }
 
 export async function paginaCatalogo(usuarioId: number, consulta: FiltroCatalogo, soloVigentes = false) {

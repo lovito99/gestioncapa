@@ -23,6 +23,8 @@ import { modalidadCobroDe, precioPara, soles, textoPlazo } from './reglasCurso'
 import { SesionesCurso } from './SesionesCurso'
 import { SesionesDetalle } from './SesionesDetalle'
 
+import { GestionLeccionesYoutube } from './lecciones/GestionLeccionesYoutube'
+
 export function DetalleCursoPagina() {
   const { id = '' } = useParams()
   const { usuario } = useAuth()
@@ -119,6 +121,7 @@ export function DetalleCursoPagina() {
     {agremiado && curso.miInscripcion?.pagoId && curso.estadoInscripcion !== 'PENDIENTE_PAGO' && <PagoCurso pagoId={curso.miInscripcion.pagoId} />}
     {/* La asistencia, los requisitos y el material son para quien gestiona el curso o ya está inscrito */}
     {!grabado && (gestion || curso.inscrito) && <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO'} participante={agremiado} sinLista />}
+    {puedeAgregar && grabado && !modoDemoActivo && <GestionLeccionesYoutube key={id} cursoId={id} modulos={curso.modulos} />}
     {(gestion || (curso.inscrito && curso.accesoContenido !== false && !aulaDemo)) && <>
       <h2 className="font-serif text-xl leading-7 font-bold text-ink">Módulos y material</h2>
       <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
