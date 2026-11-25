@@ -1,7 +1,5 @@
 import bcrypt from "bcryptjs";
 import type { Pool } from "pg";
-import { env } from "../config/env.js";
-import { pool } from "../shared/database.js";
 import type { Env } from "../config/env.schema.js";
 
 export type UsuarioSeed = {
@@ -38,13 +36,14 @@ export function usuariosSeed(env: EnvSeed): UsuarioSeed[] {
 }
 
 // Idempotente: no duplica ni cambia la clave de usuarios que ya existen.
-export async function sembrarUsuarios(consultor: Pick<Pool, "query"> = pool, configuracion: EnvSeed = env) {
-  const usuarios = usuariosSeed(configuracion);
+export async function sembrarUsuarios(consultor?: Pick<Pool, "query">, configuracion?: EnvSeed) {
+  const conexion = consultor ?? (await import("../shared/database.js")).pool;
+  const usuarios = usuariosSeed(configuracion ?? (await import("../config/env.js")).env);
 
   for (const usuario of usuarios) {
     const passwordHash = await bcrypt.hash(usuario.password, 12);
 
-    await consultor.query(
+    await conexion.query(
       `
         insert into users (name, email, password_hash, role)
         values ($1, $2, $3, $4)

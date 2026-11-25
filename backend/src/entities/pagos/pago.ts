@@ -9,6 +9,12 @@ export function lineasImporte(base: number, total: number) {
     `Comisión: S/ ${((total - base) / 100).toFixed(2)} PEN`, `Total pagado: S/ ${(total / 100).toFixed(2)} PEN`];
 }
 
+/** Clave única de la referencia bancaria, sin espacios ni separadores. */
+export function normalizarNumeroOperacion(referencia: string) {
+  const numero = referencia.toUpperCase().replace(/[ ./-]/g, '');
+  return /^[A-Z0-9]{3,100}$/.test(numero) ? numero : null;
+}
+
 export type InstrumentoPago = 'TARJETA' | 'YAPE';
 export type DesglosePagoEnLinea = {
   instrumento: InstrumentoPago; comisionCentimos: number; totalCentimos: number; comercio: string; ordenExterna: string;

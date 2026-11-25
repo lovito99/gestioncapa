@@ -2,10 +2,11 @@ import { randomUUID } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { pool } from '../../shared/database.js';
 import { ErrorPago } from '../../shared/errorPago.js';
-import type { ArchivoVoucher } from '../../entities/pagos/pago.js';
+import { normalizarNumeroOperacion, type ArchivoVoucher } from '../../entities/pagos/pago.js';
 
 export async function reservarReferenciaTransferencia(cliente:PoolClient,operacionId:string,referencia:string) {
   const numero=normalizarNumeroOperacion(referencia);
+  if (!numero) throw new ErrorPago(422, 'OPERACION_INVALIDA', 'Indica un número de operación válido.');
   await cliente.query('select pg_advisory_xact_lock(hashtextextended($1,0))',[`numeroTransferencia:${numero}`]);
   const anterior=(await cliente.query<{operacionId:string|null}>('select "operacionId" from "referenciasTransferencia" where numero=$1',[numero])).rows[0];
   if(anterior&&anterior.operacionId!==operacionId) throw new ErrorPago(409,'OPERACION_BANCARIA_REPETIDA','Ese número de operación ya está registrado. Consulta con el CPPP.');
@@ -44,11 +45,4 @@ export async function eliminarVouchersVencidos() {
     order by "eliminarEn" for update skip locked limit 20)
     update "vouchersPago" v set contenido=null,"eliminadoEn"=clock_timestamp() from vencidos where v.id=vencidos.id`);
   return resultado.rowCount??0;
-}
-
-/** Número de operación bancaria sin espacios ni separadores; es la clave única de la referencia. */
-export function normalizarNumeroOperacion(referencia:string) {
-  const numero=referencia.toUpperCase().replace(/[ ./-]/g,'');
-  if(!/^[A-Z0-9]{3,100}$/.test(numero)) throw new ErrorPago(422,'OPERACION_INVALIDA','Indica un número de operación válido.');
-  return numero;
 }
