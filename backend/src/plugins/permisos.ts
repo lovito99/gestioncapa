@@ -18,6 +18,16 @@ const rolesGestionClases: Rol[] = ["ADMIN"];
  * de lo contrario el servidor no arranca.
  */
 export const permisos: Permiso[] = [
+  { metodo: 'GET', ruta: '/api/cursos/:id/politica-evaluacion', acceso: ['ADMIN'] },
+  { metodo: 'PATCH', ruta: '/api/cursos/:id/politica-evaluacion', acceso: ['ADMIN'], critica: true },
+  { metodo: 'GET', ruta: '/api/cursos/:id/evaluaciones/gestion', acceso: ['INSTRUCTOR'] },
+  { metodo: 'POST', ruta: '/api/cursos/:id/evaluaciones/gestion', acceso: ['INSTRUCTOR'], critica: true },
+  { metodo: 'PUT', ruta: '/api/cursos/:id/evaluaciones/:evaluacionId', acceso: ['INSTRUCTOR'], critica: true },
+  { metodo: 'POST', ruta: '/api/cursos/:id/evaluaciones/:evaluacionId/publicar', acceso: ['INSTRUCTOR'], critica: true },
+  { metodo: 'GET', ruta: '/api/cursos/:id/evaluaciones', acceso: ['AGREMIADO'] },
+  { metodo: 'GET', ruta: '/api/cursos/:id/evaluaciones/:evaluacionId', acceso: ['AGREMIADO'] },
+  { metodo: 'POST', ruta: '/api/cursos/:id/evaluaciones/lecciones/:leccionId/completar', acceso: ['AGREMIADO'], critica: true },
+  { metodo: 'POST', ruta: '/api/cursos/:id/evaluaciones/:evaluacionId/intentos', acceso: ['AGREMIADO'], critica: true },
   { metodo:'GET',ruta:'/api/pagos/:id',acceso:['ADMIN','AGREMIADO'] },
   { metodo:'POST',ruta:'/api/pagos/:id/intentos',acceso:['AGREMIADO'],critica:true },
   { metodo:'POST',ruta:'/api/pagos/:id/intentos/:operacionId/sesion',acceso:['AGREMIADO'],critica:true },
@@ -37,7 +47,7 @@ export const permisos: Permiso[] = [
   ...['archivo','documento'].map(accion => ({ metodo: 'GET' as const, ruta: `/api/certificados/:codigo/${accion}`, acceso: ['ADMIN','AGREMIADO'] as Rol[] })),
   ...['anular','corregir'].map(accion => ({ metodo: 'POST' as const, ruta: `/api/certificados/:codigo/${accion}`, acceso: ['ADMIN'] as Rol[], critica: true })),
   ...['cierre','certificados'].map(accion => ({ metodo: 'GET' as const, ruta: `/api/cursos/:id/${accion}`, acceso: ['ADMIN'] as Rol[] })),
-  ...['cerrar','excepciones'].map(accion => ({ metodo: 'POST' as const, ruta: `/api/cursos/:id/${accion}`, acceso: ['ADMIN'] as Rol[], critica: true })),
+  ...['cerrar','excepciones','evaluar-inscripcion'].map(accion => ({ metodo: 'POST' as const, ruta: `/api/cursos/:id/${accion}`, acceso: ['ADMIN'] as Rol[], critica: true })),
   { metodo: "POST", ruta: "/api/auth/registro", acceso: "publico" },
   { metodo: "GET", ruta: "/api/publico/cursos", acceso: "publico" },
   { metodo: "GET", ruta: "/api/publico/cursos/:id", acceso: "publico" },

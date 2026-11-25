@@ -4,7 +4,7 @@ import { api } from '@/lib/api'
 
 export type EstadoCertificado = 'VALIDO' | 'ANULADO' | 'REEMPLAZADO'
 
-/** Datos públicos de un certificado: los muestra la verificación (5.2–5.3b) y la constancia (5.1). */
+/** Datos privados del documento que puede consultar su titular o un administrador. */
 export type CertificadoDocumento = {
   demo?: boolean
   codigo: string
@@ -17,6 +17,7 @@ export type CertificadoDocumento = {
   curso: string
   modalidad: ModalidadCurso
   horasLectivas: number
+  nota?: number
   fechaInicio: string | null
   fechaFin: string | null
   instructorNombre: string
@@ -25,9 +26,9 @@ export type CertificadoDocumento = {
 
 export type CertificadoPublico = Pick<CertificadoDocumento, 'codigo' | 'estado' | 'reemplazadoPor' | 'tipo' | 'nombre' | 'curso' | 'horasLectivas' | 'emitidoEn' | 'demo'>
 
-export function useDocumentoCertificado(codigo: string) {
-  return useQuery({ queryKey: ['certificadoDocumento', codigo], queryFn: async () =>
-    (await api.get<CertificadoDocumento>(`/certificados/${encodeURIComponent(codigo)}/documento`)).data, retry: false })
+export function useDocumentoCertificado(codigo: string, actorId?: string) {
+  return useQuery({ queryKey: ['certificadoDocumento', actorId, codigo], queryFn: async () =>
+    (await api.get<CertificadoDocumento>(`/certificados/${encodeURIComponent(codigo)}/documento`)).data, enabled: !!actorId, retry: false })
 }
 export async function descargarCertificado(codigo: string) {
   return (await api.get<Blob>(`/certificados/${encodeURIComponent(codigo)}/archivo`, { responseType: 'blob' })).data

@@ -3,10 +3,12 @@ import { certificadosController } from '../controllers/certificados/certificados
 import { crearConstancia } from '../providers/certificados/constanciaPdf.js';
 import * as certificados from '../repositories/certificados/certificadosRepository.js';
 import { obtenerCurso } from '../repositories/cursos/cursosRepository.js';
+import { consultarResultadoOficial, consultarResultadosOficiales, existeEvaluacionOficialPublicada } from '../repositories/evaluaciones/evaluacionesRepository.js';
 import { crearCertificadosService } from '../services/certificados/certificadosService.js';
 
 const servicio = crearCertificadosService({
   repositorio: certificados,
+  evaluaciones: { consultarResultadoOficial, consultarResultadosOficiales, existeEvaluacionOficialPublicada },
   // El enlace de verificación usa el origen vigente del frontend en cada emisión.
   crearConstancia: (datos, codigo, emitidoEn) => crearConstancia(datos, codigo, emitidoEn, env.FRONTEND_URL),
   obtenerCurso: (id) => obtenerCurso(id)

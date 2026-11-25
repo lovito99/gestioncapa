@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { crearPdfTexto } from '../src/shared/pdf.js';
 import { validarArchivoVoucher } from '../src/services/pagos/voucherArchivo.js';
-import { normalizarNumeroOperacion } from '../src/repositories/pagos/vouchersRepository.js';
+import { normalizarNumeroOperacion } from '../src/entities/pagos/pago.js';
 import { entradaRecepcionEfectivo } from '../src/dto/pagos/pagoDto.js';
 
 const pdf={tipo:'application/pdf',contenidoBase64:crearPdfTexto('Voucher de prueba',['Sin movimiento bancario.']).toString('base64')};
@@ -17,7 +17,7 @@ test('HU32-02: admite PDF/PNG privados y rechaza tipo falso, SVG, base64 inváli
 test('HU32-03: referencias equivalentes tienen una sola clave sin separadores',()=>{
   assert.equal(normalizarNumeroOperacion('  ab-123.456 /7 '),'AB1234567');
   assert.equal(normalizarNumeroOperacion('123 456'),normalizarNumeroOperacion('123-456'));
-  assert.throws(()=>normalizarNumeroOperacion('---'));
+  assert.equal(normalizarNumeroOperacion('---'), null);
 });
 test('HU32-06: efectivo exige importe en céntimos y fecha válida además de referencia',()=>{
   const entrada={referencia:'CAJA-HU32',importeCentimos:15050,fechaRecepcion:'2026-11-15'};

@@ -88,10 +88,6 @@ export async function entregaPagada(cliente: PoolClient, id: string) {
 export async function usuario(cliente: PoolClient, id: string) {
   return (await cliente.query<PublicUser>('select id,name,email,role from users where id=$1', [id])).rows[0]!;
 }
-export async function cursoEmision(cliente: PoolClient, id: string) {
-  return (await cliente.query<CursoEmision>(`select id::text,estado,titulo,modalidad,costo::float8,"modalidadCobro",tipo_certificado as "tipoCertificado",horas_lectivas as "horasLectivas"
-      from cursos where id=$1`, [id])).rows[0]!;
-}
 export async function marcarEntregaEmitida(cliente: PoolClient, id: string, codigo: string) {
   await cliente.query(`update "entregasConstancia" set estado='EMITIDA',codigo=$2,"emitidoEn"=clock_timestamp() where id=$1`, [id, codigo]);
 }
@@ -123,6 +119,27 @@ export async function marcarCursoCerrado(cliente: PoolClient, cursoId: string) {
   await cliente.query(`update cursos set estado='CERRADO',"cerradoEn"=now() where id=$1`, [cursoId]);
   await cliente.query(`update inscripciones_curso set estado='TERMINADO',terminado_en=now() where curso_id=$1 and estado='EN_CURSO'`, [cursoId]);
   await cliente.query(`update "intentosInscripcion" set estado='TERMINADO' where "cursoId"=$1 and estado='EN_CURSO'`, [cursoId]);
+}
+export async function bloquearInscripcionCertificable(cliente: PoolClient, cursoId: string, usuarioId: string) {
+  return Boolean((await cliente.query(`
+    select 1 from inscripciones_curso i
+    join users u on u.id=i.usuario_id and u.active and u.role='agremiado'
+    where i.curso_id=$1 and i.usuario_id=$2 and "tieneAccesoCurso"(i.curso_id,i.usuario_id)
+    for update of i`, [cursoId, usuarioId])).rowCount);
+}
+export async function marcarInscripcionTerminada(cliente: PoolClient, cursoId: string, usuarioId: string) {
+  await cliente.query(`
+    with finalizada as (
+      update inscripciones_curso set estado='TERMINADO',terminado_en=now()
+      where curso_id=$1 and usuario_id=$2 and estado='EN_CURSO' returning "intentoId"
+    )
+    update "intentosInscripcion" t set estado='TERMINADO' from finalizada f
+    where t.id=f."intentoId" and t.estado='EN_CURSO'`, [cursoId, usuarioId]);
+}
+export async function certificadoActual(cliente: PoolClient, cursoId: string, usuarioId: string) {
+  return (await cliente.query<{ codigo: string; estado: string }>(`
+    select codigo,estado from certificados_curso
+    where curso_id=$1 and usuario_id=$2 and estado<>'REEMPLAZADO'`, [cursoId, usuarioId])).rows[0];
 }
 export async function tieneCertificado(cliente: PoolClient, cursoId: string, usuarioId: string) {
   return Boolean((await cliente.query('select id from certificados_curso where curso_id=$1 and usuario_id=$2', [cursoId, usuarioId])).rowCount);

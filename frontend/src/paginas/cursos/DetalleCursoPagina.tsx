@@ -12,7 +12,7 @@ import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { EtiquetaEstadoCurso } from '@/components/ui/Etiqueta'
 import { esApiError, mensajeDeError } from '@/lib/api'
-import { cursoTieneAulaDemo } from '@/lib/aulaGrabadaDemo'
+import { cursoTieneAulaDemo, modoDemoActivo } from '@/lib/aulaGrabadaDemo'
 import { cursos, leerPdfBase64 as leerPdf, type DetalleCurso, type MaterialEntrada, type ModuloCurso } from '@/servicios/cursos'
 import { BotonCompartir } from './CompartirCurso'
 import { ConfirmarInscripcion } from './ConfirmarInscripcion'
@@ -46,6 +46,8 @@ export function DetalleCursoPagina() {
   const gestion = usuario?.rol === 'ADMIN' || usuario?.rol === 'INSTRUCTOR'
   const agremiado = usuario?.rol === 'AGREMIADO'
   const aulaDemo = cursoTieneAulaDemo(id) && curso.modalidad === 'GRABADO'
+  const grabado = curso.modalidad === 'GRABADO'
+  const inscripcionVigente = curso.estadoInscripcion === 'EN_CURSO' || curso.estadoInscripcion === 'TERMINADO'
   const puedeAgregar = usuario?.rol === 'INSTRUCTOR' && usuario.id === curso.instructorId
   const sesiones = curso.sesiones.filter(s => s.estado === 'PROGRAMADA')
 
@@ -75,20 +77,29 @@ export function DetalleCursoPagina() {
           <FilaDato icono={Users} etiqueta="Cupos" alerta={curso.cuposDisponibles === 0}>{cuposCurso(curso)}</FilaDato>
           <FilaDato icono={Award} etiqueta="Certificado">
             {aulaDemo ? 'Constancia de demostración al completar los módulos' : <>
-              {curso.tipoCertificado === 'APROBACION' ? `Certificado de aprobación · nota mínima ${curso.notaMinima}` : 'Constancia de participación'} · asistencia mínima {curso.requisitoAsistencia} %
+              {curso.tipoCertificado === 'APROBACION' ? `Certificado de aprobación · nota mínima ${curso.notaMinima}` : 'Constancia de participación'}
+              {grabado ? ' · Lecciones y cuestionario de salida' : ` · asistencia mínima ${curso.requisitoAsistencia} %`}
             </>}
           </FilaDato>
         </dl>
-        {!aulaDemo && <SesionesDetalle sesiones={sesiones} />}
+        {!grabado && <SesionesDetalle sesiones={sesiones} />}
       </div>
 
       <aside className="flex flex-col gap-4 lg:sticky lg:top-32">
         {agremiado && curso.estado === 'PUBLICADO' && <TarjetaInscripcion curso={curso} aulaDemo={aulaDemo} alInscribirme={() => { inscripcion.reset(); cambiarConfirmando(true) }} />}
+        {agremiado && curso.estado === 'CERRADO' && inscripcionVigente && curso.accesoContenido !== false && !modoDemoActivo &&
+          <EnlaceEvaluaciones curso={curso} />}
+        {puedeAgregar && curso.estado !== 'CERRADO' && !modoDemoActivo && <Link to={`/instructor/cursos/${id}/evaluaciones`}
+          className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Gestionar evaluaciones</Link>}
         {usuario?.rol === 'ADMIN' && <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-6">
           <p className="text-xs leading-4 font-semibold text-brand">Gestión del curso</p>
           <PreciosCurso curso={curso} />
           {curso.estado === 'BORRADOR' && <Boton cargando={publicar.isPending} onClick={() => publicar.mutate()} className="h-12 w-full text-base">Publicar en catálogo</Boton>}
           {aulaDemo ? <p className="text-sm text-muted">El programa y la gratuidad son fijos en este curso de demostración.</p> : <Link to={`/admin/cursos/${curso.id}/editar`} className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Editar curso</Link>}
+          {curso.estado !== 'CERRADO' && !modoDemoActivo && <Link to={`/admin/cursos/${curso.id}/evaluaciones/configuracion`}
+            className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Configurar evaluaciones</Link>}
+          {curso.estado === 'PUBLICADO' && grabado && curso.tipoCertificado === 'APROBACION' && !modoDemoActivo &&
+            <Link to={`/admin/cursos/${curso.id}/certificados`} className="inline-flex h-12 items-center justify-center rounded-lg border border-brand bg-white px-5 text-base font-semibold text-brand hover:bg-brand-soft">Evaluar inscritos</Link>}
           {publicar.isError && <p role="alert" className="text-sm text-danger">{mensajeDeError(publicar.error, 'No pudimos publicar el curso.')}</p>}
         </div>}
       </aside>
@@ -103,12 +114,20 @@ export function DetalleCursoPagina() {
     </Aviso>}
     {agremiado && curso.miInscripcion?.pagoId && curso.estadoInscripcion !== 'PENDIENTE_PAGO' && <PagoCurso pagoId={curso.miInscripcion.pagoId} />}
     {/* La asistencia, los requisitos y el material son para quien gestiona el curso o ya está inscrito */}
-    {(gestion || (curso.inscrito && !aulaDemo)) && <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO'} participante={agremiado} sinLista />}
+    {!grabado && (gestion || curso.inscrito) && <SesionesCurso curso={curso} administrador={usuario?.rol === 'ADMIN' && curso.estado !== 'CERRADO'} participante={agremiado} sinLista />}
     {(gestion || (curso.inscrito && curso.accesoContenido !== false && !aulaDemo)) && <>
       <h2 className="font-serif text-xl leading-7 font-bold text-ink">Módulos y material</h2>
       <ol className="space-y-4">{curso.modulos.map(modulo => <Modulo key={modulo.id} cursoId={id} modulo={modulo} puedeAgregar={puedeAgregar} />)}</ol>
     </>}
   </div>
+}
+
+function EnlaceEvaluaciones({ curso }: { curso: DetalleCurso }) {
+  const grabado = curso.modalidad === 'GRABADO'
+  return <Link to={`/cursos/${curso.id}/${grabado ? 'aula' : 'evaluaciones'}`}
+    className="inline-flex h-12 items-center justify-center rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink">
+    {grabado ? 'Abrir aula grabada' : 'Ver evaluaciones'}
+  </Link>
 }
 
 /** S3 4.1 · Tarjeta «Tu precio» con el aviso del cobro y el botón «Inscribirme». */
@@ -137,10 +156,11 @@ function TarjetaInscripcion({ curso, aulaDemo, alInscribirme }: { curso: Detalle
       pendiente ? <>
         <Aviso tipo="advertencia" titulo="Inscripción pendiente de pago">Tu cupo está reservado. Paga antes de que venza el plazo para acceder al curso.</Aviso>
         <Link to={`/cursos/${curso.id}/pagar`} className="inline-flex h-12 items-center justify-center rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink">Ir a pagar</Link>
-      </> : aulaDemo && curso.accesoContenido !== false ? <>
-        <Aviso tipo="exito" titulo="Ya estás inscrito(a)">Entra al aula para empezar o retomar tus actividades.</Aviso>
-        <Link to={`/cursos/${curso.id}/aula`} className="inline-flex h-12 items-center justify-center rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink">Abrir aula grabada</Link>
-      </> : <Aviso tipo="exito" titulo="Ya estás inscrito(a)">Revisa las sesiones y el material del curso.</Aviso>
+      </> : <>
+        <Aviso tipo="exito" titulo="Ya estás inscrito(a)">{curso.modalidad === 'GRABADO'
+          ? 'Entra al aula para empezar o retomar tus actividades.' : 'Revisa las sesiones y el material del curso.'}</Aviso>
+        {curso.accesoContenido !== false && curso.estadoInscripcion !== 'CANCELADA' && (aulaDemo || !modoDemoActivo) && <EnlaceEvaluaciones curso={curso} />}
+      </>
     ) : <>
       {cobro === 'PREVIO' && <Aviso tipo="advertencia" titulo="Pago antes de llevar el curso">Al inscribirte tendrás {plazo} para pagar. Mientras tanto no podrás ver el contenido ni registrar asistencia.</Aviso>}
       {cobro === 'CERTIFICADO' && <Aviso titulo="Pagas solo el certificado">Llevas el curso gratis. Pagas la constancia al terminar, si cumples los requisitos.</Aviso>}

@@ -1,10 +1,12 @@
 import { api } from '@/lib/api'
+import { useQuery } from '@tanstack/react-query'
 import type { EstadoCertificado } from './certificados'
 export type SesionHistorial = { id: string; cursoId: string | null; titulo: string; fecha: string; horaInicio: string; horaFin: string; estado: 'PRESENTE' | 'AUSENTE' | 'PENDIENTE' | 'CANCELADA'; contabiliza: boolean; horaRegistro: string | null }
 export type ResumenAsistencia = { presentes: number; realizadas: number; porcentaje: number | null }
 export type ColegiadoHistorial = { id: string; nombre: string; dniEnmascarado: string | null }
 export type CertificadoHistorial = {
   id: string; cursoId: string; codigo: string; tipo: 'PARTICIPACION' | 'APROBACION'; emitidoEn: string; horasLectivas: number;
+  nota?: number | null;
   /** Solo los VALIDO suman horas (HU-34); un anulado se muestra pero no cuenta */
   estado: EstadoCertificado;
 }
@@ -45,6 +47,12 @@ export const historiales = {
   pdf: async (usuarioId: string) => (await api.get<Blob>(`/colegiados/${usuarioId}/historial/pdf`, { responseType: 'blob' })).data,
   certificado: async (usuarioId: string, certificadoId: string) => (await api.get<Blob>(`/colegiados/${usuarioId}/certificados/${certificadoId}/archivo`, { responseType: 'blob' })).data,
 }
+
+export function useHistorial(usuarioId: string, actorId?: string) {
+  return useQuery({ queryKey: ['historial', actorId, usuarioId], queryFn: () => historiales.obtener(usuarioId),
+    enabled: !!usuarioId, retry: false, refetchInterval: query => intervaloEntrega(query.state.data) })
+}
+
 export function guardarDescarga(blob: Blob, nombre: string) {
   const url = URL.createObjectURL(blob)
   const enlace = document.createElement('a')

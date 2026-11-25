@@ -13,7 +13,7 @@ import { Etiqueta, EtiquetaEstadoCurso } from '@/components/ui/Etiqueta'
 import { ApiError, mensajeDeError } from '@/lib/api'
 import type { EstadoCertificado } from '@/servicios/certificados'
 import { CERTIFICADOS_CURSO, cursos, type FilaCertificado } from '@/servicios/cursos'
-import { AvisoDialogo, Celda, CampoMotivo, DatosDialogo, ResumenCurso, Tabla } from './piezas'
+import { AvisoDialogo, Celda, CampoMotivo, DatosDialogo, NotaEvaluacion, ResumenCurso, Tabla } from './piezas'
 
 const ESTADO: Record<EstadoCertificado, { texto: string; tono: 'exito' | 'peligro' | 'advertencia' }> = {
   VALIDO: { texto: 'Válido', tono: 'exito' },
@@ -29,6 +29,14 @@ export function CertificadosCursoPagina() {
   const consulta = useQuery({ queryKey: ['curso', id, 'certificados'], queryFn: () => cursos.certificados(id), retry: false })
   const [excepcion, cambiarExcepcion] = useState<FilaCertificado | null>(null)
   const [accion, cambiarAccion] = useState<Accion | null>(null)
+  const recargar = useRecargar(id)
+  const evaluar = useMutation({
+    mutationFn: (agremiadoId: string) => cursos.evaluarInscripcion(id, agremiadoId),
+    onSuccess: async resultado => {
+      await recargar()
+      toast.success(resultado.retenida ? 'Certificado retenido hasta confirmar el pago.' : 'Certificado de aprobación emitido.')
+    },
+  })
 
   if (consulta.isPending) return <Cargando texto="Cargando certificados…" />
   const volver = <EnlaceVolver to={`/admin/cursos/${id}/editar`}>Volver al curso</EnlaceVolver>
@@ -41,11 +49,12 @@ export function CertificadosCursoPagina() {
     )
   }
 
-  const { curso, filas } = consulta.data
+  const { curso, filas, evaluacionIndividual } = consulta.data
+  const aprobacion = curso.tipoCertificado === 'APROBACION'
   const emitidos = filas.filter((f) => f.certificado).length
   const retenidos=filas.filter(f=>f.entrega?.estado==='RETENIDA').length
   const nombreDocumento = CERTIFICADOS_CURSO[curso.tipoCertificado].toLowerCase()
-  const plural = curso.tipoCertificado === 'APROBACION' ? 'certificados de aprobación' : 'constancias de participación'
+  const plural = aprobacion ? 'certificados de aprobación' : 'constancias de participación'
 
   return (
     <div className="mx-auto flex max-w-200 flex-col gap-5 px-4 pt-8 pb-16 wrap-anywhere sm:pt-12">
@@ -57,8 +66,12 @@ export function CertificadosCursoPagina() {
         </div>
         <ResumenCurso curso={curso} />
       </div>
+      {evaluacionIndividual && curso.estado === 'PUBLICADO' && <Alerta tipo="informacion">
+        Evalúa cada inscripción con las lecciones completas y una nota aprobatoria. El certificado se emite o queda retenido por pago.
+      </Alerta>}
       <Alerta tipo="exito">{emitidos === 1 ? `Se emitió 1 ${nombreDocumento}.` : `Se emitieron ${emitidos} ${plural}.`}</Alerta>
-      {retenidos>0 && <Alerta tipo="informacion">{retenidos} constancia(s) elegible(s) retenida(s) hasta confirmar el pago.</Alerta>}
+      {retenidos > 0 && <Alerta tipo="informacion">Documentos retenidos hasta confirmar el pago: {retenidos}.</Alerta>}
+      {evaluar.isError && <Alerta tipo="error">{mensajeDeError(evaluar.error, 'No pudimos evaluar la inscripción.')}</Alerta>}
 
       <Tabla cabeceras={['Nombre', 'Resultado', 'Certificado', 'Acciones']}>
         {filas.map((f) => (
@@ -72,6 +85,8 @@ export function CertificadosCursoPagina() {
               ) : (
                 <Etiqueta tono="peligro">No cumple</Etiqueta>
               )}
+              {aprobacion && <NotaEvaluacion evaluacion={f.evaluacion} />}
+              {evaluacionIndividual && f.evaluacion && !f.evaluacion.avanceCompleto && <p className="text-sm text-muted">Lecciones pendientes</p>}
             </Celda>
             <Celda>
               {f.certificado ? (
@@ -82,7 +97,7 @@ export function CertificadosCursoPagina() {
                   <Etiqueta tono={ESTADO[f.certificado.estado].tono}>{ESTADO[f.certificado.estado].texto}</Etiqueta>
                 </span>
               ) : (
-                <span className="text-muted">{f.entrega?.estado==='RETENIDA'?(f.entrega.estadoPago==='PAGADO'?'Pago confirmado · En preparación':'Retenida por pago'):'No emitido'}</span>
+                <span className="text-muted">{f.entrega?.estado === 'RETENIDA' ? (f.entrega.estadoPago === 'PAGADO' ? 'Pago confirmado · En preparación' : 'Retenida por pago') : 'No emitido'}</span>
               )}
             </Celda>
             <Celda>
@@ -105,7 +120,14 @@ export function CertificadosCursoPagina() {
                     Anular
                   </button>
                 </span>
-              ) : f.entrega?.estado==='RETENIDA'?<Link className="font-semibold text-brand underline" to={`/admin/pagos?pago=${f.entrega.pagoId}`}>Consultar pago</Link>:!f.certificado ? <button type="button" className="text-sm font-semibold text-brand underline" onClick={() => cambiarExcepcion(f)}>Emitir por excepción</button> : '—'}
+              ) : f.entrega?.estado === 'RETENIDA' ? (
+                <Link className="font-semibold text-brand underline" to={`/admin/pagos?pago=${f.entrega.pagoId}`}>Consultar pago</Link>
+              ) : !f.certificado && evaluacionIndividual && curso.estado === 'PUBLICADO' && f.cumple ? (
+                <Boton variante="secundario" disabled={evaluar.isPending} cargando={evaluar.isPending && evaluar.variables === f.agremiado.id}
+                  aria-label={`Evaluar inscripción de ${f.agremiado.nombre}`} onClick={() => evaluar.mutate(f.agremiado.id)}>Evaluar inscripción</Boton>
+              ) : !f.certificado && !aprobacion ? (
+                <button type="button" className="text-sm font-semibold text-brand underline" onClick={() => cambiarExcepcion(f)}>Emitir por excepción</button>
+              ) : '—'}
             </Celda>
           </tr>
         ))}

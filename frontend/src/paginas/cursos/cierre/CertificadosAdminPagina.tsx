@@ -20,7 +20,7 @@ export function CertificadosAdminPagina() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold text-ink">Certificados</h1>
-          <p className="text-sm text-muted">Los certificados se emiten al cerrar cada curso, según la asistencia de sus inscritos.</p>
+          <p className="text-sm text-muted">Evalúa por inscripción los cursos grabados de aprobación. Los cursos con sesiones se certifican al cerrarlos.</p>
         </div>
         <Link to="/verificar" className={enlace}>
           Verificar un certificado
@@ -45,9 +45,11 @@ export function CertificadosAdminPagina() {
                     Ver certificados
                   </Link>
                 ) : c.estado === 'PUBLICADO' ? (
-                  <Link to={`/admin/cursos/${c.id}/cerrar`} className={enlace}>
-                    Cerrar curso
-                  </Link>
+                  c.modalidad === 'GRABADO' && c.tipoCertificado === 'APROBACION' ? (
+                    <Link to={`/admin/cursos/${c.id}/certificados`} className={enlace}>Evaluar inscritos</Link>
+                  ) : (
+                    <Link to={`/admin/cursos/${c.id}/cerrar`} className={enlace}>Cerrar curso</Link>
+                  )
                 ) : (
                   <span className="text-muted">Publícalo primero</span>
                 )}

@@ -3,7 +3,7 @@ import { describe, test } from "node:test";
 import { revisarComponente, revisarImports } from "./capas.js";
 
 // Componentes ya migrados a las capas globales de src/; cada migración añade el suyo (T-26).
-const componentesEnCapas: string[] = ["usuarios", "asistencia", "qr", "health", "pendientes", "jitsi", "historial", "notificaciones", "auth", "reuniones", "clases", "cursos", "pagos", "certificados"];
+const componentesEnCapas: string[] = ["usuarios", "asistencia", "qr", "health", "pendientes", "jitsi", "historial", "notificaciones", "auth", "reuniones", "clases", "cursos", "pagos", "certificados", "evaluaciones"];
 
 describe("T-26: reglas de dependencia entre capas globales", () => {
   // Rutas relativas a src/: <capa>/<componente>/<archivo>.

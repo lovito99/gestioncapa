@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Alerta } from '@/components/ui/Alerta'
 import { Boton } from '@/components/ui/Boton'
@@ -9,16 +9,12 @@ import { EnlaceVolver } from '@/components/ui/EnlaceVolver'
 import { Cargando, ErrorCarga } from '@/components/ui/Estados'
 import { Etiqueta } from '@/components/ui/Etiqueta'
 import { esApiError, mensajeDeError } from '@/lib/api'
-import { CERTIFICADOS_CURSO, cursos, type FilaCierre } from '@/servicios/cursos'
-import { AvisoDialogo, Celda, CampoMotivo, DatosDialogo, ResumenCurso, Tabla } from './piezas'
+import { cursos, type FilaCierre } from '@/servicios/cursos'
+import { AvisoDialogo, Celda, CampoMotivo, DatosDialogo, NotaEvaluacion, ResumenCurso, Tabla } from './piezas'
 
 const asistencia = (f: FilaCierre) => `${f.presentes} de ${f.sesiones} (${f.porcentaje} %)`
 
-/**
- * 2.4 · Cerrar curso. Muestra quién cumple el requisito de asistencia; a quien no cumple se le
- * puede emitir por excepción con un motivo (2.4a / 2.4b). Las excepciones se envían junto con
- * el cierre: así el curso se cierra y se emiten todos los certificados en una sola operación.
- */
+/** El cierre aplica los requisitos del curso y permite excepciones en constancias de participación. */
 export function CerrarCursoPagina() {
   const { id = '' } = useParams()
   const navegar = useNavigate()
@@ -36,7 +32,7 @@ export function CerrarCursoPagina() {
     },
   })
 
-  if (cierre.isPending) return <Cargando texto="Calculando la asistencia del curso…" />
+  if (cierre.isPending) return <Cargando texto="Calculando los requisitos del curso…" />
   if (cierre.isError) {
     return (
       <Contenedor id={id}>
@@ -54,9 +50,10 @@ export function CerrarCursoPagina() {
     )
   }
 
-  const { curso, requisitoAsistencia, filas } = cierre.data
+  const { curso, requisitoAsistencia, filas, evaluacionIndividual } = cierre.data
+  if (evaluacionIndividual) return <Navigate to={`/admin/cursos/${id}/certificados`} replace />
   const cumplen = filas.filter((f) => f.cumple).length
-  const documento = curso.tipoCertificado === 'APROBACION' ? 'el certificado' : 'la constancia'
+  const aprobacion = curso.tipoCertificado === 'APROBACION'
 
   return (
     <Contenedor id={id}>
@@ -65,8 +62,8 @@ export function CerrarCursoPagina() {
         <ResumenCurso curso={curso} />
       </div>
       <Alerta tipo="informacion">
-        Requisito para la {CERTIFICADOS_CURSO[curso.tipoCertificado].toLowerCase()}: asistencia en al menos el {requisitoAsistencia} % de las
-        sesiones.
+        Asistencia mínima en las sesiones de este curso: {requisitoAsistencia} %.
+        {aprobacion && ' También se requiere una evaluación aprobada.'}
       </Alerta>
       <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink">
         {filas.length} {filas.length === 1 ? 'inscrito' : 'inscritos'}:
@@ -80,6 +77,13 @@ export function CerrarCursoPagina() {
         <Tabla cabeceras={['Nombre', 'Asistencia', 'Resultado', 'Motivo', 'Acción']}>
           {filas.map((f) => {
             const motivo = excepciones[f.agremiado.id]
+            const impedimentos = []
+            if (!f.cumple && (f.sesiones === 0 || f.porcentaje < requisitoAsistencia)) {
+              impedimentos.push(`Asistencia: ${f.porcentaje} % de ${requisitoAsistencia} % requerido`)
+            }
+            if (aprobacion && !f.evaluacion?.aprobado) {
+              impedimentos.push(f.evaluacion?.nota == null ? 'Evaluación pendiente' : 'Nota mínima no alcanzada')
+            }
             return (
               <tr key={f.agremiado.id}>
                 <Celda className="font-medium">{f.agremiado.nombre}</Celda>
@@ -92,12 +96,13 @@ export function CerrarCursoPagina() {
                   ) : (
                     <Etiqueta tono="peligro">No cumple</Etiqueta>
                   )}
+                  {aprobacion && f.evaluacion?.nota != null && <NotaEvaluacion evaluacion={f.evaluacion} />}
                 </Celda>
                 <Celda className="max-w-56 text-muted">
-                  {f.cumple ? '—' : motivo ? `Excepción: ${motivo}` : `Asistencia: ${f.porcentaje} % de ${requisitoAsistencia} % requerido`}
+                  {motivo ? `Excepción: ${motivo}` : impedimentos.join(' · ') || '—'}
                 </Celda>
                 <Celda>
-                  {f.cumple ? (
+                  {f.cumple || aprobacion ? (
                     '—'
                   ) : motivo ? (
                     <button
@@ -120,8 +125,8 @@ export function CerrarCursoPagina() {
       )}
 
       <p className="text-[13px] text-muted">
-        Solo se emitirá {documento} a quienes cumplen el requisito, salvo que se emita por
-        excepción con un motivo.
+        {aprobacion ? 'Se emitirá el certificado a quienes cumplen los requisitos de asistencia y evaluación.'
+          : 'Se emitirá la constancia a quienes cumplen el requisito de asistencia o tienen una excepción justificada.'}
       </p>
       {cerrar.isError && <Alerta tipo="error">{mensajeDeError(cerrar.error, 'No pudimos cerrar el curso.')}</Alerta>}
       <div className="flex flex-wrap justify-end gap-3">
@@ -129,11 +134,11 @@ export function CerrarCursoPagina() {
           Cancelar
         </Boton>
         <Boton cargando={cerrar.isPending} disabled={filas.length === 0} onClick={() => cerrar.mutate()}>
-          {curso.tipoCertificado === 'APROBACION' ? 'Emitir certificados' : 'Emitir constancias'}
+          {aprobacion ? 'Emitir certificados' : 'Emitir constancias'}
         </Boton>
       </div>
 
-      {enDialogo && (
+      {!aprobacion && enDialogo && (
         <DialogoExcepcion
           fila={enDialogo}
           requisito={requisitoAsistencia}

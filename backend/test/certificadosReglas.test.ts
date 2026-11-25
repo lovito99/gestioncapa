@@ -22,3 +22,10 @@ test("T-26 certificados: la emisión excluye cursos grabados, de aprobación o c
     assert.throws(() => validarAlcance(curso(cambios)), (error) => error instanceof ErrorAplicacion && error.status === 409 && error.code === code);
   }
 });
+
+test("HU19-07: una evaluación oficial publicada habilita la certificación de aprobación", () => {
+  assert.doesNotThrow(() => validarAlcance(curso({ tipoCertificado: "APROBACION" }), true));
+  assert.doesNotThrow(() => validarAlcance(curso({ modalidad: "GRABADO", tipoCertificado: "APROBACION" }), true));
+  assert.throws(() => validarAlcance(curso({ modalidad: "GRABADO" }), true),
+    (error) => error instanceof ErrorAplicacion && error.code === "CURSO_GRABADO");
+});

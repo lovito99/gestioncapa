@@ -3,10 +3,13 @@ import fontkit from '@pdf-lib/fontkit';
 import { PDFDocument, rgb } from 'pdf-lib';
 import QRCode from 'qrcode';
 import type { DatosDocumento } from '../../entities/certificados/certificado.js';
+import { etiquetasModalidadCurso, modalidadesCurso, type ModalidadCurso } from '../../entities/cursos/modalidad.js';
 
 /** Documento de demostración: nunca imita una firma institucional autorizada. */
 /** `origenPublico` es la dirección del frontend donde se verifica el código del QR. */
 export async function crearConstancia(datos: DatosDocumento, codigo: string, emitidoEn: string, origenPublico: string) {
+  const aprobacion = datos.tipo === 'APROBACION';
+  const titulo = aprobacion ? 'CERTIFICADO DE APROBACIÓN' : 'CONSTANCIA DE PARTICIPACIÓN';
   const documento = await PDFDocument.create();
   documento.registerFontkit(fontkit);
   const pagina = documento.addPage([842, 595]);
@@ -37,14 +40,20 @@ export async function crearConstancia(datos: DatosDocumento, codigo: string, emi
   pagina.drawImage(logo, { x: 60, y: 474, ...dimensiones });
   pagina.drawText('Colegio Profesional de Profesores del Perú', { x:145, y:515, size:18, font:negrita });
   pagina.drawText('Región Cusco', { x:145, y:490, size:16, font:fuente });
-  pagina.drawText('CONSTANCIA DE PARTICIPACIÓN', { x: 185, y: 445, size: 23, font: negrita, color: rgb(.48,.13,.2) });
+  pagina.drawText(titulo, { x: 185, y: 445, size: 23, font: negrita, color: rgb(.48,.13,.2) });
   escribir('Se otorga a:', 400);
   escribir(datos.nombre, 371, Math.min(20, 1250 / fuente.widthOfTextAtSize(datos.nombre.normalize('NFC'), 1)));
   escribir(`DNI: ${datos.dniEnmascarado ?? 'No registrado'}`, 332);
-  escribir(`Por participar en el curso: ${datos.curso}`, 300, 14);
-  escribir(`Modalidad: Presencial | ${datos.horasLectivas} horas lectivas`, 249);
+  escribir(`Por ${aprobacion ? 'aprobar' : 'participar en'} el curso: ${datos.curso}`, 300, 14);
+  const modalidad = modalidadesCurso.includes(datos.modalidad as ModalidadCurso)
+    ? etiquetasModalidadCurso[datos.modalidad as ModalidadCurso]
+    : 'No registrada';
+  escribir(`Modalidad: ${modalidad} | ${datos.horasLectivas} horas lectivas`, 249);
   escribir(datos.fechaInicio && datos.fechaFin ? `Fechas: ${datos.fechaInicio} al ${datos.fechaFin}` : 'Fechas: no registradas en el documento original', 225);
   escribir(`Emisión: ${new Intl.DateTimeFormat('es-PE', { timeZone: 'America/Lima' }).format(new Date(emitidoEn))}`, 202);
+  if (aprobacion && datos.nota !== undefined) {
+    escribir(`Nota final: ${datos.nota.toLocaleString('es-PE', { maximumFractionDigits: 2 })}/20`, 178);
+  }
   const enlace = `${origenPublico.replace(/\/$/, '')}/verificar/${encodeURIComponent(codigo)}`;
   const qr = await documento.embedPng(await QRCode.toDataURL(enlace, { errorCorrectionLevel: 'M', margin: 2, width: 256 }));
   pagina.drawImage(qr, { x: 665, y: 85, width: 105, height: 105 });
@@ -52,6 +61,6 @@ export async function crearConstancia(datos: DatosDocumento, codigo: string, emi
   escribir(`Firma demo del instructor: ${datos.instructorNombre}`, 123, 11, 540);
   escribir(`Código: ${codigo}`, 79, 10);
   escribir('DEMO - SIN VALIDEZ OFICIAL | Firmas genéricas de demostración', 48, 11);
-  documento.setTitle(`Constancia ${codigo}`);
+  documento.setTitle(`${aprobacion ? 'Certificado' : 'Constancia'} ${codigo}`);
   return Buffer.from(await documento.save());
 }

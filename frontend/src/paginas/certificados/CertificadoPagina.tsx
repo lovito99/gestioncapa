@@ -4,25 +4,28 @@ import { Download, Printer } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { Link, useParams } from 'react-router-dom'
 import insignia from '@/assets/insignia-cppp.png'
+import { useAuth } from '@/auth/useAuth'
 import { PaginaPublica } from '@/components/layout/Pagina'
 import { Alerta } from '@/components/ui/Alerta'
 import { Boton } from '@/components/ui/Boton'
 import { Cargando } from '@/components/ui/Estados'
 import { esApiError, mensajeDeError } from '@/lib/api'
 import { CPPP } from '@/lib/cppp'
-import { rangoFechas } from '@/lib/formato'
+import { notaVigesimal, rangoFechas } from '@/lib/formato'
 import { descargarCertificado, normalizarCodigo, useDocumentoCertificado, type CertificadoDocumento } from '@/servicios/certificados'
 import { MODALIDADES_CURSO } from '@/servicios/cursos'
 
 /** 5.1 · Constancia o certificado listo para imprimir o guardar como PDF desde el navegador. */
 export function CertificadoPagina() {
   const { codigo = '' } = useParams()
-  const certificado = useDocumentoCertificado(normalizarCodigo(codigo))
+  const { usuario } = useAuth()
+  const certificado = useDocumentoCertificado(normalizarCodigo(codigo), usuario?.id)
   const [descargando, cambiarDescargando] = useState(false)
   const [errorDescarga, cambiarErrorDescarga] = useState('')
-  const descargar = async () => {
+  const descargar = async (documento: CertificadoDocumento) => {
     cambiarDescargando(true); cambiarErrorDescarga('')
-    try { guardarDescarga(await descargarCertificado(codigo), `constancia-${codigo}.pdf`) }
+    const nombre = documento.tipo === 'APROBACION' ? 'certificado' : 'constancia'
+    try { guardarDescarga(await descargarCertificado(documento.codigo), `${nombre}-${documento.codigo}.pdf`) }
     catch (error) { cambiarErrorDescarga(mensajeDeError(error, 'No pudimos descargar el PDF.')) }
     finally { cambiarDescargando(false) }
   }
@@ -51,7 +54,7 @@ export function CertificadoPagina() {
             {errorDescarga && <Alerta tipo="error">{errorDescarga}</Alerta>}
             <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
               <p className="text-sm text-muted">Usa «Imprimir» y elige «Guardar como PDF» para descargarlo.</p>
-              <Boton cargando={descargando} onClick={() => void descargar()}><Download className="size-4" aria-hidden />Descargar PDF</Boton>
+              <Boton cargando={descargando} onClick={() => void descargar(certificado.data)}><Download className="size-4" aria-hidden />Descargar PDF</Boton>
               <Boton onClick={() => window.print()}>
                 <Printer className="size-4" aria-hidden />
                 Imprimir
@@ -71,7 +74,7 @@ export function CertificadoPagina() {
 function Constancia({ certificado }: { certificado: CertificadoDocumento }) {
   const aprobacion = certificado.tipo === 'APROBACION'
   const urlVerificacion = `${window.location.origin}/verificar/${encodeURIComponent(certificado.codigo)}`
-  const modalidad = MODALIDADES_CURSO[certificado.modalidad].toLowerCase()
+  const modalidad = certificado.modalidad === 'GRABADO' ? 'grabada' : MODALIDADES_CURSO[certificado.modalidad].toLowerCase()
 
   return (
     <article className="flex aspect-[297/210] w-256 flex-col bg-page p-6 print:w-full print:break-inside-avoid">
@@ -89,6 +92,7 @@ function Constancia({ certificado }: { certificado: CertificadoDocumento }) {
           Por haber {aprobacion ? 'aprobado' : 'participado en'} el curso «{certificado.curso}», en la modalidad {modalidad}, con
           una duración de {certificado.horasLectivas} horas lectivas, realizado {certificado.fechaInicio && certificado.fechaFin ? rangoFechas(certificado.fechaInicio, certificado.fechaFin) : 'en fechas no registradas'}.
         </p>
+        {aprobacion && certificado.nota != null && <p className="text-base font-semibold text-ink">Nota: {notaVigesimal(certificado.nota)}</p>}
 
         <div className="mt-auto flex w-full items-end justify-between">
           <Firma nombre={certificado.demo ? 'Firma demo del Decano' : CPPP.decano.nombre} cargo={CPPP.decano.cargo} />

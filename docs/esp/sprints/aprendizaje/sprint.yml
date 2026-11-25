@@ -1,0 +1,13 @@
+id: aprendizaje
+nombre: Aprendizaje
+numero: null
+estado: propuesto
+instrucciones: AGENTS.md
+historias:
+  - id: HU-19
+    jira: SCRUM-25
+    titulo: Crear y rendir evaluaciones
+    estado: implementada-pendiente-build
+    especificacion: hu-19/SPEC.md
+    plan: hu-19/plan.md
+    seguimiento: hu-19/todo.md
