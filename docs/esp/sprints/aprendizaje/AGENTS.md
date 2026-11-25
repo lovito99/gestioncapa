@@ -33,3 +33,15 @@ sprint sin asignar hasta que el equipo lo confirme.
 - Registra cada prueba en rojo y verde. Aplica las referencias de calidad y
   seguridad del repositorio durante la revisión. Deja el build, los commits y
   la publicación al usuario.
+
+## HU-37
+
+- Consulta la [especificación](hu-37/SPEC.md), el [plan](hu-37/plan.md) y
+  el [seguimiento](hu-37/todo.md). Inicia la implementación tras la aprobación.
+- Verifica roles, inscripción, política de cobro y conservación de metadatos
+  según las fuentes de YouTube consultadas en la especificación. Mantén las
+  marcas propias del aula compatibles con HU-17 y HU-19 según la decisión
+  aprobada. Usa un clip y credenciales autorizados para la prueba real.
+- Registra resultados rojo y verde de las pruebas locales. Aplica las
+  referencias de calidad y seguridad del proyecto. El build, los commits
+  y la publicación quedan a cargo del usuario.

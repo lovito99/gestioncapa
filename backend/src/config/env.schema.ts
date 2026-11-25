@@ -64,6 +64,10 @@ const envSchema = z.object({
   QR_SECRET: requerida((s) => s.min(32, "debe tener al menos 32 caracteres")),
   inscripcionExternaHabilitada: booleanFromEnv.default(false),
   jitsiHabilitado: booleanFromEnv.default(false),
+  youtubeClaveApi: z.preprocess(
+    valor => typeof valor === 'string' ? valor.trim() || undefined : valor,
+    z.string().max(200).optional(),
+  ),
   pagosEntorno: z.enum(['sandbox','produccion']).default('sandbox'),
   pagosUrlPublica: z.string().url().optional(),
   transferenciaHabilitada: booleanFromEnv.default(false),

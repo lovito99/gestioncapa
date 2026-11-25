@@ -18,6 +18,12 @@ const rolesGestionClases: Rol[] = ["ADMIN"];
  * de lo contrario el servidor no arranca.
  */
 export const permisos: Permiso[] = [
+  { metodo: 'GET', ruta: '/api/cursos/:id/lecciones', acceso: ['INSTRUCTOR', 'AGREMIADO'] },
+  { metodo: 'POST', ruta: '/api/cursos/:id/lecciones', acceso: ['INSTRUCTOR'], critica: true },
+  { metodo: 'PUT', ruta: '/api/cursos/:id/lecciones/orden', acceso: ['INSTRUCTOR'], critica: true },
+  { metodo: 'PUT', ruta: '/api/cursos/:id/lecciones/:leccionId/pdf', acceso: ['INSTRUCTOR'], critica: true },
+  { metodo: 'GET', ruta: '/api/cursos/:id/lecciones/:leccionId/pdf', acceso: ['INSTRUCTOR', 'AGREMIADO'] },
+  { metodo: 'PUT', ruta: '/api/cursos/:id/lecciones/:leccionId/estado', acceso: ['AGREMIADO'], critica: true },
   { metodo: 'GET', ruta: '/api/cursos/:id/avance/:usuarioId', acceso: ['AGREMIADO'] },
   { metodo: 'GET', ruta: '/api/cursos/:id/avance/gestion', acceso: ['ADMIN', 'INSTRUCTOR'] },
   { metodo: 'POST', ruta: '/api/cursos/:id/avance/materiales/:materialId/visto', acceso: ['AGREMIADO'], critica: true },

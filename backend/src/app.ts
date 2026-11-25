@@ -2,6 +2,8 @@ import { registrarUsuarios } from './routes/usuarios.routes.js';
 import { registrarCertificados } from './routes/certificados.routes.js';
 import { registrarEvaluaciones } from './routes/evaluaciones.routes.js';
 import { registrarAvance } from './routes/avance.routes.js';
+import { registrarLecciones } from './routes/lecciones.routes.js';
+import type { ConsultarYoutube } from './providers/lecciones/youtubeProvider.js';
 import { registrarAccesoSesiones } from './plugins/accesoSesiones.js';
 import { registrarHistorial } from './routes/historial.routes.js';
 import { registrarCursos } from "./routes/cursos.routes.js";
@@ -24,7 +26,7 @@ import { pool } from "./shared/database.js";
 import { verificarMigraciones } from "./shared/migraciones.js";
 import { ensureRedis } from "./shared/redis.js";
 
-export async function buildApp() {
+export async function buildApp(opciones: { consultarYoutube?: ConsultarYoutube } = {}) {
   const desarrollo = env.NODE_ENV === "development";
   const app = Fastify({
     // En desarrollo, una línea por petición; en producción se mantiene el JSON estructurado.
@@ -66,6 +68,7 @@ export async function buildApp() {
   await app.register(registrarCertificados);
   await app.register(registrarEvaluaciones);
   await app.register(registrarAvance);
+  await app.register(registrarLecciones(opciones.consultarYoutube));
   await app.register(asistenciaRoutes);
   await app.register(credencialAsistenciaRoutes);
   await app.register(asistenciaPuertaRoutes);
