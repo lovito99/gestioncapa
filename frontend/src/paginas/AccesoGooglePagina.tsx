@@ -10,6 +10,7 @@ import { Entrada } from '@/components/ui/Entrada'
 import { mensajeDeError } from '@/lib/api'
 import { accesoConCurso } from '@/lib/retornoCurso'
 import { cancelarGoogle, continuarGoogle, enviarCodigoGoogle, esperarRetornoGoogle, intentoGoogle, limpiarIntentoGoogle, type PasoGoogle } from '@/servicios/authGoogle'
+import { LoginPagina } from './LoginPagina'
 import { FormularioCrearCuenta } from './RegistroPagina'
 
 const mensajeError = (error: unknown) => mensajeDeError(error, 'No pudimos completar el acceso con Google. Vuelve a intentarlo.')
@@ -23,6 +24,7 @@ export function AccesoGooglePagina() {
   const [resultado, setResultado] = useState<PasoGoogle>()
   const [error, setError] = useState('')
   const [ocupado, setOcupado] = useState(false)
+  const [creando, setCreando] = useState(false)
   const [codigoEnviadoAhora, setCodigoEnviado] = useState(false)
   const codigoEnviado = codigoEnviadoAhora || (resultado?.paso === 'verificarCorreo' && resultado.codigoEnviado)
   const continuacion = useRef<Promise<PasoGoogle> | null>(null)
@@ -87,6 +89,8 @@ export function AccesoGooglePagina() {
   }
 
   if (intento && !retornoVencido && resultado?.paso === 'registro') {
+    // Figma 1.1a: primero se avisa que el correo no tiene cuenta y la persona decide crearla.
+    if (!creando) return <LoginPagina googleSinCuenta={{ correo: resultado.correo, crear: () => setCreando(true) }} />
     return <FormularioCrearCuenta curso={resultado.curso} correoGoogle={resultado.correo} cancelar={cancelar}
       crear={async ({ dni, nombres, apellidos, celular, aceptaPrivacidad }) =>
         recibir(await continuarGoogle(intento, ['registrar', { dni, nombres, apellidos, celular, aceptaPrivacidad }]))} />

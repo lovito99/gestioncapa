@@ -15,6 +15,9 @@ import { IntentosAnteriores } from '../historial/IntentosAnteriores'
 
 type CursoInscrito = Historial['cursos'][number]
 
+const enlacePrincipal =
+  'inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink sm:h-10 sm:text-sm'
+
 const enlaceSecundario =
   'inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 text-base font-semibold text-ink-2 ring-1 ring-line-2 ring-inset hover:bg-surface-2 sm:h-10 sm:text-sm'
 
@@ -30,11 +33,11 @@ export function MisCursosPagina() {
     refetchInterval: query => intervaloEntrega(query.state.data) })
 
   return (
-    <div className="mx-auto flex max-w-160 flex-col gap-4 px-4 pt-6 pb-8 wrap-anywhere sm:max-w-200 sm:pt-10">
+    <div className="mx-auto flex max-w-160 flex-col gap-4 px-4 pt-6 pb-8 wrap-anywhere sm:max-w-240 sm:pt-10">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-[22px] font-bold text-ink">Mis cursos</h1>
-          <p className="text-sm text-muted">Los cursos en los que te inscribiste y lo que te falta para tu constancia.</p>
+          <p className="text-sm text-muted">Retoma tus cursos donde los dejaste.</p>
         </div>
         {/* El registro de asistencia vive en «Mis clases» (3.1), que no está en el menú del Figma */}
         <Link to="/participante/clases" className={enlaceSecundario}>
@@ -76,9 +79,14 @@ function TarjetaCurso({ curso }: { curso: CursoInscrito }) {
   const puedeAbrir = tieneAcceso && (!modoDemoActivo || cursoTieneAulaDemo(curso.id))
 
   return (
-    <article className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
+    <article className="flex min-w-0 gap-5 rounded-xl border border-line bg-white p-4 shadow-[0_1px_1px_rgba(0,0,0,0.05)]">
+      {/* Miniatura del Figma: bloque vino con el nombre (el historial no trae la portada) */}
+      <div aria-hidden className="hidden h-30 w-52 shrink-0 items-end overflow-hidden rounded-lg bg-brand-dark p-3.5 sm:flex">
+        <span className="line-clamp-3 text-sm font-semibold text-gold-light">{curso.titulo}</span>
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-2.5">
       <div className="flex flex-wrap items-start gap-2">
-        <h2 className="min-w-0 flex-1 basis-full text-base font-semibold text-ink sm:basis-0">
+        <h2 className="min-w-0 flex-1 basis-full font-serif text-lg font-bold text-ink sm:basis-0">
           <Link to={`/cursos/${curso.id}`} className="hover:text-brand hover:underline">
             {curso.titulo}
           </Link>
@@ -98,8 +106,8 @@ function TarjetaCurso({ curso }: { curso: CursoInscrito }) {
         <Avance asistencia={curso.asistencia} />
         <AvisoProgreso aviso={queTeFalta(curso)} />
       </>}
-      {puedeAbrir && <Link to={`/cursos/${curso.id}/${grabado ? 'aula' : 'evaluaciones'}`} className={`${enlaceSecundario} self-start`}>
-        {grabado ? 'Abrir aula grabada' : 'Ver contenido y evaluaciones'}
+      {puedeAbrir && <Link to={`/cursos/${curso.id}/${grabado ? 'aula' : 'evaluaciones'}`} className={`${grabado ? enlacePrincipal : enlaceSecundario} self-start`}>
+        {grabado ? 'Continuar' : 'Ver contenido y evaluaciones'}
       </Link>}
       <IntentosAnteriores intentos={curso.intentosAnteriores} />
       {curso.estadoEntrega==='RETENIDA' && <p className="text-sm">{curso.estadoFinanciero==='PAGADO'?'Pago confirmado. Constancia en preparación.':'Constancia retenida hasta confirmar el pago.'} <Link className="font-semibold text-brand underline" to={`/cursos/${curso.id}`}>Consultar curso y pago</Link></p>}
@@ -111,6 +119,7 @@ function TarjetaCurso({ curso }: { curso: CursoInscrito }) {
           </Link>
         </p>
       )}
+      </div>
     </article>
   )
 }

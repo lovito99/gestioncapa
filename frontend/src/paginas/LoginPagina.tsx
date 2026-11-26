@@ -1,21 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { CircleAlert, Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { z } from 'zod'
 import googleG from '@/assets/googleG.png'
 import insignia from '@/assets/insignia-cppp.png'
-import lineaEscritorio from '@/assets/login-linea.svg'
-import lineaMovil from '@/assets/login-linea-movil.svg'
-import panelEscritorio from '@/assets/login-panel.svg'
-import panelMovil from '@/assets/login-panel-movil.svg'
 import { useAuth } from '@/auth/useAuth'
 import { inicioPorRol } from '@/auth/inicioPorRol'
 import { PaginaPublica } from '@/components/layout/Pagina'
 import { Boton } from '@/components/ui/Boton'
+import { Campo } from '@/components/ui/Campo'
+import { Entrada } from '@/components/ui/Entrada'
 import { esApiError, mensajeDeError } from '@/lib/api'
-import { cn } from '@/lib/cn'
 import { sesion } from '@/lib/sesion'
 import { accesoConCurso,cursoDeBusqueda,destinoTrasAcceso } from '@/lib/retornoCurso'
 import { useLogin } from '@/servicios/auth'
@@ -27,47 +24,12 @@ const esquema = z.object({
 })
 type Formulario = z.infer<typeof esquema>
 
-const claseEntrada =
-  'h-6 min-w-0 flex-1 bg-transparent text-[15px] text-white placeholder:text-white/60 outline-none'
-
-/** Campo subrayado del diseño: etiqueta dorada, icono, entrada y línea inferior. */
-function CampoLinea({
-  id,
-  etiqueta,
-  icono,
-  error,
-  children,
-}: {
-  id: string
-  etiqueta: string
-  icono: ReactNode
-  error?: string
-  children: ReactNode
-}) {
-  return (
-    <div className="flex w-full flex-col gap-2.5">
-      <label htmlFor={id} className="text-[13px] font-medium text-gold-light">
-        {etiqueta}
-      </label>
-      <div
-        className={cn(
-          'flex items-center gap-2.5 border-b-[1.5px] border-white pb-2.5 transition-colors focus-within:border-gold',
-          error && 'border-danger-on-dark focus-within:border-danger-on-dark',
-        )}
-      >
-        {icono}
-        {children}
-      </div>
-      {error && (
-        <p id={`${id}-error`} className="text-xs text-danger-on-dark">
-          {error}
-        </p>
-      )}
-    </div>
-  )
+interface Props {
+  /** Google autenticó un correo que no tiene cuenta (Figma 1.1a). */
+  googleSinCuenta?: { correo: string; crear: () => void }
 }
 
-export function LoginPagina() {
+export function LoginPagina({ googleSinCuenta }: Props) {
   const { usuario, iniciar } = useAuth()
   const ubicacion = useLocation()
   const login = useLogin()
@@ -106,134 +68,87 @@ export function LoginPagina() {
     }
   }
 
+  const credencialesMalas = esApiError(login.error, 'CREDENCIALES_INVALIDAS')
   const errorServidor = errorGoogle || (login.error
     ? esApiError(login.error, 'CREDENCIALES_INVALIDAS')
-      ? 'Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo.'
+      ? 'El correo o la contraseña no son correctos.'
       : login.error.message
     : sesionExpiro
       ? 'Tu sesión expiró. Vuelve a iniciar sesión.'
       : null)
 
   return (
-    <PaginaPublica className="bg-brand-night">
-      <div className="flex-1 lg:flex lg:items-center lg:justify-center lg:px-8 lg:py-20">
-        {/* Tarjeta 960 × 560 con borde dorado en escritorio; pantalla completa en móvil */}
-        <div className={cn("relative lg:h-140 lg:w-240 lg:shrink-0 lg:overflow-hidden lg:border-[1.5px] lg:border-gold lg:shadow-[0_0_44px_rgba(209,171,74,0.35)]", googleDisponible && "lg:h-156")}>
-          <img src={panelEscritorio} alt="" aria-hidden className="absolute -top-[1.5px] -left-[1.5px] hidden h-140 w-150 max-w-none lg:block" />
-          <img src={lineaEscritorio} alt="" aria-hidden className="absolute -top-[1.5px] left-[328.5px] hidden h-140 w-[270px] max-w-none lg:block" />
-          <img src={panelMovil} alt="" aria-hidden className="absolute inset-x-0 top-0 h-75 w-full lg:hidden" />
-          <img src={lineaMovil} alt="" aria-hidden className="absolute inset-x-0 top-[230px] h-[70px] w-full lg:hidden" />
-
-          {/* Marca en móvil: insignia y nombre sobre el panel vino */}
-          <div className="relative flex h-75 flex-col items-center gap-2.5 pt-9 lg:hidden">
-            <img src={insignia} alt="" width={84} height={115} className="h-28.75 w-21 object-contain" />
-            <span className="font-serif text-[26px] font-bold text-white">GestionCapa</span>
+    <PaginaPublica encabezado="acceso">
+      <main className="flex flex-1 flex-col items-center px-4 py-6 sm:pt-16 sm:pb-20">
+        <div className="flex w-full max-w-110 flex-col items-center gap-5 rounded-xl border border-line bg-white p-5 shadow-[0_8px_24px_rgba(48,8,18,0.08)] sm:p-10">
+          <img src={insignia} alt="" width={44} height={60} className="h-15 w-11 object-contain" />
+          <div className="flex flex-col items-center gap-1.5 text-center">
+            <h1 className="text-2xl leading-8 font-bold text-ink">Iniciar sesión</h1>
+            <p className="text-sm leading-5 text-muted">Ingresa a GestionCapa del CPPP – Región Cusco</p>
           </div>
 
-          {/* Marca y bienvenida en escritorio */}
-          <span className="absolute top-[38.5px] left-[46.5px] hidden font-serif text-xl font-bold text-white lg:block">
-            GestionCapa
-          </span>
-          <div className="absolute top-[123.5px] left-[46.5px] hidden w-75 flex-col items-start gap-4.5 lg:flex">
-            <img src={insignia} alt="" width={130} height={177} className="h-44.25 w-32.5 object-contain" />
-            <p className="font-serif text-[44px] font-bold text-white">Bienvenido</p>
-            <span aria-hidden className="h-0.75 w-14 rounded-xs bg-gold" />
-            <p className="w-65 text-base leading-6 text-white">Gestiona tus capacitaciones y registra asistencia con QR</p>
-          </div>
-
-          {/* Formulario */}
-          {/* Centrado vertical en escritorio: sin error queda a 124 px del borde, como en el Figma */}
-          <main className="relative px-7 pt-10 pb-10 lg:absolute lg:inset-y-0 lg:left-[598.5px] lg:flex lg:w-80 lg:items-center lg:p-0">
-            <div className="mx-auto flex w-full max-w-100 flex-col gap-7">
-              <div className="flex flex-col items-center gap-2 text-center text-white">
-                <h1 className="text-[28px] font-bold lg:text-[32px]">Iniciar sesión</h1>
-                <p className="text-sm">Ingresa con el correo y contraseña de tu cuenta</p>
-              </div>
-
-              <form onSubmit={enviar} noValidate className="flex flex-col gap-7">
-                <CampoLinea
-                  id="email"
-                  etiqueta="Correo electrónico"
-                  error={errors.email?.message}
-                  icono={<Mail className="size-4.5 shrink-0 text-gold-light" aria-hidden />}
-                >
-                  <input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="nombre@correo.com"
-                    aria-invalid={errors.email ? true : undefined}
-                    aria-describedby={errors.email ? 'email-error' : undefined}
-                    className={claseEntrada}
-                    {...register('email')}
-                  />
-                </CampoLinea>
-
-                <CampoLinea
-                  id="password"
-                  etiqueta="Contraseña"
-                  error={errors.password?.message}
-                  icono={<LockKeyhole className="size-4.5 shrink-0 text-gold-light" aria-hidden />}
-                >
-                  <input
-                    id="password"
-                    type={verPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    placeholder="Ingresa tu contraseña"
-                    aria-invalid={errors.password ? true : undefined}
-                    aria-describedby={errors.password ? 'password-error' : undefined}
-                    className={claseEntrada}
-                    {...register('password')}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setVerPassword((v) => !v)}
-                    aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                    aria-pressed={verPassword}
-                    className="-my-2 -mr-2 flex size-8 shrink-0 items-center justify-center rounded-md text-white hover:text-gold-light focus-visible:outline-2 focus-visible:outline-gold"
-                  >
-                    {verPassword ? <EyeOff className="size-4.5" /> : <Eye className="size-4.5" />}
-                  </button>
-                </CampoLinea>
-
-                {errorServidor && (
-                  <div
-                    role="alert"
-                    className="flex items-start gap-2.5 rounded-[10px] border border-danger bg-danger-soft px-3.5 py-3 text-[13px] leading-4.5 font-medium text-danger"
-                  >
-                    <CircleAlert className="size-4.5 shrink-0" aria-hidden />
-                    <span>{errorServidor}</span>
-                  </div>
-                )}
-
-                <Boton
-                  type="submit"
-                  cargando={login.isPending}
-                  disabled={abriendoGoogle}
-                  className="h-12 w-full rounded-3xl bg-gold text-base text-brand-night hover:bg-gold-light focus-visible:outline-gold disabled:bg-gold/60"
-                >
-                  Ingresar
-                </Boton>
-              </form>
-
-              {googleDisponible && (
-                <Boton type="button" cargando={abriendoGoogle} disabled={login.isPending} onClick={() => void entrarConGoogle()}
-                  className="h-10 w-full gap-2.5 rounded-sm border border-[#747775] bg-white text-[#1f1f1f] hover:bg-[#f2f2f2]">
-                  <img src={googleG} alt="" width={18} height={18} aria-hidden />
-                  Ingresar con Google
-                </Boton>
-              )}
-
-              <p className="text-center text-sm text-white">
-                ¿Aún no tienes cuenta?{' '}
-                <Link to={accesoConCurso('/registro',curso)} className="font-semibold text-gold-light underline underline-offset-2 hover:text-gold">
-                  Crear cuenta
-                </Link>
-              </p>
+          {errorServidor ? (
+            <p role="alert" className="w-full rounded-lg bg-danger-soft px-3.5 py-3 text-sm leading-5 text-danger">
+              {errorServidor}
+            </p>
+          ) : googleSinCuenta && (
+            <div role="alert" className="flex w-full flex-col items-start gap-1.5 rounded-lg bg-danger-soft px-3.5 py-3">
+              <p className="text-sm leading-5 wrap-anywhere text-danger">No encontramos una cuenta del CPPP con {googleSinCuenta.correo}.</p>
+              <button type="button" onClick={googleSinCuenta.crear} className="text-left text-base leading-6 font-medium text-brand hover:underline">
+                Crear mi cuenta con ese correo →
+              </button>
             </div>
-          </main>
+          )}
+
+          {googleDisponible && <>
+            <Boton type="button" variante="secundario" cargando={abriendoGoogle} disabled={login.isPending} onClick={() => void entrarConGoogle()}
+              className="w-full gap-3 text-base font-medium ring-muted">
+              <img src={googleG} alt="" width={18} height={18} aria-hidden />
+              Continuar con Google
+            </Boton>
+            <div className="flex w-full items-center gap-3 text-xs leading-4 font-medium text-muted">
+              <span className="h-px flex-1 bg-line" aria-hidden />
+              o con tu correo
+              <span className="h-px flex-1 bg-line" aria-hidden />
+            </div>
+          </>}
+
+          <form onSubmit={enviar} noValidate className="flex w-full flex-col gap-5">
+            <Campo etiqueta="Correo electrónico" error={errors.email?.message}>
+              <Entrada type="email" autoComplete="email" placeholder="nombre@correo.com"
+                estado={errors.email ? 'error' : 'normal'} {...register('email')} />
+            </Campo>
+
+            <div className="relative">
+              <Campo etiqueta="Contraseña" error={errors.password?.message}>
+                <Entrada type={verPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Ingresa tu contraseña"
+                  estado={errors.password || credencialesMalas ? 'error' : 'normal'} className="pr-11" {...register('password')} />
+              </Campo>
+              {/* Etiqueta de 26 px: el botón queda centrado sobre la entrada */}
+              <button
+                type="button"
+                onClick={() => setVerPassword((v) => !v)}
+                aria-label={verPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                aria-pressed={verPassword}
+                className="absolute top-8.5 right-1 flex size-8 items-center justify-center rounded-md text-muted hover:text-brand focus-visible:outline-2 focus-visible:outline-brand sm:top-7.5"
+              >
+                {verPassword ? <EyeOff className="size-4.5" aria-hidden /> : <Eye className="size-4.5" aria-hidden />}
+              </button>
+            </div>
+
+            <Boton type="submit" cargando={login.isPending} disabled={abriendoGoogle} className="h-12 w-full text-base font-medium sm:h-10">
+              Ingresar
+            </Boton>
+          </form>
+
+          <p className="text-center text-sm leading-5 text-muted">
+            ¿No tienes cuenta?{' '}
+            <Link to={accesoConCurso('/registro',curso)} className="text-brand hover:underline">
+              Créala aquí
+            </Link>
+          </p>
         </div>
-      </div>
+      </main>
     </PaginaPublica>
   )
 }

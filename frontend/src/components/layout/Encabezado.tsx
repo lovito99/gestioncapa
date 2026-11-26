@@ -29,8 +29,14 @@ export function BotonCerrarSesion({ className }: { className?: string }) {
   )
 }
 
+/**
+ * Sin sesión, qué acciones muestra: `completo` (constancias e inicio de sesión), `portada`
+ * (solo inicio de sesión, Figma 1.0) o `acceso` (solo la web del CPPP, Figma 1.1).
+ */
+export type VarianteEncabezado = 'completo' | 'portada' | 'acceso'
+
 /** Encabezado institucional del CPPP (HU-49); con sesión suma el menú del rol. */
-export function Encabezado() {
+export function Encabezado({ variante = 'completo' }: { variante?: VarianteEncabezado }) {
   const { usuario } = useAuth()
   const ubicacion=useLocation()
 
@@ -55,7 +61,7 @@ export function Encabezado() {
               </a>
             </span>
           </div>
-          <div className={cn('flex shrink-0 items-center gap-2 sm:gap-6',!usuario&&'w-full justify-between sm:w-auto sm:justify-end')}>
+          <div className={cn('flex shrink-0 items-center gap-2 sm:gap-6',!usuario&&variante==='completo'&&'w-full justify-between sm:w-auto sm:justify-end')}>
             <a
               href={CPPP.web.url}
               target="_blank"
@@ -67,7 +73,12 @@ export function Encabezado() {
             >
               Ir a la web del CPPP ↗
             </a>
-            {!usuario && <>
+            {!usuario && variante === 'portada' && (
+              <Link to="/login" className="inline-flex min-h-10 items-center justify-center rounded-lg bg-brand px-4 text-sm font-semibold whitespace-nowrap text-white hover:bg-brand-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:text-base">
+                Iniciar sesión
+              </Link>
+            )}
+            {!usuario && variante === 'completo' && <>
               {/* S3 5.0/5.1: en celular son dos botones del mismo ancho; en escritorio, enlace con ícono y botón */}
               <Link to="/verificar" className="inline-flex min-h-11 flex-1 items-center justify-center gap-1 rounded-lg px-2 text-[13px] font-semibold whitespace-nowrap text-brand ring-1 ring-brand ring-inset sm:gap-1.5 sm:px-0 sm:text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:min-h-10 sm:flex-none sm:ring-0 sm:hover:underline">
                 <Award className="size-4 shrink-0 sm:size-[18px]" aria-hidden />Consultar constancias

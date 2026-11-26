@@ -14,7 +14,7 @@ test('HU22-P3: visitante elige e inicia inscripción gratuita o reserva con cost
 })
 
 test('HU22-P1: login conserva selección tras error y recarga sin inscribir automáticamente',async({page})=>{
-  await page.goto('/')
+  await page.goto('/capacitaciones')
   await expect(page.getByRole('heading',{name:'Cursos vigentes del CPPP',exact:true})).toBeVisible()
   const curso=await page.evaluate(async()=>{
     const pagina=await(await fetch('/api/publico/cursos')).json()
@@ -24,13 +24,13 @@ test('HU22-P1: login conserva selección tras error y recarga sin inscribir auto
   page.on('request',solicitud=>{if(solicitud.method()==='POST'&&solicitud.url().includes('/inscribirme')) inscripciones.push(solicitud.url())})
   await page.goto(`/login?curso=${curso.id}`)
   await completarAcceso(page,{...cuentas.part,password:'clave-incorrecta'})
-  await expect(page.getByRole('alert')).toContainText('Correo o contraseña incorrectos')
+  await expect(page.getByRole('alert')).toContainText('El correo o la contraseña no son correctos')
   await page.reload()
   await completarAcceso(page,cuentas.part)
   await expect(page).toHaveURL(`/cursos/${curso.id}`)
   await expect(page.getByRole('heading',{name:curso.titulo,exact:true})).toBeVisible()
   expect(inscripciones).toEqual([])
-  await page.goto('/')
+  await page.goto('/capacitaciones')
   const tarjeta=page.getByRole('listitem').filter({has:page.getByRole('heading',{name:curso.titulo,exact:true})})
   // Con sesión, la tarjeta del catálogo público lleva directo al curso
   const accion=tarjeta.getByRole('link',{name:curso.titulo,exact:true})
@@ -57,7 +57,7 @@ test('HU22-P5: conserva QR y maneja curso inexistente sin bucles ni redirección
 
 test('RF-07: explorar cursos sin sesión desde 360 px', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
-  await page.goto('/')
+  await page.goto('/capacitaciones')
   await expect(page.getByRole('heading', { name: 'Cursos vigentes del CPPP' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Iniciar sesión', exact: true })).toBeVisible()
   await expect(page.getByRole('status')).toContainText(/Mostrando|No hay cursos/)

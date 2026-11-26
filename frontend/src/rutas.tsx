@@ -27,6 +27,7 @@ import { DetalleClasePagina } from '@/paginas/coordinador/DetalleClasePagina'
 import { MisClasesPagina } from '@/paginas/instructor/MisClasesPagina'
 import { QrAsistenciaPagina } from '@/paginas/instructor/QrAsistenciaPagina'
 import { LoginPagina } from '@/paginas/LoginPagina'
+import { PortadaPagina } from '@/paginas/PortadaPagina'
 import { NoEncontradaPagina } from '@/paginas/NoEncontradaPagina'
 import { RegistroPagina } from '@/paginas/RegistroPagina'
 import { CertificadoPagina } from '@/paginas/certificados/CertificadoPagina'
@@ -43,7 +44,7 @@ import { AccesoGooglePagina } from '@/paginas/AccesoGooglePagina'
 import { SinPermisoPagina } from '@/paginas/SinPermisoPagina'
 
 export const router = createBrowserRouter([
-  { path: '/', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
+  { path: '/', element: <PortadaPagina /> },
   { path: '/capacitaciones', element: <PaginaPublica><main><CatalogoPagina publico /></main></PaginaPublica> },
   { path: '/capacitaciones/:id', element: <PaginaPublica><PaginaPublicaCursoPagina /></PaginaPublica> },
   // HU-40: enlace corto que se comparte por WhatsApp; Express agrega su vista previa (HU-51).

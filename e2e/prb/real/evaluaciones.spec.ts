@@ -41,7 +41,7 @@ test('HU19-01 a HU19-09: autoría, dos intentos y certificado grabado con QR', a
   await completarAcceso(page, cuentas.part)
   await page.getByRole('link', { name: 'Mis cursos', exact: true }).click()
   const curso = page.getByRole('article').filter({ hasText: titulo })
-  await curso.getByRole('link', { name: 'Abrir aula grabada' }).click()
+  await curso.getByRole('link', { name: 'Continuar' }).click()
   await expect(page.getByRole('link', { name: /Rendir evaluación/ })).toHaveCount(0)
   await page.getByRole('button', { name: `Completar lección: ${leccion}` }).click()
   const rendir = page.getByRole('link', { name: 'Rendir evaluación: Cuestionario de salida' })
@@ -51,6 +51,7 @@ test('HU19-01 a HU19-09: autoría, dos intentos y certificado grabado con QR', a
 
   async function entregar(opcion: string) {
     await page.getByRole('radio', { name: 'Identificar la evidencia', exact: true }).check()
+    await page.getByRole('button', { name: 'Siguiente →' }).click()
     await page.getByRole('radio', { name: opcion, exact: true }).check()
     await page.getByRole('button', { name: 'Enviar respuestas' }).click()
   }

@@ -17,7 +17,7 @@ test('ENT-01: valida los campos antes de enviar el acceso', async ({ page }) => 
 test('ENT-02: rechaza una contraseña incorrecta y permite corregirla', async ({ page }) => {
   await page.goto(rutas.login)
   await completarAcceso(page, { ...cuentas.coord, password: 'incorrecta' })
-  await expect(page.getByRole('alert')).toContainText('Correo o contraseña incorrectos')
+  await expect(page.getByRole('alert')).toContainText('El correo o la contraseña no son correctos')
   await expect(page).toHaveURL(rutas.login)
   await completarAcceso(page, cuentas.coord)
   await expect(page).toHaveURL(cuentas.coord.inicio)

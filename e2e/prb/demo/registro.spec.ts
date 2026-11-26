@@ -6,7 +6,7 @@ test('HU-50: registro por DNI, validación y duplicados en demo a 360 px', async
 })
 
 test('HU22-P2: alta y cambio login/registro conservan el curso en demo',async({page})=>{
-  await page.goto('/')
+  await page.goto('/capacitaciones')
   await expect(page.getByRole('heading',{name:'Cursos vigentes del CPPP',exact:true})).toBeVisible()
   const curso=await page.evaluate(async()=>{
     const datos=await(await fetch('/api/publico/cursos')).json()
