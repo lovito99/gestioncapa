@@ -39,7 +39,7 @@ test('REA-04: las credenciales inválidas tienen un error comprensible', async (
   expect(await respuesta.json()).toMatchObject({ code: 'CREDENCIALES_INVALIDAS', message: expect.any(String) })
   await page.goto(rutas.login)
   await completarAcceso(page, datos)
-  await expect(page.getByRole('alert')).toContainText('Correo o contraseña incorrectos')
+  await expect(page.getByRole('alert')).toContainText('El correo o la contraseña no son correctos')
   await expect(page).toHaveURL(rutas.login)
 })
 

@@ -47,6 +47,8 @@ export async function flujoInscripcionPublica(page: Page, administrador: Paramet
   page.on('request', solicitud => { if (solicitud.method() === 'POST' && solicitud.url().includes('/inscribirme')) solicitudes.push(solicitud.url()) })
   const buscar = async (titulo: string) => {
     await page.getByRole('banner').getByRole('link', { name: 'Colegio Profesional de Profesores del Perú – Región Cusco', exact: true }).click()
+    // El logo lleva a la portada (Figma 1.0); desde ahí se abre el catálogo
+    await page.getByRole('link', { name: 'Ver catálogo de cursos', exact: true }).click()
     await page.getByRole('searchbox', { name: 'Buscar curso', exact: true }).fill(titulo)
     await page.getByRole('button', { name: 'Buscar', exact: true }).click()
   }

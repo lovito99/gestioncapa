@@ -3,7 +3,7 @@ import { test, expect } from '../../ayud/prueba'
 
 test('HU43: un docente externo revisa y confirma el precio general', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 })
-  await page.goto('/')
+  await page.goto('/capacitaciones')
   await expect(page.getByRole('heading', { name: 'Cursos vigentes del CPPP' })).toBeVisible()
   const curso = await page.evaluate(async () => {
     const respuesta = await fetch('/api/publico/cursos?buscar=Evaluaci%C3%B3n%20formativa')
@@ -13,7 +13,7 @@ test('HU43: un docente externo revisa y confirma el precio general', async ({ pa
   await expect(page.getByText('Público general', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Inscribirme', exact: true }).click()
   await expect(page).toHaveURL(`/login?curso=${curso.id}`)
-  await page.getByRole('link', { name: 'Crear cuenta', exact: true }).first().click()
+  await page.getByRole('link', { name: 'Créala aquí', exact: true }).click()
   await page.getByRole('textbox', { name: 'DNI', exact: true }).fill(String(randomInt(10000000, 100000000)))
   await page.getByRole('textbox', { name: 'Nombres', exact: true }).fill('Docente')
   await page.getByRole('textbox', { name: 'Apellidos', exact: true }).fill('Externo')

@@ -42,7 +42,7 @@ test('T-24: un agremiado entra al aula y descarga la constancia después de comp
   await expect(avance).toHaveAttribute('value', '1')
   await page.goto('/participante/cursos')
   const cursoInscrito = page.getByRole('article').filter({ has: page.getByRole('heading', { name: tituloCurso, exact: true }) })
-  await cursoInscrito.getByRole('link', { name: 'Abrir aula grabada', exact: true }).click()
+  await cursoInscrito.getByRole('link', { name: 'Continuar', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Evaluación · Evidencia', exact: true })).toBeVisible()
   await page.getByRole('radio', { name: 'La cantidad de páginas del cuaderno' }).check()
   await page.getByRole('button', { name: 'Comprobar respuesta' }).click()

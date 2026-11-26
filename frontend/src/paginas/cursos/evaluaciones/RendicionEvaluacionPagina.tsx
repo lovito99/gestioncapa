@@ -60,6 +60,7 @@ export function FormularioRendicion({ evaluacion, enviar }: {
   const [ocupado, cambiarOcupado] = useState(false)
   const [error, mostrarError] = useState('')
   const [pendiente, guardarPendiente] = useState<IntentoEvaluacionEntrada | null>(null)
+  const [paso, irAPaso] = useState(0)
   const enCurso = useRef(false)
   const salida = useRef<HTMLDivElement>(null)
   const estadoLocal = conflicto ?? resultado?.estado
@@ -68,6 +69,10 @@ export function FormularioRendicion({ evaluacion, enviar }: {
   const puedeRendir = !evaluacion.bloqueada && !estado.finalizado && estado.intentosRestantes > 0 && evaluacion.preguntas.length > 0
   const completo = evaluacion.preguntas.every(pregunta => Boolean(respuestas[pregunta.id]))
   const reintentando = pendiente !== null
+  const total = evaluacion.preguntas.length
+  const indice = Math.min(paso, Math.max(total - 1, 0))
+  const actual = evaluacion.preguntas[indice]
+  const ultima = indice === total - 1
 
   useEffect(() => {
     if (resultado || conflicto) salida.current?.focus()
@@ -75,6 +80,11 @@ export function FormularioRendicion({ evaluacion, enviar }: {
 
   async function entregar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault()
+    // Con Enter antes de la última pregunta solo se avanza
+    if (!pendiente && !ultima) {
+      if (actual && respuestas[actual.id]) irAPaso(indice + 1)
+      return
+    }
     if (enCurso.current || (!pendiente && (!puedeRendir || !completo))) return
     const entrada = pendiente ?? {
       operacionId: crypto.randomUUID(),
@@ -99,6 +109,7 @@ export function FormularioRendicion({ evaluacion, enviar }: {
 
   function prepararOtroIntento() {
     elegir({})
+    irAPaso(0)
     mostrarResultado(undefined)
     guardarConflicto(null)
     mostrarError('')
@@ -109,30 +120,53 @@ export function FormularioRendicion({ evaluacion, enviar }: {
       <EstadoRendicion evaluacion={{ ...evaluacion, estado }} />
     </section>
     <div ref={salida} tabIndex={-1} className="space-y-3 rounded-lg">
-      {resultado && <Aviso tipo={resultado.aprobado ? 'exito' : 'advertencia'} titulo={resultado.aprobado ? 'Aprobaste este intento' : 'No aprobaste este intento'}>
-        Nota del intento: {notaVigesimal(resultado.nota)}.
-      </Aviso>}
+      {resultado && <Resultado resultado={resultado} notaMinima={evaluacion.notaMinima} />}
       {error && <Aviso tipo="error" titulo="No se pudo confirmar el envío">{error}</Aviso>}
       {evaluacion.bloqueada && <Aviso tipo="info" titulo="Evaluación bloqueada">
         Completa todas las lecciones obligatorias para rendir la evaluación.
       </Aviso>}
     </div>
     {resultado && puedeRendir && <Boton onClick={prepararOtroIntento}>Rendir de nuevo</Boton>}
-    {(puedeRendir || reintentando) && !resultado && <form noValidate onSubmit={entregar} className="space-y-4">
-      <fieldset disabled={ocupado || reintentando} className="space-y-4">
-        {evaluacion.preguntas.map((pregunta, indice) => (
-          <fieldset key={pregunta.id} className="min-w-0 space-y-2 rounded-xl border border-line bg-white p-4">
-            <legend className="px-1 font-semibold text-ink">{indice + 1}. {pregunta.enunciado}</legend>
-            {pregunta.opciones.map(opcion => <label key={opcion.id}
-              className="flex min-h-10 items-center gap-3 rounded-lg px-2 py-2 text-sm text-ink hover:bg-surface-2">
-              <input type="radio" className="size-4 shrink-0 accent-brand" name={pregunta.id} value={opcion.id} required
-                checked={respuestas[pregunta.id] === opcion.id} onChange={() => elegir(actuales => ({ ...actuales, [pregunta.id]: opcion.id }))} />
-              {opcion.texto}
-            </label>)}
-          </fieldset>
-        ))}
+    {(puedeRendir || reintentando) && !resultado && actual && <form noValidate onSubmit={entregar}
+      className="space-y-4 rounded-xl border border-line bg-white p-5 sm:px-8 sm:py-7">
+      <div className="flex items-center gap-3">
+        <p className="shrink-0 text-base font-medium text-brand" aria-live="polite">Pregunta {indice + 1} de {total}</p>
+        <progress aria-label="Preguntas respondidas" value={Object.keys(respuestas).length} max={total}
+          className="h-1.5 w-full overflow-hidden rounded-full bg-line [&::-moz-progress-bar]:bg-brand [&::-webkit-progress-bar]:bg-line [&::-webkit-progress-value]:bg-brand" />
+      </div>
+      <fieldset key={actual.id} disabled={ocupado || reintentando} className="min-w-0 space-y-3">
+        <legend className="mb-3 font-serif text-lg leading-6 font-bold wrap-anywhere text-ink">{actual.enunciado}</legend>
+        {actual.opciones.map((opcion, posicion) => <label key={opcion.id}
+          className="flex min-h-12 items-center gap-3 rounded-lg border border-line px-4 py-3 text-sm text-ink hover:bg-surface-2 has-checked:border-brand has-checked:bg-brand-soft has-checked:text-brand">
+          <input type="radio" className="size-4 shrink-0 accent-brand" name={actual.id} value={opcion.id} required
+            checked={respuestas[actual.id] === opcion.id} onChange={() => elegir(actuales => ({ ...actuales, [actual.id]: opcion.id }))} />
+          <span aria-hidden>{String.fromCharCode(65 + posicion)}.</span>
+          <span className="min-w-0 wrap-anywhere">{opcion.texto}</span>
+        </label>)}
       </fieldset>
-      <Boton type="submit" cargando={ocupado} disabled={!reintentando && !completo}>{reintentando ? 'Reintentar envío' : 'Enviar respuestas'}</Boton>
+      <div className="flex flex-wrap justify-between gap-3">
+        <Boton variante="secundario" className="text-brand ring-brand" disabled={indice === 0 || ocupado || reintentando}
+          onClick={() => irAPaso(indice - 1)}>← Anterior</Boton>
+        {ultima || reintentando
+          ? <Boton key="enviar" type="submit" cargando={ocupado} disabled={!reintentando && !completo}>{reintentando ? 'Reintentar envío' : 'Enviar respuestas'}</Boton>
+          : <Boton key="siguiente" disabled={!respuestas[actual.id]} onClick={() => irAPaso(indice + 1)}>Siguiente →</Boton>}
+      </div>
     </form>}
+  </div>
+}
+
+function Resultado({ resultado, notaMinima }: { resultado: IntentoEvaluacion; notaMinima: number }) {
+  const { aprobado, nota } = resultado
+  const color = aprobado ? 'bg-success-soft text-success' : 'bg-danger-soft text-danger'
+  return <div role="status" className="flex flex-col items-center gap-4 rounded-xl border border-line bg-white px-5 py-7 text-center">
+    <div aria-hidden className={`flex size-30 flex-col items-center justify-center rounded-full ${color}`}>
+      <span className="font-serif text-[32px] leading-10 font-bold">{nota}</span>
+      <span className="text-xs font-medium">de 20</span>
+    </div>
+    <p className={`font-serif text-2xl font-bold ${aprobado ? 'text-success' : 'text-danger'}`}>
+      {aprobado ? '¡Aprobaste este intento!' : 'Aún no alcanzas la nota mínima'}
+    </p>
+    <p className="text-base text-muted">Nota del intento: {notaVigesimal(nota)}.</p>
+    {!aprobado && <p className="text-sm text-muted">La nota mínima es {notaVigesimal(notaMinima)}.</p>}
   </div>
 }
